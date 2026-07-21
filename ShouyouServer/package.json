@@ -1,0 +1,16 @@
+{
+  "name": "shouyou-local-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "古风手游 Demo 本地 API 服务器",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.mjs",
+    "dev": "node --watch --disable-warning=ExperimentalWarning src/server.mjs",
+    "check": "node --check src/server.mjs && node --check src/database.mjs",
+    "test:memory": "node --disable-warning=ExperimentalWarning src/server.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
