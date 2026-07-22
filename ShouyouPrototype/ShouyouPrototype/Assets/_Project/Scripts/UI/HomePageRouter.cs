@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Shouyou.Data;
+using Shouyou.Network;
+using Shouyou.UI.Theme;
 
 namespace Shouyou.UI
 {
@@ -34,6 +37,11 @@ namespace Shouyou.UI
         // 未选中和选中时的底部导航颜色。
         [SerializeField] private Color normalNavColor = new Color32(255, 248, 236, 95);
         [SerializeField] private Color selectedNavColor = new Color32(238, 190, 125, 220);
+
+        // 当前正在查看的主线关卡。
+        // 这些状态会被“开始阅读”“进入战斗”等按钮读取，避免按钮永远写死第一关。
+        private string currentMainlineStageName = "1-1 明水入汴京";
+        private bool currentMainlineStageUnlocked = true;
 
         // 显示庭院首页。底部“庭院”按钮会调用这里。
         public void ShowHome()
@@ -81,6 +89,21 @@ namespace Shouyou.UI
         public void ShowDreamDomain()
         {
             ShowStoryDetail("梦域", "梦域是主线之外的情绪支线。\n\n通关特定章节、完成角色羁绊或收集梦境碎片后，可以解锁新的命运节点。\n\n当前 Demo 已预留入口，后续接入梦域全屏页面和节点选择。");
+        }
+
+        // 临时主题切换测试。
+        // 当前先把右上角“设置”按钮作为测试入口：点击后在现实主题和梦域主题之间切换。
+        // 等真正设置页做好后，可以把这个方法改成打开设置页。
+        public void ToggleThemeForTest()
+        {
+            UIThemeApplier themeApplier = GetComponent<UIThemeApplier>();
+            if (themeApplier == null)
+            {
+                ShowStoryDetail("主题切换", "当前 Canvas 上没有找到 UIThemeApplier。\n\n请先执行 Shouyou > UI > Clean And Rebuild Prototype 重新生成 UI。");
+                return;
+            }
+
+            themeApplier.ToggleTheme();
         }
 
         // 主线页的行迹养成分类暂时跳转到角色页。
@@ -136,7 +159,13 @@ namespace Shouyou.UI
         // “开始阅读”目前先显示原型提示，后续接入逐句文本播放器。
         public void StartStoryReading()
         {
-            SetStoryBody("阅读入口已准备好。下一步会接入逐句文本、角色头像、自动播放和语音。\n\n当前版本先完成章节详情展示。");
+            if (!currentMainlineStageUnlocked)
+            {
+                SetStoryBody(currentMainlineStageName + "\n\n该关卡暂未解锁。\n\n正式版本会根据主线进度、角色等级和前置关卡判断是否可读。");
+                return;
+            }
+
+            SetStoryBody(currentMainlineStageName + "\n\n阅读入口已准备好。\n\n下一步会接入逐句文本、角色头像、自动播放、3 秒后跳过按钮和剧情日志。\n\n当前版本先完成章节详情展示。");
         }
 
         // “跳过剧情”原型按钮：记录入口位置，后续接入存档和奖励结算。
@@ -186,12 +215,12 @@ namespace Shouyou.UI
         public void ShowStageSix() { ShowStageDetail("1-6 庭院", false); }
 
         // 主线章节页六个关卡的详情入口。
-        public void ShowMainlineStageOne() { ShowMainlineStageDetail("1-1 明水入汴京", "推荐等级：Lv.1\n关卡目标：前往李府庭院，触发第一段剧情。\n奖励：铜钱 1200、词意经验 80", true); }
-        public void ShowMainlineStageTwo() { ShowMainlineStageDetail("1-2 雅集赴会", "推荐等级：Lv.1\n关卡目标：完成第一次词意试炼。\n奖励：铜钱 1200、名士信笺 1", true); }
-        public void ShowMainlineStageThree() { ShowMainlineStageDetail("1-3 词论初临", "推荐等级：Lv.2\n关卡目标：在雅集中回应前辈论词。\n奖励：铜钱 1500、突破材料 1", false); }
-        public void ShowMainlineStageFour() { ShowMainlineStageDetail("1-4 风雨前夜", "推荐等级：Lv.3\n关卡目标：完成雨夜前的准备。\n奖励：铜钱 1500、词意经验 120", false); }
-        public void ShowMainlineStageFive() { ShowMainlineStageDetail("1-5 故人入梦", "推荐等级：Lv.4\n关卡目标：进入李清照的梦境支线。\n奖励：梦境碎片 1、铜钱 1800", false); }
-        public void ShowMainlineStageSix() { ShowMainlineStageDetail("1-6 潮声再起", "推荐等级：Lv.5\n关卡目标：完成第一卷收束战。\n奖励：玉 60、CG 解锁进度 1", false); }
+        public void ShowMainlineStageOne() { ShowMainlineStageDetail(MainlineStageCatalog.Get(1)); }
+        public void ShowMainlineStageTwo() { ShowMainlineStageDetail(MainlineStageCatalog.Get(2)); }
+        public void ShowMainlineStageThree() { ShowMainlineStageDetail(MainlineStageCatalog.Get(3)); }
+        public void ShowMainlineStageFour() { ShowMainlineStageDetail(MainlineStageCatalog.Get(4)); }
+        public void ShowMainlineStageFive() { ShowMainlineStageDetail(MainlineStageCatalog.Get(5)); }
+        public void ShowMainlineStageSix() { ShowMainlineStageDetail(MainlineStageCatalog.Get(6)); }
 
         // 编队页底部“编辑阵容”按钮的原型反馈。
         public void EditFormation()
@@ -202,7 +231,10 @@ namespace Shouyou.UI
         // 编队页“保存编队”按钮的原型反馈。
         public void SaveFormation()
         {
-            ShowStoryDetail("保存编队", "编队已保存。\n\n正式版本会记录多套队伍，并根据关卡自动推荐词意搭配。\n当前 Demo 暂不写入本地存档。");
+            // 这里开始从“假保存”升级为“真的请求后端”。
+            // 当前 Demo 固定保存：1号位李清照，2号位婉禾；之后接角色选择界面时再传真实阵容。
+            ShouyouBackendBootstrap.SaveCurrentDemoFormation();
+            ShowStoryDetail("保存编队", "正在保存到本地后端。\n\n如果 ShouyouServer 已启动，Unity Console 会看到“编队已保存到后端”。\n当前 Demo 会保存：李清照 / 婉禾 / 空位 / 空位 / 空位 / 空位。");
         }
 
         // 编队页“羁绊预览”按钮的原型反馈。
@@ -214,7 +246,13 @@ namespace Shouyou.UI
         // 第一关的进入战斗入口占位。
         public void EnterBattlePrototype()
         {
-            ShowStoryDetail("进入战斗", "第一章 1-1 初见\n\n这里将进入六人编队和回合制 PVE 战斗场景。\n当前版本先完成入口，下一轮接入战斗场景。");
+            if (!currentMainlineStageUnlocked)
+            {
+                ShowStoryDetail("进入战斗", currentMainlineStageName + "\n\n该关卡暂未解锁，不能进入战斗。\n\n正式版本会提示玩家先完成前置剧情或提升角色等级。");
+                return;
+            }
+
+            ShowStoryDetail("进入战斗", currentMainlineStageName + "\n\n这里将进入六人编队和半自动回合制 PVE 战斗。\n\n当前版本先完成入口，后续接入战斗场景、敌方阵容、技能和胜利结算。");
         }
 
         // 第三章七个场景节点的点击反馈。
@@ -295,9 +333,26 @@ namespace Shouyou.UI
             ShowStoryDetail(stageName, "推荐等级：Lv." + (stageName == "1-1 初见" ? "1" : "2") + "\n体力消耗：6\n词意提示：以春日风物试探角色配合。\n\n状态：" + (unlocked ? "已解锁" : "未解锁"));
         }
 
-        private void ShowMainlineStageDetail(string stageName, string body, bool unlocked)
+        private void ShowMainlineStageDetail(MainlineStageInfo stage)
         {
-            ShowStoryDetail(stageName, body + "\n\n状态：" + (unlocked ? "已解锁" : "暂未解锁"));
+            currentMainlineStageName = stage.title;
+            currentMainlineStageUnlocked = stage.unlocked;
+
+            string actionHint = stage.unlocked
+                ? "可操作：开始阅读 / 进入战斗 / 回看剧情"
+                : "可操作：查看信息。阅读和战斗需要先完成前置条件。";
+
+            string body =
+                "推荐等级：Lv." + stage.recommendLevel +
+                "\n推荐战力：" + stage.recommendPower +
+                "\n关卡目标：" + stage.objective +
+                "\n奖励：" + stage.rewardPreview +
+                "\n\n体力消耗：6" +
+                "\n关卡类型：剧情 + PVE" +
+                "\n状态：" + (stage.unlocked ? "已解锁" : "暂未解锁") +
+                "\n\n" + actionHint;
+
+            ShowStoryDetail(stage.title, body);
         }
 
         private void SetStoryBody(string body)

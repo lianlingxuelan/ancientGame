@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49558f4a6a4a4964eb702f8d6c7f30b2, type: 3}
+  m_Name: DreamTheme
+  m_EditorClassIdentifier: 
+  themeType: 1
+  displayName: "\u68A6\u57DF\u661F\u8776\u4E3B\u9898"
+  pageBackground: {fileID: 21300000, guid: 6644733014c0346468988ad69cefb29f, type: 3}
+  mainPanelSprite: {fileID: 21300000, guid: 47dcd4acdb12b914f80f1dfb4baf94cb, type: 3}
+  cardSprite: {fileID: 21300000, guid: c0ee3f0af4624b34097c3b66e68310dc, type: 3}
+  normalButtonSprite: {fileID: 21300000, guid: 527ce132493550c409784c9c8c545611, type: 3}
+  selectedButtonSprite: {fileID: 21300000, guid: 527ce132493550c409784c9c8c545611, type: 3}
+  titleColor: {r: 1, g: 0.9764706, b: 0.8784314, a: 1}
+  bodyTextColor: {r: 1, g: 0.9764706, b: 0.8784314, a: 1}
+  buttonTextColor: {r: 1, g: 0.9764706, b: 0.8784314, a: 1}
+  panelFallbackColor: {r: 0.88235295, g: 0.8392157, b: 1, a: 0.6666667}
+  selectedFallbackColor: {r: 0.69803923, g: 0.5568628, b: 1, a: 0.8627451}

@@ -1,4 +1,5 @@
 using Shouyou.UI;
+using Shouyou.UI.Theme;
 using UnityEditor;
 using UnityEditor.Events;
 using UnityEngine;
@@ -85,6 +86,20 @@ namespace Shouyou.EditorTools
             SetObject(serializedRouter, "sceneListPanel", storyDetail.Find("DetailPanel/SceneList").gameObject);
             serializedRouter.ApplyModifiedPropertiesWithoutUndo();
 
+            // 自动创建并绑定 UI 主题系统。
+            // 现实/梦域两套主题先作为配置资源保存，之后你可以在 Project 面板里直接改。
+            UIThemeApplier themeApplier = canvas.GetComponent<UIThemeApplier>();
+            if (themeApplier == null)
+            {
+                themeApplier = canvas.gameObject.AddComponent<UIThemeApplier>();
+            }
+
+            CreateOrUpdateThemeConfigs(out UIThemeConfig realityTheme, out UIThemeConfig dreamTheme);
+            SerializedObject serializedTheme = new SerializedObject(themeApplier);
+            SetObject(serializedTheme, "realityTheme", realityTheme);
+            SetObject(serializedTheme, "dreamTheme", dreamTheme);
+            serializedTheme.ApplyModifiedPropertiesWithoutUndo();
+
             // 自动绑定底部导航按钮的点击事件。
             BindNav(bottomNav, "Nav_Home", router, router.ShowHome);
             BindNav(bottomNav, "Nav_Character", router, router.ShowCharacter);
@@ -100,13 +115,15 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_Activity"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Formation"), "BackHomeButton", router, router.ReturnHome);
+            // 临时测试：右上角设置按钮先作为现实/梦域主题切换入口。
+            // 后续真正设置页做好后，再把这里改成打开设置页。
+            BindButton(topBar, "SettingButton", router, router.ToggleThemeForTest);
 
             // 主线关卡页：左侧分类、六个关卡和进入编队入口。
             BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Story", router, router.ShowMainlineChapter);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Formation", router, router.ShowFormation);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Training", router, router.ShowTrainingCategory);
-            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Dream", router, router.ShowDreamDomain);
-            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Activity", router, router.ShowActivityCategory);
+            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_DreamActivity", router, router.ShowDreamDomain);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "StageCard_1", router, router.ShowMainlineStageOne);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "StageCard_2", router, router.ShowMainlineStageTwo);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "StageCard_3", router, router.ShowMainlineStageThree);
@@ -305,19 +322,29 @@ namespace Shouyou.EditorTools
                 defaultPanel.SetActive(false);
             }
 
+            // 主线页总背景：先使用 commonBg 的梦境紫蓝背景，让“进入主线”后的画面不再单调。
+            Image dreamBackground = FindOrCreateImage(page, "MainlineDreamBackground");
+            StretchFull(dreamBackground.rectTransform);
+            dreamBackground.sprite = LoadCommonBgSprite("commonbg3.png");
+            dreamBackground.color = new Color(1f, 1f, 1f, 0.96f);
+            dreamBackground.preserveAspect = false;
+            dreamBackground.raycastTarget = false;
+            AddThemeElement(dreamBackground.rectTransform, UIThemeElementRole.PageBackground, true, true);
+            dreamBackground.transform.SetAsFirstSibling();
+
             // 右侧独立背景：主线内容未铺满屏幕时，仍然保持完整的古风画面。
             Image rightBackground = FindOrCreateImage(page, "MainlineRightBackground");
             SetRect(rightBackground.rectTransform, 770, 0, 380, 780);
-            rightBackground.sprite = LoadReferenceSprite("bg1.png");
-            rightBackground.color = new Color(1f, 1f, 1f, 0.82f);
+            rightBackground.sprite = LoadCommonBgSprite("commonbg7.png");
+            rightBackground.color = new Color(1f, 1f, 1f, 0.36f);
             rightBackground.preserveAspect = false;
             rightBackground.raycastTarget = false;
-            rightBackground.transform.SetAsFirstSibling();
+            AddThemeElement(rightBackground.rectTransform, UIThemeElementRole.PageBackground, true, false);
+            rightBackground.transform.SetSiblingIndex(1);
 
             RectTransform panel = FindOrCreateRect(page, "MainlinePanel");
             SetRect(panel, 0, 0, 1500, 780);
-            AddPanelImage(panel, PagePanelColor);
-            panel.GetComponent<Image>().raycastTarget = false;
+            AddMainlineContentFrame(panel);
 
             RectTransform title = FindOrCreateRect(panel, "Title");
             SetRect(title, 0, 320, 900, 70);
@@ -327,12 +354,12 @@ namespace Shouyou.EditorTools
             SetRect(subtitle, 0, 270, 700, 50);
             SetupLabel(subtitle, "雅集初会", 28, TextAnchor.MiddleCenter);
 
-            string[] categories = { "剧情闯关", "行迹编队", "行迹养成", "梦域", "雅集活动" };
+            string[] categories = { "剧情闯关", "行迹编队", "行迹养成", "梦域养成活动" };
             for (int i = 0; i < categories.Length; i++)
             {
-                RectTransform category = FindOrCreateRect(panel, "Category_" + (i == 0 ? "Story" : i == 1 ? "Formation" : i == 2 ? "Training" : i == 3 ? "Dream" : "Activity"));
-                SetRect(category, -650, 220 - i * 105, 210, 72);
-                AddCommonButtonImage(category);
+                RectTransform category = FindOrCreateRect(panel, "Category_" + (i == 0 ? "Story" : i == 1 ? "Formation" : i == 2 ? "Training" : "DreamActivity"));
+                SetRect(category, -650, 185 - i * 115, 230, 78);
+                AddMainlineCategoryImage(category, i == 0);
                 SetupButtonLabel(category, categories[i], 24, TextAnchor.MiddleCenter);
                 category.SetAsLastSibling();
             }
@@ -343,7 +370,7 @@ namespace Shouyou.EditorTools
                 // 按参考 UI 排成五列两行，第一版只放六个已规划关卡。
                 float x = -420 + (i % 5) * 210;
                 float y = 115 - (i / 5) * 265;
-                BuildStageCard(panel, "StageCard_" + (i + 1), stageNames[i], x, y, i < 2);
+                BuildStageCard(panel, "StageCard_" + (i + 1), stageNames[i], x, y, i < 2, i);
             }
 
             BuildActionButton(panel, "ChallengeButton", "前往挑战", 0, -330, 250, 76, 28);
@@ -354,15 +381,33 @@ namespace Shouyou.EditorTools
             BuildActionButton(page, "BackHomeButton", "返回庭院", 720, 320, 210, 68, 22);
         }
 
-        private static void BuildStageCard(RectTransform parent, string name, string title, float x, float y, bool unlocked)
+        private static void BuildStageCard(RectTransform parent, string name, string title, float x, float y, bool unlocked, int stageIndex)
         {
-            // 关卡卡片先使用文字和统一按钮底图，后续可替换为角色半身像和场景图。
+            // 关卡卡片：每一关先铺一张背景图，再叠加章节边框和文字。
             RectTransform card = FindOrCreateRect(parent, name);
             SetRect(card, x, y, 190, 235);
+
+            Image stageBackground = FindOrCreateImage(card, "StageBackground");
+            StretchFull(stageBackground.rectTransform);
+            string[] stageBackgrounds =
+            {
+                "commonbg4.png",
+                "commonbg5.png",
+                "commonbg6.png",
+                "commonbg7.png",
+                "commonbg3.png",
+                "commonbg4.png"
+            };
+            stageBackground.sprite = LoadCommonBgSprite(stageBackgrounds[stageIndex % stageBackgrounds.Length]);
+            stageBackground.color = unlocked ? new Color(1f, 1f, 1f, 0.88f) : new Color(0.78f, 0.72f, 1f, 0.58f);
+            stageBackground.preserveAspect = false;
+            stageBackground.raycastTarget = false;
+            stageBackground.transform.SetAsFirstSibling();
+
             Image frame = FindOrCreateImage(card, "ChapterFrame");
             StretchFull(frame.rectTransform);
             frame.sprite = LoadReferenceSprite("章节背景框.png");
-            frame.color = Color.white;
+            frame.color = unlocked ? Color.white : new Color(1f, 1f, 1f, 0.78f);
             frame.preserveAspect = false;
             frame.raycastTarget = true;
             Button button = card.GetComponent<Button>();
@@ -372,8 +417,50 @@ namespace Shouyou.EditorTools
             }
 
             button.targetGraphic = frame;
-            SetupButtonLabel(card, title + "\n" + (unlocked ? "已解锁 · Lv." : "未解锁 · Lv.") + (unlocked ? "1" : "2"), 18, TextAnchor.MiddleCenter);
+
+            // 卡片文字先做成“场景关卡卡”的信息结构：
+            // 关卡名 + 推荐战力 + 掉落预览。后续有真实配置表后，再从数据里读取。
+            int recommendPower = 800 + stageIndex * 180;
+            string dropPreview = stageIndex == 4 ? "梦境碎片" : stageIndex == 5 ? "玉 / CG" : "铜钱 / 词意";
+            string lockText = unlocked ? "已解锁" : "未解锁";
+            SetupButtonLabel(card, title + "\n" + lockText + " · 战力 " + recommendPower + "\n掉落：" + dropPreview, 16, TextAnchor.MiddleCenter);
             card.SetAsLastSibling();
+        }
+
+        private static void AddMainlineContentFrame(RectTransform rect)
+        {
+            // 主线内容框：用 commonBg 里的大边框图做主体容器，后续可以替换成九宫格切图。
+            Image image = FindOrCreateImage(rect, "Background");
+            StretchFull(image.rectTransform);
+            image.sprite = LoadCommonBgSprite("commonbg_contentBorder1.jpg");
+            image.color = new Color(1f, 1f, 1f, 0.88f);
+            image.type = Image.Type.Sliced;
+            image.preserveAspect = false;
+            image.raycastTarget = false;
+            AddThemeElement(rect, UIThemeElementRole.MainPanel, true, true);
+            image.transform.SetAsFirstSibling();
+        }
+
+        private static void AddMainlineCategoryImage(RectTransform rect, bool selected)
+        {
+            // 左侧栏目按钮：选中项偏粉金，普通项偏梦域紫，先把风格方向跑通。
+            Image image = FindOrCreateImage(rect, "Background");
+            StretchFull(image.rectTransform);
+            image.sprite = LoadCommonBgSprite(selected ? "commonbg_contentBorder2.jpg" : "commonbg_contentBorder.jpg");
+            image.color = selected ? new Color(1f, 0.78f, 0.86f, 0.92f) : new Color(0.84f, 0.78f, 1f, 0.78f);
+            image.type = Image.Type.Sliced;
+            image.preserveAspect = false;
+            image.raycastTarget = true;
+            AddThemeElement(rect, selected ? UIThemeElementRole.SelectedButton : UIThemeElementRole.NormalButton, true, true);
+            image.transform.SetAsFirstSibling();
+
+            Button button = rect.GetComponent<Button>();
+            if (button == null)
+            {
+                button = rect.gameObject.AddComponent<Button>();
+            }
+
+            button.targetGraphic = image;
         }
 
         private static void BuildFormationPage(RectTransform pageRoot)
@@ -879,6 +966,70 @@ namespace Shouyou.EditorTools
             return null;
         }
 
+        private static void CreateOrUpdateThemeConfigs(out UIThemeConfig realityTheme, out UIThemeConfig dreamTheme)
+        {
+            // 主题配置资源保存位置。
+            // 这里用 ScriptableObject，是为了以后你不写代码也能在 Inspector 里换图和改颜色。
+            const string themeFolder = "Assets/_Project/Resources/UIThemes";
+            EnsureAssetFolder("Assets/_Project", "Resources");
+            EnsureAssetFolder("Assets/_Project/Resources", "UIThemes");
+
+            realityTheme = LoadOrCreateTheme(themeFolder + "/RealityTheme.asset");
+            realityTheme.themeType = UIThemeType.Reality;
+            realityTheme.displayName = "现实清雅主题";
+            realityTheme.pageBackground = LoadReferenceSprite("bg1.png");
+            realityTheme.mainPanelSprite = LoadCommonBgSprite("commonbg_contentBorder1.jpg");
+            realityTheme.cardSprite = LoadCommonBgSprite("commonbg_contentBorder2.jpg");
+            realityTheme.normalButtonSprite = LoadUISprite("common-button.png");
+            realityTheme.selectedButtonSprite = LoadUISprite("common-button.png");
+            realityTheme.titleColor = new Color32(122, 79, 40, 255);
+            realityTheme.bodyTextColor = InkColor;
+            realityTheme.buttonTextColor = ButtonTextColor;
+            realityTheme.panelFallbackColor = PagePanelColor;
+            realityTheme.selectedFallbackColor = ButtonColor;
+            EditorUtility.SetDirty(realityTheme);
+
+            dreamTheme = LoadOrCreateTheme(themeFolder + "/DreamTheme.asset");
+            dreamTheme.themeType = UIThemeType.Dream;
+            dreamTheme.displayName = "梦域星蝶主题";
+            dreamTheme.pageBackground = LoadCommonBgSprite("commonbg3.png");
+            dreamTheme.mainPanelSprite = LoadCommonBgSprite("commonbg_contentBorder1.jpg");
+            dreamTheme.cardSprite = LoadCommonBgSprite("commonbg_contentBorder2.jpg");
+            dreamTheme.normalButtonSprite = LoadUISprite("common-button.png");
+            dreamTheme.selectedButtonSprite = LoadUISprite("common-button.png");
+            dreamTheme.titleColor = new Color32(255, 249, 224, 255);
+            dreamTheme.bodyTextColor = new Color32(255, 249, 224, 255);
+            dreamTheme.buttonTextColor = new Color32(255, 249, 224, 255);
+            dreamTheme.panelFallbackColor = new Color32(225, 214, 255, 170);
+            dreamTheme.selectedFallbackColor = new Color32(178, 142, 255, 220);
+            EditorUtility.SetDirty(dreamTheme);
+
+            AssetDatabase.SaveAssets();
+        }
+
+        private static UIThemeConfig LoadOrCreateTheme(string assetPath)
+        {
+            UIThemeConfig config = AssetDatabase.LoadAssetAtPath<UIThemeConfig>(assetPath);
+            if (config != null)
+            {
+                return config;
+            }
+
+            config = ScriptableObject.CreateInstance<UIThemeConfig>();
+            AssetDatabase.CreateAsset(config, assetPath);
+            return config;
+        }
+
+        private static void EnsureAssetFolder(string parent, string child)
+        {
+            // AssetDatabase.CreateFolder 只能一级一级创建，所以这里做一个安全包装。
+            string path = parent + "/" + child;
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                AssetDatabase.CreateFolder(parent, child);
+            }
+        }
+
         private static void AddPanelImage(RectTransform rect, Color color)
         {
             Image image = rect.GetComponent<Image>();
@@ -895,6 +1046,7 @@ namespace Shouyou.EditorTools
         {
             // 使用通用按钮底图，并启用九宫格，保证文字变长时边框仍然保持圆润。
             AddPanelImage(rect, Color.white);
+            AddThemeElement(rect, UIThemeElementRole.NormalButton, true, true);
             Image image = rect.GetComponent<Image>();
             Sprite sprite = LoadUISprite("common-button.png");
             if (sprite != null)
@@ -930,6 +1082,12 @@ namespace Shouyou.EditorTools
             return LoadSpriteAtPath("Assets/_Project/Art/UI/TabNavBackgrounds/" + spriteName, spriteName);
         }
 
+        private static Sprite LoadCommonBgSprite(string spriteName)
+        {
+            // commonBg 是当前梦域/主线通用背景资源目录，先统一从这里取图。
+            return LoadSpriteAtPath("Assets/_Project/Art/UI/CommonBg/" + spriteName, spriteName);
+        }
+
         private static Sprite LoadSpriteAtPath(string assetPath, string spriteName)
         {
             // 统一把图片导入为 Sprite，避免 Image 无法显示普通 Texture。
@@ -947,6 +1105,21 @@ namespace Shouyou.EditorTools
             }
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+        }
+
+        private static void AddThemeElement(RectTransform rect, UIThemeElementRole role, bool applySprite, bool applyColor)
+        {
+            // 给 UI 对象添加主题标记。
+            // 以后切换现实/梦域主题时，UIThemeApplier 会根据这个标记统一换图和换颜色。
+            UIThemeElement element = rect.GetComponent<UIThemeElement>();
+            if (element == null)
+            {
+                element = rect.gameObject.AddComponent<UIThemeElement>();
+            }
+
+            element.role = role;
+            element.applySprite = applySprite;
+            element.applyColor = applyColor;
         }
 
         private static void SetupLabel(RectTransform parent, string text, int size, TextAnchor alignment)
@@ -969,6 +1142,7 @@ namespace Shouyou.EditorTools
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Overflow;
             label.verticalOverflow = VerticalWrapMode.Overflow;
+            AddThemeElement(labelRect, UIThemeElementRole.BodyText, false, true);
 
             if (label.font == null)
             {
@@ -984,6 +1158,7 @@ namespace Shouyou.EditorTools
             if (label != null)
             {
                 label.color = ButtonTextColor;
+                AddThemeElement(label.rectTransform, UIThemeElementRole.ButtonText, false, true);
             }
         }
 
