@@ -304,12 +304,14 @@ namespace Shouyou.EditorTools
 
             // 战斗页：先搭建关卡选择和编队入口。
             RectTransform battle = BuildPage(pageRoot, "Page_Battle", "回合 PVE");
-            BuildInfoCard(battle, "BattleCard_Main", "第一章：春日庭院", "推荐等级 Lv.1    关卡进度 0 / 6\n词意相生，回合制自动战斗", -360, 80, 620, 300);
+            BuildInfoCard(battle, "BattleCard_Main", "第一章：春日庭院", "推荐等级 Lv.1    关卡进度 0 / 6\n词意相生，回合制自动战斗\n点击下方“开始本关”结算试炼", -360, 80, 620, 300);
             BuildInfoCard(battle, "BattleCard_Team", "六人编队", "前排 / 后排 / 词意搭配\n点击后接入编队页面", 360, 80, 620, 300);
             BuildStagePanel(battle, -360, -300);
             BuildFormationPanel(battle, 360, -300);
-            BuildActionButton(battle, "StartBattleButton", "开始战斗", 210, -405, 210, 64, 22);
-            BuildActionButton(battle, "BackMainlineButton", "返回主线", 470, -405, 210, 64, 22);
+            // 战斗页业务按钮要避开底部导航栏。
+            // 之前放得太低，容易和底部“战斗”导航混在一起，导致玩家误以为点了开始战斗。
+            BuildActionButton(battle, "StartBattleButton", "开始本关", 170, -220, 230, 68, 24);
+            BuildActionButton(battle, "BackMainlineButton", "返回主线", 450, -220, 210, 68, 22);
 
             // 剧情页：把大段剧情拆成主线、传记和支线三个入口。
             RectTransform story = BuildPage(pageRoot, "Page_Story", "故事与传记");
