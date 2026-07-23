@@ -1150,9 +1150,21 @@ namespace Shouyou.EditorTools
                 button = node.gameObject.AddComponent<Button>();
             }
 
-            button.onClick.RemoveAllListeners();
+            ClearPersistentClickListeners(button);
             UnityEventTools.AddPersistentListener(button.onClick, action);
             EditorUtility.SetDirty(button);
+        }
+
+        private static void ClearPersistentClickListeners(Button button)
+        {
+            // Unity 编辑器里的按钮事件会被序列化到场景中。
+            // 这里只清 RemoveAllListeners 不够，因为旧的持久监听会残留，导致按钮看起来“怎么改都没生效”。
+            button.onClick.RemoveAllListeners();
+
+            while (button.onClick.GetPersistentEventCount() > 0)
+            {
+                UnityEventTools.RemovePersistentListener(button.onClick, 0);
+            }
         }
 
         private static Transform FindDescendant(Transform root, string nodeName)
