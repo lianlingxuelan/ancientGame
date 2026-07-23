@@ -77,6 +77,10 @@ namespace Shouyou.EditorTools
             SetObject(serializedRouter, "mainlineFormationTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Formation").gameObject);
             SetObject(serializedRouter, "mainlineTrainingTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Training").gameObject);
             SetObject(serializedRouter, "mainlineDreamActivityTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_DreamActivity").gameObject);
+            SetObject(serializedRouter, "mainlineStoryCategoryButton", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Category_Story").GetComponent<Button>());
+            SetObject(serializedRouter, "mainlineFormationCategoryButton", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Category_Formation").GetComponent<Button>());
+            SetObject(serializedRouter, "mainlineTrainingCategoryButton", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Category_Training").GetComponent<Button>());
+            SetObject(serializedRouter, "mainlineDreamActivityCategoryButton", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Category_DreamActivity").GetComponent<Button>());
 
             // 自动绑定五个底部导航按钮，让运行时可以同步显示当前选中状态。
             SetObject(serializedRouter, "homeNavButton", bottomNav.Find("Nav_Home").GetComponent<Button>());

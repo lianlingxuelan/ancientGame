@@ -27,6 +27,13 @@ namespace Shouyou.UI
         [SerializeField] private GameObject mainlineTrainingTab;
         [SerializeField] private GameObject mainlineDreamActivityTab;
 
+        // 主线页左侧四个栏目按钮，用来同步当前选中状态。
+        // 这样玩家点击“剧情闯关 / 行迹编队 / 行迹养成 / 梦域养成活动”时，视觉上能知道自己在哪里。
+        [SerializeField] private Button mainlineStoryCategoryButton;
+        [SerializeField] private Button mainlineFormationCategoryButton;
+        [SerializeField] private Button mainlineTrainingCategoryButton;
+        [SerializeField] private Button mainlineDreamActivityCategoryButton;
+
         // 下面五个按钮用于显示当前所在页面。
         // 这些引用也会由编辑器工具自动绑定，不需要你手动拖拽。
         [SerializeField] private Button homeNavButton;
@@ -331,6 +338,13 @@ namespace Shouyou.UI
             SetActive(mainlineFormationTab, target == mainlineFormationTab);
             SetActive(mainlineTrainingTab, target == mainlineTrainingTab);
             SetActive(mainlineDreamActivityTab, target == mainlineDreamActivityTab);
+
+            // 同步左侧栏目按钮的选中态。
+            // 这里先用颜色反馈，后续有完整按钮素材后可以换成不同 Sprite。
+            SetMainlineCategorySelected(mainlineStoryCategoryButton, target == mainlineStoryTab);
+            SetMainlineCategorySelected(mainlineFormationCategoryButton, target == mainlineFormationTab);
+            SetMainlineCategorySelected(mainlineTrainingCategoryButton, target == mainlineTrainingTab);
+            SetMainlineCategorySelected(mainlineDreamActivityCategoryButton, target == mainlineDreamActivityTab);
         }
 
         // 安全地显示或隐藏对象。
@@ -346,6 +360,16 @@ namespace Shouyou.UI
         // 修改按钮背景颜色，让玩家知道当前位于哪个页面。
         private void SetNavSelected(Button button, bool selected)
         {
+            if (button != null && button.targetGraphic != null)
+            {
+                button.targetGraphic.color = selected ? selectedNavColor : normalNavColor;
+            }
+        }
+
+        private void SetMainlineCategorySelected(Button button, bool selected)
+        {
+            // 主线左侧栏目按钮的临时选中表现。
+            // 现实主题和梦域主题都会先沿用这个明暗变化，避免玩家分不清当前栏目。
             if (button != null && button.targetGraphic != null)
             {
                 button.targetGraphic.color = selected ? selectedNavColor : normalNavColor;
