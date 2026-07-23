@@ -122,6 +122,8 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_Battle"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Battle"), "BackMainlineButton", router, router.ShowMainlineChapter);
             BindButton(pageRoot.Find("Page_Battle"), "StartBattleButton", router, router.ResolveBattleVictory);
+            BindButton(pageRoot.Find("Page_Battle/BattleCard_Main"), "EnterButton", router, router.ResolveBattleVictory);
+            BindButton(pageRoot.Find("Page_Battle/BattleCard_Team"), "EnterButton", router, router.ShowFormation);
             BindButton(pageRoot.Find("Page_Story"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Activity"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "BackHomeButton", router, router.ReturnHome);
@@ -306,6 +308,8 @@ namespace Shouyou.EditorTools
             RectTransform battle = BuildPage(pageRoot, "Page_Battle", "回合 PVE");
             BuildInfoCard(battle, "BattleCard_Main", "第一章：春日庭院", "推荐等级 Lv.1    关卡进度 0 / 6\n词意相生，回合制自动战斗\n点击下方“开始本关”结算试炼", -360, 80, 620, 300);
             BuildInfoCard(battle, "BattleCard_Team", "六人编队", "前排 / 后排 / 词意搭配\n点击后接入编队页面", 360, 80, 620, 300);
+            SetInfoCardButtonLabel(battle, "BattleCard_Main", "开始本关");
+            SetInfoCardButtonLabel(battle, "BattleCard_Team", "进入编队");
             BuildStagePanel(battle, -360, -300);
             BuildFormationPanel(battle, 360, -300);
             // 战斗页业务按钮要避开底部导航栏。
@@ -769,6 +773,17 @@ namespace Shouyou.EditorTools
             // 确保按钮在卡片背景和文字之上，优先接收鼠标点击。
             enterButton.SetAsLastSibling();
             card.SetAsLastSibling();
+        }
+
+        private static void SetInfoCardButtonLabel(RectTransform page, string cardName, string label)
+        {
+            // 信息卡片默认按钮叫“查看详情”。
+            // 某些页面需要更明确的业务动作，例如战斗页应该直接显示“开始本关”。
+            Transform button = page.Find(cardName + "/EnterButton");
+            if (button != null)
+            {
+                SetupButtonLabel(button.GetComponent<RectTransform>(), label, 22, TextAnchor.MiddleCenter);
+            }
         }
 
         private static void BuildCharacterStatStrip(RectTransform page, float y)
