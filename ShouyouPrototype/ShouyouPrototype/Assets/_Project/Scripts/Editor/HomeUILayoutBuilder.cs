@@ -73,6 +73,7 @@ namespace Shouyou.EditorTools
             SetObject(serializedRouter, "activityPage", pageRoot.Find("Page_Activity").gameObject);
             SetObject(serializedRouter, "mainlineChapterPage", pageRoot.Find("Page_MainlineChapter").gameObject);
             SetObject(serializedRouter, "formationPage", pageRoot.Find("Page_Formation").gameObject);
+            SetObject(serializedRouter, "dreamDomainPage", pageRoot.Find("Page_DreamDomain").gameObject);
             SetObject(serializedRouter, "mainlineStoryTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Story").gameObject);
             SetObject(serializedRouter, "mainlineFormationTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Formation").gameObject);
             SetObject(serializedRouter, "mainlineTrainingTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Training").gameObject);
@@ -142,6 +143,12 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_MainlineChapter"), "FormationTabActionButton", router, router.ShowFormation);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "TrainingTabActionButton", router, router.ShowCharacter);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "DreamTabActionButton", router, router.ShowDreamDomain);
+            BindButton(pageRoot.Find("Page_DreamDomain"), "BackMainlineButton", router, router.ReturnMainlineDreamTab);
+            BindButton(pageRoot.Find("Page_DreamDomain"), "DreamNode_1", router, router.ShowDreamNodeDetail);
+            BindButton(pageRoot.Find("Page_DreamDomain"), "DreamNode_2", router, router.ShowDreamNodeDetail);
+            BindButton(pageRoot.Find("Page_DreamDomain"), "DreamNode_3", router, router.ShowDreamNodeDetail);
+            BindButton(pageRoot.Find("Page_DreamDomain"), "DreamNode_4", router, router.ShowDreamNodeDetail);
+            BindButton(pageRoot.Find("Page_DreamDomain"), "EnterDreamButton", router, router.ShowDreamNodeDetail);
 
             // 编队页：六个位置和底部业务按钮。
             BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_1", router, router.ShowFormationSlotOne);
@@ -319,6 +326,9 @@ namespace Shouyou.EditorTools
 
             // 编队页：对应六人行迹编队和气韵提示界面。
             BuildFormationPage(pageRoot);
+
+            // 梦域页：对应现实主线之外的梦境节点选择。
+            BuildDreamDomainPage(pageRoot);
 
             return pageRoot;
         }
@@ -621,6 +631,70 @@ namespace Shouyou.EditorTools
             BuildActionButton(panel, "SaveFormationButton", "保存编队", 0, -325, 210, 70, 24);
             BuildActionButton(panel, "BondPreviewButton", "羁绊预览", 260, -325, 210, 70, 24);
             BuildActionButton(page, "BackHomeButton", "返回庭院", 720, 320, 210, 68, 22);
+        }
+
+        private static void BuildDreamDomainPage(RectTransform pageRoot)
+        {
+            // 梦域全屏页：从“弹窗入口”升级成可停留、可点节点的独立页面。
+            // 这一页先做系统雏形，不急着接复杂战斗，重点是建立“进入梦域”的仪式感。
+            RectTransform page = BuildPage(pageRoot, "Page_DreamDomain", "");
+            GameObject defaultPanel = page.Find("ContentPanel") != null ? page.Find("ContentPanel").gameObject : null;
+            if (defaultPanel != null)
+            {
+                defaultPanel.SetActive(false);
+            }
+
+            Image background = FindOrCreateImage(page, "DreamDomainBackground");
+            StretchFull(background.rectTransform);
+            background.sprite = LoadUISprite("commonbg3.png");
+            background.color = new Color32(125, 98, 210, 230);
+            background.raycastTarget = false;
+            AddThemeElement(background.rectTransform, UIThemeElementRole.PageBackground, true, true);
+            background.transform.SetAsFirstSibling();
+
+            RectTransform title = FindOrCreateRect(page, "DreamTitle");
+            SetRect(title, 0, 310, 720, 90);
+            SetupLabel(title, "梦域裂隙", 52, TextAnchor.MiddleCenter);
+
+            RectTransform subtitle = FindOrCreateRect(page, "DreamSubtitle");
+            SetRect(subtitle, 0, 250, 900, 54);
+            SetupLabel(subtitle, "选择记忆，也选择命运", 28, TextAnchor.MiddleCenter);
+
+            RectTransform nodePanel = FindOrCreateRect(page, "DreamNodePanel");
+            SetRect(nodePanel, 0, 10, 1020, 470);
+            AddMainlineContentFrame(nodePanel);
+
+            BuildDreamNode(nodePanel, "DreamNode_1", "少年诗意", -330, 120, true);
+            BuildDreamNode(nodePanel, "DreamNode_2", "花叶离舟", 330, 120, false);
+            BuildDreamNode(nodePanel, "DreamNode_3", "化蝶之境", -230, -95, false);
+            BuildDreamNode(nodePanel, "DreamNode_4", "归梦成双", 230, -95, false);
+
+            RectTransform hint = FindOrCreateRect(page, "DreamHint");
+            SetRect(hint, 610, 80, 360, 210);
+            AddPanelImage(hint, new Color32(246, 238, 255, 210));
+            SetupLabel(hint, "通关梦境后\n可解锁命运分支\n\n当前 Demo：先开放节点预览", 24, TextAnchor.MiddleCenter);
+            AddThemeElement(hint, UIThemeElementRole.MainPanel, true, true);
+
+            BuildActionButton(page, "EnterDreamButton", "进入梦域", 0, -340, 280, 82, 30);
+            BuildActionButton(page, "BackMainlineButton", "返回主线", 720, 320, 210, 68, 22);
+        }
+
+        private static void BuildDreamNode(RectTransform parent, string name, string label, float x, float y, bool unlocked)
+        {
+            // 梦域节点：第一版用按钮表示可交互节点。
+            // 后续可以替换成星轨、蝴蝶、梦境碎片等更精致的图标。
+            RectTransform node = FindOrCreateRect(parent, name);
+            SetRect(node, x, y, 240, 78);
+            AddCommonButtonImage(node);
+            SetupButtonLabel(node, unlocked ? label + "\n已开启" : label + "\n待唤醒", 22, TextAnchor.MiddleCenter);
+
+            Button button = node.GetComponent<Button>();
+            if (button == null)
+            {
+                button = node.gameObject.AddComponent<Button>();
+            }
+
+            button.interactable = true;
         }
 
         private static void BuildFormationSlotButton(RectTransform parent, string name, string label, float x, float y, bool occupied)

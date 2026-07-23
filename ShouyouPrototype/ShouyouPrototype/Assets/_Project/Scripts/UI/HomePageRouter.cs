@@ -19,6 +19,7 @@ namespace Shouyou.UI
         [SerializeField] private GameObject activityPage;
         [SerializeField] private GameObject mainlineChapterPage;
         [SerializeField] private GameObject formationPage;
+        [SerializeField] private GameObject dreamDomainPage;
 
         // 主线页内部四个栏目内容。
         // 它们不是底部导航页面，而是“进入主线”后左侧栏目切换的内容区。
@@ -127,8 +128,20 @@ namespace Shouyou.UI
         // 梦域入口：第一版先用详情弹窗说明解锁规则，后续接入梦域全屏页面。
         public void ShowDreamDomain()
         {
+            ShowOnly(dreamDomainPage);
+        }
+
+        // 梦域页返回主线：回到主线页后默认停在“梦域养成活动”栏目。
+        public void ReturnMainlineDreamTab()
+        {
+            ShowOnly(mainlineChapterPage);
             ShowMainlineDreamActivityTab();
-            ShowStoryDetail("梦域", "梦域是主线之外的情绪支线。\n\n通关特定章节、完成角色羁绊或收集梦境碎片后，可以解锁新的命运节点。\n\n当前 Demo 已预留入口，后续接入梦域全屏页面和节点选择。");
+        }
+
+        // 梦域节点点击反馈：先用弹窗说明节点作用，后续接入节点战斗、分支和奖励。
+        public void ShowDreamNodeDetail()
+        {
+            ShowStoryDetail("梦域节点", "这里会进入梦域记忆节点。\n\n第一版规划：\n1. 选择记忆节点\n2. 触发剧情或轻战斗\n3. 获得梦蝶赠礼、神识、角色行迹材料\n\n正式版会根据主线进度逐步解锁。");
         }
 
         // 临时主题切换测试。
@@ -321,6 +334,7 @@ namespace Shouyou.UI
             SetActive(activityPage, target == activityPage);
             SetActive(mainlineChapterPage, target == mainlineChapterPage);
             SetActive(formationPage, target == formationPage);
+            SetActive(dreamDomainPage, target == dreamDomainPage);
             SetActive(storyDetailPanel, false);
 
             // 页面切换完成后，同步更新底部导航的选中状态。
