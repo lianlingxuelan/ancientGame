@@ -20,6 +20,13 @@ namespace Shouyou.UI
         [SerializeField] private GameObject mainlineChapterPage;
         [SerializeField] private GameObject formationPage;
 
+        // 主线页内部四个栏目内容。
+        // 它们不是底部导航页面，而是“进入主线”后左侧栏目切换的内容区。
+        [SerializeField] private GameObject mainlineStoryTab;
+        [SerializeField] private GameObject mainlineFormationTab;
+        [SerializeField] private GameObject mainlineTrainingTab;
+        [SerializeField] private GameObject mainlineDreamActivityTab;
+
         // 下面五个按钮用于显示当前所在页面。
         // 这些引用也会由编辑器工具自动绑定，不需要你手动拖拽。
         [SerializeField] private Button homeNavButton;
@@ -77,6 +84,7 @@ namespace Shouyou.UI
         public void ShowMainlineChapter()
         {
             ShowOnly(mainlineChapterPage);
+            ShowMainlineStoryTab();
         }
 
         // 显示六人编队页：玩家可以从主线页或战斗页进入这里。
@@ -85,9 +93,34 @@ namespace Shouyou.UI
             ShowOnly(formationPage);
         }
 
+        // 主线页：显示剧情闯关栏目。
+        public void ShowMainlineStoryTab()
+        {
+            ShowMainlineTab(mainlineStoryTab);
+        }
+
+        // 主线页：显示行迹编队栏目。
+        public void ShowMainlineFormationTab()
+        {
+            ShowMainlineTab(mainlineFormationTab);
+        }
+
+        // 主线页：显示行迹养成栏目。
+        public void ShowMainlineTrainingTab()
+        {
+            ShowMainlineTab(mainlineTrainingTab);
+        }
+
+        // 主线页：显示梦域养成活动栏目。
+        public void ShowMainlineDreamActivityTab()
+        {
+            ShowMainlineTab(mainlineDreamActivityTab);
+        }
+
         // 梦域入口：第一版先用详情弹窗说明解锁规则，后续接入梦域全屏页面。
         public void ShowDreamDomain()
         {
+            ShowMainlineDreamActivityTab();
             ShowStoryDetail("梦域", "梦域是主线之外的情绪支线。\n\n通关特定章节、完成角色羁绊或收集梦境碎片后，可以解锁新的命运节点。\n\n当前 Demo 已预留入口，后续接入梦域全屏页面和节点选择。");
         }
 
@@ -106,16 +139,16 @@ namespace Shouyou.UI
             themeApplier.ToggleTheme();
         }
 
-        // 主线页的行迹养成分类暂时跳转到角色页。
+        // 主线页的行迹养成分类：第一版先显示页内养成预览。
         public void ShowTrainingCategory()
         {
-            ShowCharacter();
+            ShowMainlineTrainingTab();
         }
 
-        // 主线页的雅集活动分类暂时跳转到活动页。
+        // 主线页的雅集活动分类暂时保留，避免旧按钮绑定丢失。
         public void ShowActivityCategory()
         {
-            ShowActivity();
+            ShowMainlineDreamActivityTab();
         }
 
         // 首页“进入主线”按钮的入口。
@@ -289,6 +322,15 @@ namespace Shouyou.UI
             SetNavSelected(battleNavButton, target == battlePage);
             SetNavSelected(storyNavButton, target == storyPage);
             SetNavSelected(activityNavButton, target == activityPage);
+        }
+
+        private void ShowMainlineTab(GameObject target)
+        {
+            // 主线页内部栏目切换：只显示被点击的栏目内容，其他栏目隐藏。
+            SetActive(mainlineStoryTab, target == mainlineStoryTab);
+            SetActive(mainlineFormationTab, target == mainlineFormationTab);
+            SetActive(mainlineTrainingTab, target == mainlineTrainingTab);
+            SetActive(mainlineDreamActivityTab, target == mainlineDreamActivityTab);
         }
 
         // 安全地显示或隐藏对象。

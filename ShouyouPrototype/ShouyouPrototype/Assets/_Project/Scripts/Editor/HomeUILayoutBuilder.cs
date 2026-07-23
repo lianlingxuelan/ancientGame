@@ -73,6 +73,10 @@ namespace Shouyou.EditorTools
             SetObject(serializedRouter, "activityPage", pageRoot.Find("Page_Activity").gameObject);
             SetObject(serializedRouter, "mainlineChapterPage", pageRoot.Find("Page_MainlineChapter").gameObject);
             SetObject(serializedRouter, "formationPage", pageRoot.Find("Page_Formation").gameObject);
+            SetObject(serializedRouter, "mainlineStoryTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Story").gameObject);
+            SetObject(serializedRouter, "mainlineFormationTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Formation").gameObject);
+            SetObject(serializedRouter, "mainlineTrainingTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Training").gameObject);
+            SetObject(serializedRouter, "mainlineDreamActivityTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_DreamActivity").gameObject);
 
             // 自动绑定五个底部导航按钮，让运行时可以同步显示当前选中状态。
             SetObject(serializedRouter, "homeNavButton", bottomNav.Find("Nav_Home").GetComponent<Button>());
@@ -120,8 +124,8 @@ namespace Shouyou.EditorTools
             BindButton(topBar, "SettingButton", router, router.ToggleThemeForTest);
 
             // 主线关卡页：左侧分类、六个关卡和进入编队入口。
-            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Story", router, router.ShowMainlineChapter);
-            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Formation", router, router.ShowFormation);
+            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Story", router, router.ShowMainlineStoryTab);
+            BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Formation", router, router.ShowMainlineFormationTab);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_Training", router, router.ShowTrainingCategory);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "Category_DreamActivity", router, router.ShowDreamDomain);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "StageCard_1", router, router.ShowMainlineStageOne);
@@ -131,6 +135,9 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_MainlineChapter"), "StageCard_5", router, router.ShowMainlineStageFive);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "StageCard_6", router, router.ShowMainlineStageSix);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "ChallengeButton", router, router.ShowFormation);
+            BindButton(pageRoot.Find("Page_MainlineChapter"), "FormationTabActionButton", router, router.ShowFormation);
+            BindButton(pageRoot.Find("Page_MainlineChapter"), "TrainingTabActionButton", router, router.ShowCharacter);
+            BindButton(pageRoot.Find("Page_MainlineChapter"), "DreamTabActionButton", router, router.ShowDreamDomain);
 
             // 编队页：六个位置和底部业务按钮。
             BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_1", router, router.ShowFormationSlotOne);
@@ -364,21 +371,64 @@ namespace Shouyou.EditorTools
                 category.SetAsLastSibling();
             }
 
+            RectTransform storyTab = FindOrCreateRect(panel, "Tab_Story");
+            SetRect(storyTab, 80, -20, 1180, 560);
+
+            RectTransform formationTab = FindOrCreateRect(panel, "Tab_Formation");
+            SetRect(formationTab, 80, -20, 1180, 560);
+
+            RectTransform trainingTab = FindOrCreateRect(panel, "Tab_Training");
+            SetRect(trainingTab, 80, -20, 1180, 560);
+
+            RectTransform dreamActivityTab = FindOrCreateRect(panel, "Tab_DreamActivity");
+            SetRect(dreamActivityTab, 80, -20, 1180, 560);
+
             string[] stageNames = { "关卡一\n明水入汴京", "关卡二\n雅集赴会", "关卡三\n词论初临", "关卡四\n风雨前夜", "关卡五\n故人入梦", "关卡六\n潮声再起" };
             for (int i = 0; i < stageNames.Length; i++)
             {
                 // 按参考 UI 排成五列两行，第一版只放六个已规划关卡。
-                float x = -420 + (i % 5) * 210;
-                float y = 115 - (i / 5) * 265;
-                BuildStageCard(panel, "StageCard_" + (i + 1), stageNames[i], x, y, i < 2, i);
+                float x = -470 + (i % 5) * 210;
+                float y = 135 - (i / 5) * 265;
+                BuildStageCard(storyTab, "StageCard_" + (i + 1), stageNames[i], x, y, i < 2, i);
             }
 
-            BuildActionButton(panel, "ChallengeButton", "前往挑战", 0, -330, 250, 76, 28);
-            RectTransform replay = FindOrCreateRect(panel, "ReplayStoryButton");
-            SetRect(replay, 520, -330, 190, 64);
+            BuildActionButton(storyTab, "ChallengeButton", "前往挑战", 0, -285, 250, 76, 28);
+            RectTransform replay = FindOrCreateRect(storyTab, "ReplayStoryButton");
+            SetRect(replay, 520, -285, 190, 64);
             AddCommonButtonImage(replay);
             SetupButtonLabel(replay, "回看剧情", 22, TextAnchor.MiddleCenter);
+            BuildMainlineTabPreview(formationTab, "行迹编队", "六人编队 · 前排 / 后排 / 气韵加成", "当前队伍：李清照 / 空位 / 空位 / 空位 / 空位 / 空位\n\n后续：点击空位选择角色，保存编队后写入本地后端。", "进入编队页", "FormationTabActionButton");
+            BuildMainlineTabPreview(trainingTab, "行迹养成", "等级 · 突破 · 技能 · 词意节点", "李清照 Lv.1\n词意：如梦令\n定位：词意输出 / 群体辅助\n\n后续：这里接入升级材料、突破消耗、技能等级和行迹节点。", "查看养成", "TrainingTabActionButton");
+            BuildMainlineTabPreview(dreamActivityTab, "梦域养成活动", "神识波动 · 梦蝶赠礼 · 梦域任务", "第一章先出现梦域伏笔。\n第一卷末章正式开启梦域系统。\n\n后续：这里接入梦域节点、梦蝶赠礼、签到、活跃度和限定活动。", "查看梦域", "DreamTabActionButton");
+
+            storyTab.gameObject.SetActive(true);
+            formationTab.gameObject.SetActive(false);
+            trainingTab.gameObject.SetActive(false);
+            dreamActivityTab.gameObject.SetActive(false);
             BuildActionButton(page, "BackHomeButton", "返回庭院", 720, 320, 210, 68, 22);
+        }
+
+        private static void BuildMainlineTabPreview(RectTransform parent, string titleText, string subtitleText, string bodyText, string buttonText, string buttonName)
+        {
+            // 主线页栏目预览：用于左侧栏目切换时展示对应模块的摘要。
+            // 第一版先做清晰的信息卡，后续再替换成完整玩法界面。
+            RectTransform card = FindOrCreateRect(parent, "PreviewCard");
+            SetRect(card, 0, 40, 900, 390);
+            AddMainlineContentFrame(card);
+
+            RectTransform title = FindOrCreateRect(card, "Title");
+            SetRect(title, 0, 125, 760, 60);
+            SetupLabel(title, titleText, 38, TextAnchor.MiddleCenter);
+
+            RectTransform subtitle = FindOrCreateRect(card, "Subtitle");
+            SetRect(subtitle, 0, 70, 760, 45);
+            SetupLabel(subtitle, subtitleText, 24, TextAnchor.MiddleCenter);
+
+            RectTransform body = FindOrCreateRect(card, "Body");
+            SetRect(body, 0, -35, 760, 150);
+            SetupLabel(body, bodyText, 22, TextAnchor.MiddleCenter);
+
+            BuildActionButton(parent, buttonName, buttonText, 0, -255, 230, 68, 24);
         }
 
         private static void BuildStageCard(RectTransform parent, string name, string title, float x, float y, bool unlocked, int stageIndex)
