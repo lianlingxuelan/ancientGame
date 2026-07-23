@@ -310,6 +310,17 @@ namespace Shouyou.UI
             ShowBattle();
         }
 
+        // 战斗页“开始战斗”的最小闭环。
+        // 当前先不做真正的回合制数值计算，只模拟一次半自动战斗胜利结算。
+        // 后续会把这里替换成：读取双方阵容 -> 按速度/回合执行技能 -> 结算胜负和奖励。
+        public void ResolveBattleVictory()
+        {
+            ShowStoryDetail(
+                "战斗胜利",
+                currentMainlineStageName +
+                "\n\n李清照发动词意：如梦令。\n队伍获得气韵增益，顺利完成本次 PVE 试炼。\n\n结算奖励：\n铜钱 1200\n词意经验 80\n主线进度 +1\n\n下一步可以返回主线继续选择关卡，或进入编队调整阵容。");
+        }
+
         // 第三章七个场景节点的点击反馈。
         public void ShowScene31() { SetStoryBody("3-1 清晨赴会·街巷同行\n李清照与婉禾第一次走入汴京文坛社交场。"); }
         public void ShowScene32() { SetStoryBody("3-2 入园落座·初次被围观\n二人因闺阁女子身份受到好奇与轻视。"); }
