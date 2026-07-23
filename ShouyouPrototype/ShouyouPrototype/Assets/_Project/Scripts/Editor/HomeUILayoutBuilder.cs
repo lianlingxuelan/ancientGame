@@ -425,10 +425,71 @@ namespace Shouyou.EditorTools
             SetupLabel(subtitle, subtitleText, 24, TextAnchor.MiddleCenter);
 
             RectTransform body = FindOrCreateRect(card, "Body");
-            SetRect(body, 0, -35, 760, 150);
+            SetRect(body, 0, -10, 760, 120);
             SetupLabel(body, bodyText, 22, TextAnchor.MiddleCenter);
 
+            // 三个信息小卡用于把“占位说明”推进成可读的玩法模块。
+            // 这些不是最终系统，只是让 Demo 阶段先看见模块结构，后续可以逐个接入真实数据。
+            string[] featureTexts = GetMainlineTabFeatureTexts(titleText);
+            for (int i = 0; i < featureTexts.Length; i++)
+            {
+                float x = -260 + i * 260;
+                BuildSmallInfoCard(card, "FeatureCard_" + (i + 1), featureTexts[i], x, -135);
+            }
+
             BuildActionButton(parent, buttonName, buttonText, 0, -255, 230, 68, 24);
+        }
+
+        private static string[] GetMainlineTabFeatureTexts(string titleText)
+        {
+            // 根据当前栏目标题返回对应的小模块说明。
+            // 这里先写在 UI 构建器里，等玩法稳定后再抽成配置表或后端数据。
+            if (titleText.Contains("编队"))
+            {
+                return new[]
+                {
+                    "前排 3 位\n承伤 / 控制",
+                    "后排 3 位\n输出 / 辅助",
+                    "助阵预留\n九天玄女等"
+                };
+            }
+
+            if (titleText.Contains("养成"))
+            {
+                return new[]
+                {
+                    "等级突破\n基础数值",
+                    "词意技能\n角色特有",
+                    "行迹节点\n支线解锁"
+                };
+            }
+
+            if (titleText.Contains("梦域"))
+            {
+                return new[]
+                {
+                    "神识波动\n章节伏笔",
+                    "梦蝶赠礼\n日常资源",
+                    "命运节点\n末章开启"
+                };
+            }
+
+            return new[]
+            {
+                "模块一\n待配置",
+                "模块二\n待配置",
+                "模块三\n待配置"
+            };
+        }
+
+        private static void BuildSmallInfoCard(RectTransform parent, string name, string label, float x, float y)
+        {
+            // 小信息卡：用于在同一栏目里并排展示 3 个核心业务点。
+            RectTransform card = FindOrCreateRect(parent, name);
+            SetRect(card, x, y, 210, 86);
+            AddPanelImage(card, SoftPanelColor);
+            SetupLabel(card, label, 20, TextAnchor.MiddleCenter);
+            AddThemeElement(card, UIThemeElementRole.MainPanel, true, true);
         }
 
         private static void BuildStageCard(RectTransform parent, string name, string title, float x, float y, bool unlocked, int stageIndex)
