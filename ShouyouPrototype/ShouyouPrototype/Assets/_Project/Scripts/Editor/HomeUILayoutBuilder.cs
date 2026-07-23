@@ -120,6 +120,7 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_Home"), "MainActionButton", router, router.EnterMainline);
             BindButton(pageRoot.Find("Page_Character"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Battle"), "BackHomeButton", router, router.ReturnHome);
+            BindButton(pageRoot.Find("Page_Battle"), "BackMainlineButton", router, router.ShowMainlineChapter);
             BindButton(pageRoot.Find("Page_Story"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Activity"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_MainlineChapter"), "BackHomeButton", router, router.ReturnHome);
@@ -306,6 +307,7 @@ namespace Shouyou.EditorTools
             BuildInfoCard(battle, "BattleCard_Team", "六人编队", "前排 / 后排 / 词意搭配\n点击后接入编队页面", 360, 80, 620, 300);
             BuildStagePanel(battle, -360, -300);
             BuildFormationPanel(battle, 360, -300);
+            BuildActionButton(battle, "BackMainlineButton", "返回主线", 470, -405, 210, 64, 22);
 
             // 剧情页：把大段剧情拆成主线、传记和支线三个入口。
             RectTransform story = BuildPage(pageRoot, "Page_Story", "故事与传记");

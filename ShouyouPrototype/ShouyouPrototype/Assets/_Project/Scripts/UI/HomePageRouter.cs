@@ -305,7 +305,9 @@ namespace Shouyou.UI
                 return;
             }
 
-            ShowStoryDetail("进入战斗", currentMainlineStageName + "\n\n这里将进入六人编队和半自动回合制 PVE 战斗。\n\n当前版本先完成入口，后续接入战斗场景、敌方阵容、技能和胜利结算。");
+            // 已解锁关卡直接进入战斗准备页。
+            // 这样玩家从“关卡详情 -> 进入战斗”能形成真实流程，而不是只看到说明弹窗。
+            ShowBattle();
         }
 
         // 第三章七个场景节点的点击反馈。
