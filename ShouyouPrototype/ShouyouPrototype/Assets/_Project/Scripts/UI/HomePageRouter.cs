@@ -75,6 +75,9 @@ namespace Shouyou.UI
         {
             Debug.Log("[DEBUG-battle-flow] ShowBattle called");
             ShowOnly(battlePage);
+            Debug.Log("[DEBUG-battle-flow] After ShowBattle: storyDetailPanelActive="
+                + (storyDetailPanel != null && storyDetailPanel.activeSelf)
+                + ", battlePageActive=" + (battlePage != null && battlePage.activeSelf));
         }
 
         // 显示剧情页。底部“剧情”按钮会调用这里。
@@ -341,12 +344,18 @@ namespace Shouyou.UI
                 + ", storyDetailTitle=" + (storyDetailTitle != null)
                 + ", storyDetailBody=" + (storyDetailBody != null)
                 + ", sceneListPanel=" + (sceneListPanel != null));
+            Debug.Log("[DEBUG-battle-flow] Ref paths: "
+                + "storyDetailPanel=" + GetTransformPath(storyDetailPanel != null ? storyDetailPanel.transform : null)
+                + ", storyDetailTitle=" + GetTransformPath(storyDetailTitle != null ? storyDetailTitle.transform : null)
+                + ", storyDetailBody=" + GetTransformPath(storyDetailBody != null ? storyDetailBody.transform : null)
+                + ", sceneListPanel=" + GetTransformPath(sceneListPanel != null ? sceneListPanel.transform : null));
             ShowHome();
         }
 
         // 核心切页逻辑：只打开目标页面，其他页面全部隐藏。
         private void ShowOnly(GameObject target)
         {
+            Debug.Log("[DEBUG-battle-flow] ShowOnly target=" + (target != null ? target.name : "null"));
             SetActive(homePage, target == homePage);
             SetActive(characterPage, target == characterPage);
             SetActive(battlePage, target == battlePage);
@@ -356,6 +365,11 @@ namespace Shouyou.UI
             SetActive(formationPage, target == formationPage);
             SetActive(dreamDomainPage, target == dreamDomainPage);
             SetActive(storyDetailPanel, false);
+            Debug.Log("[DEBUG-battle-flow] ShowOnly states: "
+                + "home=" + (homePage != null && homePage.activeSelf)
+                + ", battle=" + (battlePage != null && battlePage.activeSelf)
+                + ", mainline=" + (mainlineChapterPage != null && mainlineChapterPage.activeSelf)
+                + ", detail=" + (storyDetailPanel != null && storyDetailPanel.activeSelf));
 
             // 页面切换完成后，同步更新底部导航的选中状态。
             SetNavSelected(homeNavButton, target == homePage);
@@ -414,13 +428,17 @@ namespace Shouyou.UI
         {
             if (storyDetailPanel == null)
             {
+                Debug.Log("[DEBUG-battle-flow] ShowStoryDetail skipped because storyDetailPanel is null");
                 return;
             }
 
+            Debug.Log("[DEBUG-battle-flow] ShowStoryDetail called: title=" + title);
             storyDetailPanel.SetActive(true);
             SetActive(sceneListPanel, false);
             SetStoryText(storyDetailTitle, title);
             SetStoryText(storyDetailBody, body);
+            Debug.Log("[DEBUG-battle-flow] After ShowStoryDetail: detail=" + storyDetailPanel.activeSelf
+                + ", sceneList=" + (sceneListPanel != null && sceneListPanel.activeSelf));
         }
 
         private void ShowFormationSlot(string slotName)
@@ -534,6 +552,24 @@ namespace Shouyou.UI
             }
 
             return null;
+        }
+
+        private static string GetTransformPath(Transform target)
+        {
+            if (target == null)
+            {
+                return "null";
+            }
+
+            string path = target.name;
+            Transform current = target.parent;
+            while (current != null)
+            {
+                path = current.name + "/" + path;
+                current = current.parent;
+            }
+
+            return path;
         }
 
         private static void SetStoryText(Text target, string value)
