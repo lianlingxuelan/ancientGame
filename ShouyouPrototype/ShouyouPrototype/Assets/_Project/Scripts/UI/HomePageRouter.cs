@@ -73,6 +73,7 @@ namespace Shouyou.UI
         // 显示战斗页。底部“战斗”按钮会调用这里。
         public void ShowBattle()
         {
+            Debug.Log("[DEBUG-battle-flow] ShowBattle called");
             ShowOnly(battlePage);
         }
 
@@ -334,6 +335,12 @@ namespace Shouyou.UI
         // 这里默认先显示庭院首页，避免一进游戏看到空白。
         private void Awake()
         {
+            EnsureRuntimeReferences();
+            Debug.Log("[DEBUG-battle-flow] Refs ready: "
+                + "storyDetailPanel=" + (storyDetailPanel != null)
+                + ", storyDetailTitle=" + (storyDetailTitle != null)
+                + ", storyDetailBody=" + (storyDetailBody != null)
+                + ", sceneListPanel=" + (sceneListPanel != null));
             ShowHome();
         }
 
@@ -451,6 +458,82 @@ namespace Shouyou.UI
         private void SetStoryBody(string body)
         {
             SetStoryText(storyDetailBody, body);
+        }
+
+        private void EnsureRuntimeReferences()
+        {
+            // 有些场景字段在重建 UI 后可能没有重新序列化回 Inspector。
+            // 这里在运行时按节点名自动补齐，避免“弹窗显示得出来，但代码关不掉/改不了内容”。
+            if (storyDetailPanel == null)
+            {
+                Transform overlay = FindChildRecursive(transform, "StoryDetailOverlay");
+                if (overlay != null)
+                {
+                    storyDetailPanel = overlay.gameObject;
+                }
+            }
+
+            Transform detailPanel = storyDetailPanel != null
+                ? storyDetailPanel.transform.Find("DetailPanel")
+                : null;
+
+            if (sceneListPanel == null)
+            {
+                Transform panel = detailPanel != null
+                    ? detailPanel.Find("SceneList")
+                    : null;
+                if (panel != null)
+                {
+                    sceneListPanel = panel.gameObject;
+                }
+            }
+
+            if (storyDetailTitle == null)
+            {
+                Transform title = detailPanel != null
+                    ? detailPanel.Find("Title")
+                    : null;
+                if (title != null)
+                {
+                    storyDetailTitle = title.GetComponent<Text>();
+                }
+            }
+
+            if (storyDetailBody == null)
+            {
+                Transform body = detailPanel != null
+                    ? detailPanel.Find("Body")
+                    : null;
+                if (body != null)
+                {
+                    storyDetailBody = body.GetComponent<Text>();
+                }
+            }
+        }
+
+        private static Transform FindChildRecursive(Transform root, string childName)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            Transform direct = root.Find(childName);
+            if (direct != null)
+            {
+                return direct;
+            }
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform result = FindChildRecursive(root.GetChild(i), childName);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            return null;
         }
 
         private static void SetStoryText(Text target, string value)
