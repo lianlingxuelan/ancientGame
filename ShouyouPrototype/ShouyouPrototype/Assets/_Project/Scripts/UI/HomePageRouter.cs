@@ -509,7 +509,7 @@ namespace Shouyou.UI
             if (storyDetailTitle == null)
             {
                 Transform title = detailPanel != null
-                    ? detailPanel.Find("Title")
+                    ? detailPanel.Find("Title/Label")
                     : null;
                 if (title != null)
                 {
@@ -520,7 +520,7 @@ namespace Shouyou.UI
             if (storyDetailBody == null)
             {
                 Transform body = detailPanel != null
-                    ? detailPanel.Find("Body")
+                    ? detailPanel.Find("Body/Label")
                     : null;
                 if (body != null)
                 {
