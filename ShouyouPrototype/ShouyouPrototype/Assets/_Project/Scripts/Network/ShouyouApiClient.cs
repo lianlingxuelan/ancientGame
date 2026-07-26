@@ -99,7 +99,11 @@ namespace Shouyou.Network
 
         private static void HandleResponse<T>(UnityWebRequest request, Action<T> onSuccess, Action<string> onError)
         {
-            if (request.isNetworkError || request.isHttpError)
+            // Unity 2020 起推荐使用 result 判断请求状态。
+            // 旧字段 isNetworkError / isHttpError 会产生过时 API 警告，影响 Console 观察真实错误。
+            if (request.result == UnityWebRequest.Result.ConnectionError ||
+                request.result == UnityWebRequest.Result.ProtocolError ||
+                request.result == UnityWebRequest.Result.DataProcessingError)
             {
                 onError?.Invoke(request.error + "\n" + request.downloadHandler.text);
                 return;
