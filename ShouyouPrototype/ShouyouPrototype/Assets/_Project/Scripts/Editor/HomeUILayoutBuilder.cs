@@ -74,6 +74,8 @@ namespace Shouyou.EditorTools
             SetObject(serializedRouter, "mainlineChapterPage", pageRoot.Find("Page_MainlineChapter").gameObject);
             SetObject(serializedRouter, "formationPage", pageRoot.Find("Page_Formation").gameObject);
             SetObject(serializedRouter, "dreamDomainPage", pageRoot.Find("Page_DreamDomain").gameObject);
+            SetObject(serializedRouter, "topBarRoot", topBar.gameObject);
+            SetObject(serializedRouter, "bottomNavRoot", bottomNav.gameObject);
             SetObject(serializedRouter, "mainlineStoryTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Story").gameObject);
             SetObject(serializedRouter, "mainlineFormationTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Formation").gameObject);
             SetObject(serializedRouter, "mainlineTrainingTab", pageRoot.Find("Page_MainlineChapter/MainlinePanel/Tab_Training").gameObject);

@@ -22,6 +22,10 @@ namespace Shouyou.UI
         [SerializeField] private GameObject formationPage;
         [SerializeField] private GameObject dreamDomainPage;
 
+        [Header("公共 UI")]
+        [SerializeField] private GameObject topBarRoot;
+        [SerializeField] private GameObject bottomNavRoot;
+
         [Header("主线页内部栏目")]
         [SerializeField] private GameObject mainlineStoryTab;
         [SerializeField] private GameObject mainlineFormationTab;
@@ -452,11 +456,25 @@ namespace Shouyou.UI
             SetActive(dreamDomainPage, target == dreamDomainPage);
             SetActive(storyDetailPanel, false);
 
+            ApplySharedChromeVisibility(target);
+
             SetNavSelected(homeNavButton, target == homePage);
             SetNavSelected(characterNavButton, target == characterPage);
             SetNavSelected(battleNavButton, target == battlePage);
             SetNavSelected(storyNavButton, target == storyPage);
             SetNavSelected(activityNavButton, target == activityPage);
+        }
+
+        /// <summary>
+        /// 控制顶部栏和底部导航是否显示。
+        /// 庭院是主入口，可以显示公共 UI；战斗、主线、编队、梦域等全屏模块需要沉浸展示，
+        /// 不能继续露出半透明顶栏和底栏，避免破坏画面和遮挡模块自己的操作区。
+        /// </summary>
+        private void ApplySharedChromeVisibility(GameObject target)
+        {
+            bool showSharedChrome = target == homePage;
+            SetActive(topBarRoot, showSharedChrome);
+            SetActive(bottomNavRoot, showSharedChrome);
         }
 
         /// <summary>
@@ -809,6 +827,24 @@ namespace Shouyou.UI
         /// </summary>
         private void EnsureRuntimeReferences()
         {
+            if (topBarRoot == null)
+            {
+                Transform topBar = FindChildRecursive(transform, "TopBar");
+                if (topBar != null)
+                {
+                    topBarRoot = topBar.gameObject;
+                }
+            }
+
+            if (bottomNavRoot == null)
+            {
+                Transform bottomNav = FindChildRecursive(transform, "BottomNav");
+                if (bottomNav != null)
+                {
+                    bottomNavRoot = bottomNav.gameObject;
+                }
+            }
+
             if (storyDetailPanel == null)
             {
                 Transform overlay = FindChildRecursive(transform, "StoryDetailOverlay");
