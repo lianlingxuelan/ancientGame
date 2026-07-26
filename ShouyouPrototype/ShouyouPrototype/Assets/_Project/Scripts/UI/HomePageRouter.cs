@@ -211,6 +211,27 @@ namespace Shouyou.UI
 
         public void ToggleThemeForTest()
         {
+            ShowDebugStatus();
+        }
+
+        public void ShowDebugStatus()
+        {
+            string body =
+                "【开发状态面板】" +
+                "\n\n当前页面关卡：" + currentMainlineStageName +
+                "\n当前关卡序号：" + currentMainlineStageId +
+                "\n当前关卡状态：" + LevelProgressManager.Instance.GetStageStateLabel(currentMainlineStageId) +
+                "\n本地最高通关：" + LevelProgressManager.Instance.GetHighestClearedStageId() +
+                "\n本场战斗是否已结算：" + (currentBattleAlreadySettled ? "是" : "否") +
+                "\n结算按钮锁：" + (battleResultActionLocked ? "已锁定" : "未锁定") +
+                "\n\n" + ShouyouBackendBootstrap.GetDebugSummary() +
+                "\n\n提示：这个面板是开发调试用，后续正式 UI 会隐藏。";
+
+            ShowStoryDetail("开发状态", body);
+        }
+
+        public void ToggleThemeOnlyForTest()
+        {
             UIThemeApplier themeApplier = GetComponent<UIThemeApplier>();
             if (themeApplier == null)
             {

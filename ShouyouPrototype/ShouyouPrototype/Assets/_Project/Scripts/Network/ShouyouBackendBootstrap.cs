@@ -149,6 +149,37 @@ namespace Shouyou.Network
             return power;
         }
 
+        public static string GetDebugSummary()
+        {
+            if (Instance == null)
+            {
+                return "后端运行时对象：未创建\n连接状态：未连接\n说明：Unity 还没有创建 ShouyouBackendRuntime。";
+            }
+
+            string playerName = Instance.playerProfile != null ? Instance.playerProfile.name : "未读取";
+            string currentStage = Instance.saveProgress != null ? Instance.saveProgress.currentStageId : "未读取";
+            string highestCleared = Instance.stageProgress != null
+                ? Instance.stageProgress.highestClearedStageId.ToString()
+                : "未读取";
+            int characterCount = Instance.characters != null && Instance.characters.characters != null
+                ? Instance.characters.characters.Length
+                : 0;
+            int slotCount = Instance.formation != null && Instance.formation.slots != null
+                ? Instance.formation.slots.Length
+                : 0;
+
+            return
+                "后端运行时对象：已创建" +
+                "\n接口地址：http://127.0.0.1:5188" +
+                "\n玩家：" + playerName +
+                "\n角色数量：" + characterCount +
+                "\n当前后端关卡：" + currentStage +
+                "\n后端最高通关：" + highestCleared +
+                "\n编队槽位：" + slotCount +
+                "\n当前编队：" + GetFormationSummary() +
+                "\n队伍战力：" + GetFormationPower();
+        }
+
         private IEnumerator LoadInitialData()
         {
             Debug.Log("开始连接本地后端：" + baseUrl);

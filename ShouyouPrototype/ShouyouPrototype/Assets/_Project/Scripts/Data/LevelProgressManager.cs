@@ -138,6 +138,15 @@ namespace Shouyou.Data
             return IsStageUnlocked(stageId) ? "可挑战" : "暂未解锁";
         }
 
+        /// <summary>
+        /// 获取当前最高已通关关卡。
+        /// 主要给开发调试面板读取，避免 UI 直接访问内部字段。
+        /// </summary>
+        public int GetHighestClearedStageId()
+        {
+            return highestClearedStageId;
+        }
+
         private void Load()
         {
             highestClearedStageId = Mathf.Clamp(PlayerPrefs.GetInt(HighestClearedStageKey, 0), 0, MaxMainlineStageId);
