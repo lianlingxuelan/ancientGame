@@ -65,3 +65,7 @@ tmp_*/
 # all_aseet 是原始资料与参考素材目录，不作为 Unity 正式工程资产提交。
 # 真正可用的游戏资产请整理到 ShouyouPrototype/ShouyouPrototype/Assets/_Project/ 下。
 all_aseet/
+
+# Battle assets are large (~77MB), should be served from backend/CDN, not frontend repo.
+ShouyouPrototype/ShouyouPrototype/Assets/_Project/Art/Battle/*.png
+ShouyouPrototype/ShouyouPrototype/Assets/_Project/Art/Battle/*.jpg
