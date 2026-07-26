@@ -33,14 +33,32 @@ namespace Shouyou.Network
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void CreateRuntimeObject()
         {
+            EnsureRuntimeObject();
+        }
+
+        private static ShouyouBackendBootstrap EnsureRuntimeObject()
+        {
             if (Instance != null)
             {
-                return;
+                return Instance;
             }
 
+            GameObject existingObject = GameObject.Find(RuntimeObjectName);
+            if (existingObject != null)
+            {
+                Instance = existingObject.GetComponent<ShouyouBackendBootstrap>();
+                if (Instance != null)
+                {
+                    return Instance;
+                }
+            }
+
+            // 兜底创建后端联调对象。
+            // 有些按钮可能会早于 RuntimeInitializeOnLoadMethod 调用静态方法，
+            // 所以这里不能只报 warning，必须主动补齐运行时对象。
             GameObject runtimeObject = new GameObject(RuntimeObjectName);
             DontDestroyOnLoad(runtimeObject);
-            runtimeObject.AddComponent<ShouyouBackendBootstrap>();
+            return runtimeObject.AddComponent<ShouyouBackendBootstrap>();
         }
 
         private void Awake()
@@ -62,24 +80,26 @@ namespace Shouyou.Network
 
         public static void SaveCurrentDemoFormation()
         {
-            if (Instance == null)
+            ShouyouBackendBootstrap bootstrap = EnsureRuntimeObject();
+            if (bootstrap == null)
             {
                 Debug.LogWarning("后端联调对象还没有创建，暂时无法保存编队。");
                 return;
             }
 
-            Instance.StartCoroutine(Instance.SaveDemoFormation());
+            bootstrap.StartCoroutine(bootstrap.SaveDemoFormation());
         }
 
         public static void CompleteMainlineStage(int stageId)
         {
-            if (Instance == null)
+            ShouyouBackendBootstrap bootstrap = EnsureRuntimeObject();
+            if (bootstrap == null)
             {
                 Debug.LogWarning("后端联调对象还没有创建，主线通关结果暂时只保存到本地。");
                 return;
             }
 
-            Instance.StartCoroutine(Instance.CompleteMainlineStageRoutine(stageId));
+            bootstrap.StartCoroutine(bootstrap.CompleteMainlineStageRoutine(stageId));
         }
 
         public static bool HasBattleReadyFormation()
@@ -151,21 +171,22 @@ namespace Shouyou.Network
 
         public static string GetDebugSummary()
         {
-            if (Instance == null)
+            ShouyouBackendBootstrap bootstrap = EnsureRuntimeObject();
+            if (bootstrap == null)
             {
                 return "后端运行时对象：未创建\n连接状态：未连接\n说明：Unity 还没有创建 ShouyouBackendRuntime。";
             }
 
-            string playerName = Instance.playerProfile != null ? Instance.playerProfile.name : "未读取";
-            string currentStage = Instance.saveProgress != null ? Instance.saveProgress.currentStageId : "未读取";
-            string highestCleared = Instance.stageProgress != null
-                ? Instance.stageProgress.highestClearedStageId.ToString()
+            string playerName = bootstrap.playerProfile != null ? bootstrap.playerProfile.name : "未读取";
+            string currentStage = bootstrap.saveProgress != null ? bootstrap.saveProgress.currentStageId : "未读取";
+            string highestCleared = bootstrap.stageProgress != null
+                ? bootstrap.stageProgress.highestClearedStageId.ToString()
                 : "未读取";
-            int characterCount = Instance.characters != null && Instance.characters.characters != null
-                ? Instance.characters.characters.Length
+            int characterCount = bootstrap.characters != null && bootstrap.characters.characters != null
+                ? bootstrap.characters.characters.Length
                 : 0;
-            int slotCount = Instance.formation != null && Instance.formation.slots != null
-                ? Instance.formation.slots.Length
+            int slotCount = bootstrap.formation != null && bootstrap.formation.slots != null
+                ? bootstrap.formation.slots.Length
                 : 0;
 
             return
