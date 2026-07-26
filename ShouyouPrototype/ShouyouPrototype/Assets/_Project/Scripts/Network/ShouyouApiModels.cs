@@ -91,6 +91,32 @@ namespace Shouyou.Network
     }
 
     [Serializable]
+    public class StageProgressResponse
+    {
+        public string playerId;
+        public string chapterId;
+        public int highestClearedStageId;
+        public StageProgressDto[] stages;
+    }
+
+    [Serializable]
+    public sealed class StageCompleteResponse : StageProgressResponse
+    {
+        public string stageId;
+        public bool progressAdvanced;
+    }
+
+    [Serializable]
+    public sealed class StageProgressDto
+    {
+        public string id;
+        public string title;
+        public bool cleared;
+        public string clearedAt;
+        public bool unlocked;
+    }
+
+    [Serializable]
     public sealed class HealthResponse
     {
         public bool ok;

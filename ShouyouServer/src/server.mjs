@@ -1,11 +1,13 @@
 import { createServer } from "node:http";
 import {
   closeDatabase,
+  completeStage,
   getChapters,
   getFormation,
   getPlayer,
   getPlayerCharacters,
   getProgress,
+  getStageProgress,
   initializeDatabase,
   saveFormation,
   saveProgress,
@@ -102,6 +104,22 @@ const server = createServer(async (request, response) => {
         playerId,
         slots: saveFormation(playerId, slots),
       });
+      return;
+    }
+
+    if (request.method === "GET" && pathname === "/api/v1/stages/progress") {
+      const playerId = getRequiredPlayerId(url);
+      ensurePlayerExists(playerId);
+      sendJson(response, 200, getStageProgress(playerId));
+      return;
+    }
+
+    if (request.method === "PUT" && pathname === "/api/v1/stages/complete") {
+      const playerId = getRequiredPlayerId(url);
+      ensurePlayerExists(playerId);
+      const body = await readJsonBody(request);
+      const stageId = requireNonEmptyString(body.stageId, "stageId");
+      sendJson(response, 200, completeStage(playerId, stageId));
       return;
     }
 

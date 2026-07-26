@@ -57,6 +57,10 @@ Desktop.ini
 # ===== Temp / Scratch =====
 tmp_*/
 
+# ===== 开发日志 =====
+.codex-watch-state
+.codex-test-results.txt
+
 # ===== Raw / Reference Assets =====
 # all_aseet 是原始资料与参考素材目录，不作为 Unity 正式工程资产提交。
 # 真正可用的游戏资产请整理到 ShouyouPrototype/ShouyouPrototype/Assets/_Project/ 下。

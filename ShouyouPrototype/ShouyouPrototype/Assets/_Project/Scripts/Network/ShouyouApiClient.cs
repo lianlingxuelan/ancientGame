@@ -49,6 +49,11 @@ namespace Shouyou.Network
             yield return Get("/api/v1/save?playerId=" + Escape(playerId), onSuccess, onError);
         }
 
+        public IEnumerator GetStageProgress(Action<StageProgressResponse> onSuccess, Action<string> onError)
+        {
+            yield return Get("/api/v1/stages/progress?playerId=" + Escape(playerId), onSuccess, onError);
+        }
+
         public IEnumerator SaveDemoFormation(Action<FormationResponse> onSuccess, Action<string> onError)
         {
             // 第一版先把李清照和婉禾放入 1、2 号位，后面接角色选择界面后再改成真实阵容。
@@ -60,6 +65,12 @@ namespace Shouyou.Network
         {
             string body = "{\"currentChapterId\":\"chapter-1\",\"currentStageId\":\"" + EscapeJson(stageId) + "\",\"completedStageIds\":[\"1-1\"]}";
             yield return Put("/api/v1/save?playerId=" + Escape(playerId), body, onSuccess, onError);
+        }
+
+        public IEnumerator CompleteStage(string stageId, Action<StageCompleteResponse> onSuccess, Action<string> onError)
+        {
+            string body = "{\"stageId\":\"" + EscapeJson(stageId) + "\"}";
+            yield return Put("/api/v1/stages/complete?playerId=" + Escape(playerId), body, onSuccess, onError);
         }
 
         private IEnumerator Get<T>(string path, Action<T> onSuccess, Action<string> onError)

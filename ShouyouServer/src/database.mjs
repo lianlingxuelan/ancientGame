@@ -96,6 +96,16 @@ export function initializeDatabase() {
       FOREIGN KEY (current_chapter_id) REFERENCES chapters(id),
       FOREIGN KEY (current_stage_id) REFERENCES stages(id)
     );
+
+    CREATE TABLE IF NOT EXISTS player_stage_progress (
+      player_id TEXT NOT NULL,
+      stage_id TEXT NOT NULL,
+      cleared INTEGER NOT NULL DEFAULT 0,
+      cleared_at TEXT,
+      PRIMARY KEY (player_id, stage_id),
+      FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+      FOREIGN KEY (stage_id) REFERENCES stages(id) ON DELETE CASCADE
+    );
   `);
 
   seedInitialData();
@@ -342,6 +352,74 @@ export function saveProgress(playerId, progress) {
       playerId,
     );
   return getProgress(playerId);
+}
+
+export function getStageProgress(playerId) {
+  const rows = database
+    .prepare(`
+      SELECT s.id, s.title, s.chapter_id AS chapterId,
+             COALESCE(sp.cleared, 0) AS cleared,
+             sp.cleared_at AS clearedAt,
+             s.sort_order AS sortOrder
+      FROM stages s
+      LEFT JOIN player_stage_progress sp ON sp.stage_id = s.id AND sp.player_id = ?
+      WHERE s.chapter_id = 'chapter-1'
+      ORDER BY s.sort_order
+    `)
+    .all(playerId);
+
+  const highestCleared = rows
+    .filter((r) => r.cleared)
+    .reduce((max, r) => Math.max(max, r.sortOrder), 0);
+
+  const stages = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    cleared: Boolean(r.cleared),
+    clearedAt: r.clearedAt || null,
+    unlocked: r.sortOrder <= Math.max(2, highestCleared + 1),
+  }));
+
+  return {
+    playerId,
+    chapterId: 'chapter-1',
+    highestClearedStageId: highestCleared,
+    stages,
+  };
+}
+
+export function completeStage(playerId, stageId) {
+  const stage = database
+    .prepare('SELECT id, sort_order FROM stages WHERE id = ?')
+    .get(stageId);
+  if (!stage) throw createHttpError(404, '关卡不存在');
+
+  const existing = database
+    .prepare('SELECT cleared FROM player_stage_progress WHERE player_id = ? AND stage_id = ?')
+    .get(playerId, stageId);
+  const wasCleared = existing?.cleared === 1;
+
+  const now = new Date().toISOString();
+  database
+    .prepare(`
+      INSERT INTO player_stage_progress (player_id, stage_id, cleared, cleared_at)
+      VALUES (?, ?, 1, ?)
+      ON CONFLICT(player_id, stage_id) DO UPDATE SET cleared = 1, cleared_at = ?
+    `)
+    .run(playerId, stageId, now, now);
+
+  const progress = getStageProgress(playerId);
+  return {
+    ...progress,
+    stageId,
+    progressAdvanced: !wasCleared,
+  };
+}
+
+function createHttpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
 }
 
 export function closeDatabase() {

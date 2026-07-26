@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using Shouyou.Data;
 
 namespace Shouyou.Network
 {
@@ -18,6 +19,7 @@ namespace Shouyou.Network
         private ChapterListResponse chapters;
         private FormationResponse formation;
         private SaveProgressResponse saveProgress;
+        private StageProgressResponse stageProgress;
 
         public static ShouyouBackendBootstrap Instance { get; private set; }
 
@@ -26,6 +28,7 @@ namespace Shouyou.Network
         public ChapterListResponse Chapters => chapters;
         public FormationResponse Formation => formation;
         public SaveProgressResponse SaveProgress => saveProgress;
+        public StageProgressResponse StageProgress => stageProgress;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void CreateRuntimeObject()
@@ -68,6 +71,17 @@ namespace Shouyou.Network
             Instance.StartCoroutine(Instance.SaveDemoFormation());
         }
 
+        public static void CompleteMainlineStage(int stageId)
+        {
+            if (Instance == null)
+            {
+                Debug.LogWarning("后端联调对象还没有创建，主线通关结果暂时只保存到本地。");
+                return;
+            }
+
+            Instance.StartCoroutine(Instance.CompleteMainlineStageRoutine(stageId));
+        }
+
         private IEnumerator LoadInitialData()
         {
             Debug.Log("开始连接本地后端：" + baseUrl);
@@ -96,6 +110,14 @@ namespace Shouyou.Network
                 data => saveProgress = data,
                 error => Debug.LogWarning("存档读取失败：\n" + error));
 
+            yield return apiClient.GetStageProgress(
+                data =>
+                {
+                    stageProgress = data;
+                    LevelProgressManager.Instance.SyncHighestClearedStage(data.highestClearedStageId);
+                },
+                error => Debug.LogWarning("主线进度读取失败，将使用本地 Demo 进度：\n" + error));
+
             LogLoadedSummary();
         }
 
@@ -110,6 +132,21 @@ namespace Shouyou.Network
                 error => Debug.LogWarning("编队保存失败，请确认本地后端仍在运行。\n" + error));
         }
 
+        private IEnumerator CompleteMainlineStageRoutine(int stageId)
+        {
+            string backendStageId = "1-" + Mathf.Clamp(stageId, 1, LevelProgressManager.MaxMainlineStageId);
+
+            yield return apiClient.CompleteStage(
+                backendStageId,
+                data =>
+                {
+                    stageProgress = data;
+                    LevelProgressManager.Instance.SyncHighestClearedStage(data.highestClearedStageId);
+                    Debug.Log("主线通关已同步到后端：" + backendStageId);
+                },
+                error => Debug.LogWarning("主线通关同步后端失败，已保留本地进度：\n" + error));
+        }
+
         private void LogLoadedSummary()
         {
             string playerName = playerProfile != null ? playerProfile.name : "未读取";
@@ -117,13 +154,15 @@ namespace Shouyou.Network
             int chapterCount = chapters != null && chapters.chapters != null ? chapters.chapters.Length : 0;
             int slotCount = formation != null && formation.slots != null ? formation.slots.Length : 0;
             string currentStage = saveProgress != null ? saveProgress.currentStageId : "未读取";
+            int highestClearedStage = stageProgress != null ? stageProgress.highestClearedStageId : 0;
 
             Debug.Log(
                 "后端数据读取完成：玩家=" + playerName +
                 "，角色数=" + characterCount +
                 "，章节数=" + chapterCount +
                 "，编队槽位=" + slotCount +
-                "，当前关卡=" + currentStage);
+                "，当前关卡=" + currentStage +
+                "，最高通关=" + highestClearedStage);
         }
     }
 }
