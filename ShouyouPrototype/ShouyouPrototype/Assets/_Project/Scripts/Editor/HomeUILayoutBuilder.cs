@@ -306,17 +306,27 @@ namespace Shouyou.EditorTools
 
             // 战斗页：先搭建关卡选择和编队入口。
             RectTransform battle = BuildPage(pageRoot, "Page_Battle", "回合 PVE");
+            Transform battleContentPanel = battle.Find("ContentPanel");
+            if (battleContentPanel != null)
+            {
+                battleContentPanel.gameObject.SetActive(false);
+            }
+
             BuildBattleArenaPreview(battle);
             BuildInfoCard(battle, "BattleCard_Main", "第一章：春日庭院", "推荐等级 Lv.1    关卡进度 0 / 6\n词意相生，回合制自动战斗\n点击下方“开始本关”结算试炼", -520, 190, 480, 210);
+            battle.Find("BattleCard_Main").gameObject.SetActive(false);
             BuildInfoCard(battle, "BattleCard_Team", "六人编队", "前排 / 后排 / 词意搭配\n点击后接入编队页面", 520, 190, 480, 210);
+            battle.Find("BattleCard_Team").gameObject.SetActive(false);
             RenameInfoCardButton(battle, "BattleCard_Main", "BattleStartCardButton", "开始本关");
             RenameInfoCardButton(battle, "BattleCard_Team", "BattleFormationCardButton", "进入编队");
             BuildStagePanel(battle, -520, -280);
+            battle.Find("StagePanel").gameObject.SetActive(false);
             BuildFormationPanel(battle, 520, -280);
+            battle.Find("FormationPanel").gameObject.SetActive(false);
             // 战斗页业务按钮要避开底部导航栏。
             // 之前放得太低，容易和底部“战斗”导航混在一起，导致玩家误以为点了开始战斗。
-            BuildActionButton(battle, "StartBattleButton", "开始本关", 0, -170, 230, 68, 24);
-            BuildActionButton(battle, "BackMainlineButton", "返回主线", 300, -170, 210, 68, 22);
+            BuildActionButton(battle, "StartBattleButton", "开始战斗", 0, -300, 230, 68, 24);
+            BuildActionButton(battle, "BackMainlineButton", "返回主线", 760, 300, 210, 68, 22);
 
             // 剧情页：把大段剧情拆成主线、传记和支线三个入口。
             RectTransform story = BuildPage(pageRoot, "Page_Story", "故事与传记");
