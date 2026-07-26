@@ -306,16 +306,17 @@ namespace Shouyou.EditorTools
 
             // 战斗页：先搭建关卡选择和编队入口。
             RectTransform battle = BuildPage(pageRoot, "Page_Battle", "回合 PVE");
-            BuildInfoCard(battle, "BattleCard_Main", "第一章：春日庭院", "推荐等级 Lv.1    关卡进度 0 / 6\n词意相生，回合制自动战斗\n点击下方“开始本关”结算试炼", -360, 80, 620, 300);
-            BuildInfoCard(battle, "BattleCard_Team", "六人编队", "前排 / 后排 / 词意搭配\n点击后接入编队页面", 360, 80, 620, 300);
+            BuildBattleArenaPreview(battle);
+            BuildInfoCard(battle, "BattleCard_Main", "第一章：春日庭院", "推荐等级 Lv.1    关卡进度 0 / 6\n词意相生，回合制自动战斗\n点击下方“开始本关”结算试炼", -520, 190, 480, 210);
+            BuildInfoCard(battle, "BattleCard_Team", "六人编队", "前排 / 后排 / 词意搭配\n点击后接入编队页面", 520, 190, 480, 210);
             RenameInfoCardButton(battle, "BattleCard_Main", "BattleStartCardButton", "开始本关");
             RenameInfoCardButton(battle, "BattleCard_Team", "BattleFormationCardButton", "进入编队");
-            BuildStagePanel(battle, -360, -300);
-            BuildFormationPanel(battle, 360, -300);
+            BuildStagePanel(battle, -520, -280);
+            BuildFormationPanel(battle, 520, -280);
             // 战斗页业务按钮要避开底部导航栏。
             // 之前放得太低，容易和底部“战斗”导航混在一起，导致玩家误以为点了开始战斗。
-            BuildActionButton(battle, "StartBattleButton", "开始本关", 170, -220, 230, 68, 24);
-            BuildActionButton(battle, "BackMainlineButton", "返回主线", 450, -220, 210, 68, 22);
+            BuildActionButton(battle, "StartBattleButton", "开始本关", 0, -170, 230, 68, 24);
+            BuildActionButton(battle, "BackMainlineButton", "返回主线", 300, -170, 210, 68, 22);
 
             // 剧情页：把大段剧情拆成主线、传记和支线三个入口。
             RectTransform story = BuildPage(pageRoot, "Page_Story", "故事与传记");
@@ -849,6 +850,133 @@ namespace Shouyou.EditorTools
             }
         }
 
+        private static void BuildBattleArenaPreview(RectTransform page)
+        {
+            // 战斗页第一版视觉层：
+            // 按《古梦域回合制 6V6 PVE 战斗 UI 布局需求文档》搭建。
+            // 核心原则：左右头像承载战斗数据，中间背景区域保持干净，只留给技能特效和飘字。
+            RectTransform root = FindOrCreateRect(page, "BattleArenaRoot");
+            StretchFull(root);
+            root.SetAsFirstSibling();
+
+            Image background = FindOrCreateImage(root, "BattleBackground");
+            StretchFull(background.rectTransform);
+            background.sprite = LoadBattleSprite("battle_bg_first.png");
+            background.color = Color.white;
+            background.preserveAspect = false;
+            background.raycastTarget = false;
+
+            Image warmOverlay = FindOrCreateImage(root, "BattleWarmOverlay");
+            StretchFull(warmOverlay.rectTransform);
+            warmOverlay.color = new Color32(255, 198, 226, 34);
+            warmOverlay.raycastTarget = false;
+
+            RectTransform topTip = FindOrCreateRect(root, "BattleRoundTip");
+            SetRect(topTip, 0, 310, 520, 58);
+            AddPanelImage(topTip, new Color32(255, 248, 236, 120));
+            topTip.GetComponent<Image>().raycastTarget = false;
+            SetupLabel(topTip, "第一回合    我方行动    回合 PVE Demo", 24, TextAnchor.MiddleCenter);
+
+            RectTransform effectArea = FindOrCreateRect(root, "BattleEffectArea");
+            SetRect(effectArea, 0, 5, 860, 520);
+            Image effectAreaImage = effectArea.GetComponent<Image>();
+            if (effectAreaImage != null)
+            {
+                Object.DestroyImmediate(effectAreaImage);
+            }
+
+            BuildBattleSide(root, true);
+            BuildBattleSide(root, false);
+
+            RectTransform skillBar = FindOrCreateRect(root, "BattleSkillBar");
+            SetRect(skillBar, 0, -398, 980, 108);
+            AddPanelImage(skillBar, new Color32(226, 205, 244, 118));
+            skillBar.GetComponent<Image>().raycastTarget = false;
+
+            for (int i = 0; i < 4; i++)
+            {
+                RectTransform skill = FindOrCreateRect(skillBar, "SkillButton_" + (i + 1));
+                SetRect(skill, -360 + i * 145, 0, 90, 78);
+                AddCommonButtonImage(skill);
+                Image skillImage = skill.GetComponent<Image>();
+                Sprite skillSprite = LoadBattleSprite("skill_button_0" + (i + 1) + ".png");
+                if (skillSprite != null)
+                {
+                    skillImage.sprite = skillSprite;
+                    skillImage.type = Image.Type.Simple;
+                    skillImage.preserveAspect = true;
+                }
+
+                SetupButtonLabel(skill, i == 0 ? "普攻" : "技能" + i, 18, TextAnchor.MiddleCenter);
+            }
+
+            RectTransform actionPoint = FindOrCreateRect(skillBar, "ActionPointText");
+            SetRect(actionPoint, 270, 0, 170, 58);
+            AddPanelImage(actionPoint, new Color32(255, 248, 236, 150));
+            actionPoint.GetComponent<Image>().raycastTarget = false;
+            SetupLabel(actionPoint, "行动点 3 / 5", 22, TextAnchor.MiddleCenter);
+
+            BuildActionButton(skillBar, "AutoBattleButton", "自动", 460, 0, 120, 58, 20);
+            BuildActionButton(skillBar, "RetreatButton", "撤退", 610, 0, 120, 58, 20);
+        }
+
+        private static void BuildBattleSide(RectTransform root, bool isAlly)
+        {
+            // 6V6 固定网格：左右各 2 竖列 × 3 行。
+            // 己方列1=前排、列2=后排；敌方镜像同理。中间区域不放固定立绘。
+            string prefix = isAlly ? "Ally" : "Enemy";
+            float columnA = isAlly ? -820f : 680f;
+            float columnB = isAlly ? -675f : 825f;
+            string[] names = isAlly
+                ? new[] { "李清照", "空位", "空位", "空位", "空位", "空位" }
+                : new[] { "敌一", "敌二", "敌三", "敌四", "敌五", "敌六" };
+
+            for (int i = 0; i < 6; i++)
+            {
+                bool backColumn = i >= 3;
+                float x = backColumn ? columnB : columnA;
+                float y = 190f - (i % 3) * 150f;
+
+                RectTransform slot = FindOrCreateRect(root, prefix + "BattleSlot_" + (i + 1));
+                SetRect(slot, x, y, 118, 134);
+                AddPanelImage(slot, new Color32(255, 248, 236, 118));
+                slot.GetComponent<Image>().raycastTarget = false;
+
+                Image selectedRing = FindOrCreateImage(slot, "SelectedRing");
+                SetRect(selectedRing.rectTransform, 0, 22, 88, 88);
+                selectedRing.color = i == 0 && isAlly ? new Color32(255, 224, 145, 155) : new Color32(255, 224, 145, 0);
+                selectedRing.raycastTarget = false;
+
+                Image portrait = FindOrCreateImage(slot, "Portrait");
+                SetRect(portrait.rectTransform, 0, 22, 76, 76);
+                string spriteName = isAlly
+                    ? "ally_portrait_0" + Mathf.Clamp(i + 1, 1, 4) + ".png"
+                    : "enemy_portrait_0" + Mathf.Clamp(i + 1, 1, 3) + ".png";
+                portrait.sprite = LoadBattleSprite(spriteName);
+                portrait.color = portrait.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0.47f);
+                portrait.preserveAspect = true;
+                portrait.raycastTarget = false;
+
+                RectTransform hpBarBg = FindOrCreateRect(slot, "HpBarBg");
+                SetRect(hpBarBg, 0, -28, 86, 10);
+                AddPanelImage(hpBarBg, new Color32(70, 44, 70, 120));
+                hpBarBg.GetComponent<Image>().raycastTarget = false;
+
+                RectTransform hpBar = FindOrCreateRect(hpBarBg, "HpBar");
+                hpBar.anchorMin = new Vector2(0, 0.5f);
+                hpBar.anchorMax = new Vector2(0, 0.5f);
+                hpBar.pivot = new Vector2(0, 0.5f);
+                hpBar.anchoredPosition = Vector2.zero;
+                hpBar.sizeDelta = new Vector2(i == 0 ? 86 : 68, 10);
+                AddPanelImage(hpBar, new Color32(151, 213, 142, 220));
+                hpBar.GetComponent<Image>().raycastTarget = false;
+
+                RectTransform nameLabel = FindOrCreateRect(slot, "NameLabel");
+                SetRect(nameLabel, 0, -52, 116, 24);
+                SetupLabel(nameLabel, names[i], 16, TextAnchor.MiddleCenter);
+            }
+        }
+
         private static void BuildStoryActionBar(RectTransform page)
         {
             // 剧情操作入口占位：正式接入剧情播放器后，再绑定跳过和回看逻辑。
@@ -1308,6 +1436,13 @@ namespace Shouyou.EditorTools
         {
             // commonBg 是当前梦域/主线通用背景资源目录，先统一从这里取图。
             return LoadSpriteAtPath("Assets/_Project/Art/UI/CommonBg/" + spriteName, spriteName);
+        }
+
+        private static Sprite LoadBattleSprite(string spriteName)
+        {
+            // 战斗页专用资源目录。
+            // 这里的文件来自外部 battle_cg，但已经复制成英文名，避免中文路径或编码问题影响 Unity 引用。
+            return LoadSpriteAtPath("Assets/_Project/Art/Battle/" + spriteName, spriteName);
         }
 
         private static Sprite LoadSpriteAtPath(string assetPath, string spriteName)
