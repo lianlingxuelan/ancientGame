@@ -82,6 +82,73 @@ namespace Shouyou.Network
             Instance.StartCoroutine(Instance.CompleteMainlineStageRoutine(stageId));
         }
 
+        public static bool HasBattleReadyFormation()
+        {
+            FormationResponse currentFormation = Instance != null ? Instance.formation : null;
+            if (currentFormation == null || currentFormation.slots == null)
+            {
+                // 后端还没返回时使用 Demo 默认队伍，避免本地服务器未启动时阻塞战斗测试。
+                return true;
+            }
+
+            for (int i = 0; i < currentFormation.slots.Length; i++)
+            {
+                if (currentFormation.slots[i] != null && !string.IsNullOrEmpty(currentFormation.slots[i].characterId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static string GetFormationSummary()
+        {
+            FormationResponse currentFormation = Instance != null ? Instance.formation : null;
+            if (currentFormation == null || currentFormation.slots == null)
+            {
+                return "李清照 / 空位 / 空位 / 空位 / 空位 / 空位（本地默认队伍）";
+            }
+
+            string[] labels = new string[6];
+            for (int i = 0; i < labels.Length; i++)
+            {
+                labels[i] = "空位";
+            }
+
+            for (int i = 0; i < currentFormation.slots.Length && i < labels.Length; i++)
+            {
+                FormationSlotDto slot = currentFormation.slots[i];
+                if (slot != null && !string.IsNullOrEmpty(slot.characterId))
+                {
+                    labels[i] = string.IsNullOrEmpty(slot.characterName) ? slot.characterId : slot.characterName;
+                }
+            }
+
+            return string.Join(" / ", labels);
+        }
+
+        public static int GetFormationPower()
+        {
+            FormationResponse currentFormation = Instance != null ? Instance.formation : null;
+            if (currentFormation == null || currentFormation.slots == null)
+            {
+                return 1200;
+            }
+
+            int power = 0;
+            for (int i = 0; i < currentFormation.slots.Length; i++)
+            {
+                FormationSlotDto slot = currentFormation.slots[i];
+                if (slot != null && !string.IsNullOrEmpty(slot.characterId))
+                {
+                    power += slot.characterId == "li-qingzhao" ? 1200 : 900;
+                }
+            }
+
+            return power;
+        }
+
         private IEnumerator LoadInitialData()
         {
             Debug.Log("开始连接本地后端：" + baseUrl);

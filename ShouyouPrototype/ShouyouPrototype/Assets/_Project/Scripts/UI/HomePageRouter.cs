@@ -312,18 +312,20 @@ namespace Shouyou.UI
         // 编队相关
         // -------------------------
 
-        public void ShowFormationSlotOne() { ShowFormationSlot("前排 1：李清照"); }
-        public void ShowFormationSlotTwo() { ShowFormationSlot("前排 2：空位"); }
-        public void ShowFormationSlotThree() { ShowFormationSlot("前排 3：空位"); }
-        public void ShowFormationSlotFour() { ShowFormationSlot("后排 1：空位"); }
-        public void ShowFormationSlotFive() { ShowFormationSlot("后排 2：空位"); }
-        public void ShowFormationSlotSix() { ShowFormationSlot("后排 3：空位"); }
+        public void ShowFormationSlotOne() { ShowFormationSlot("前排 1：" + GetFormationSlotLabel(1)); }
+        public void ShowFormationSlotTwo() { ShowFormationSlot("前排 2：" + GetFormationSlotLabel(2)); }
+        public void ShowFormationSlotThree() { ShowFormationSlot("前排 3：" + GetFormationSlotLabel(3)); }
+        public void ShowFormationSlotFour() { ShowFormationSlot("后排 1：" + GetFormationSlotLabel(4)); }
+        public void ShowFormationSlotFive() { ShowFormationSlot("后排 2：" + GetFormationSlotLabel(5)); }
+        public void ShowFormationSlotSix() { ShowFormationSlot("后排 3：" + GetFormationSlotLabel(6)); }
 
         public void EditFormation()
         {
             ShowStoryDetail(
                 "编辑阵容",
-                "正式版本将在这里打开角色选择列表。\n\n当前 Demo 已预留六个位置：前排 3 人、后排 3 人。\n点击空位可以继续接入角色选择。\n\n当前队伍：李清照 / 空位 / 空位 / 空位 / 空位 / 空位"
+                "正式版本将在这里打开角色选择列表。\n\n当前 Demo 已预留六个位置：前排 3 人、后排 3 人。\n点击空位可以继续接入角色选择。\n\n当前队伍：" +
+                ShouyouBackendBootstrap.GetFormationSummary() +
+                "\n当前战力：" + ShouyouBackendBootstrap.GetFormationPower()
             );
         }
 
@@ -369,6 +371,16 @@ namespace Shouyou.UI
                 ShowStoryDetail(
                     "进入战斗",
                     currentMainlineStageName + "\n\n该关卡暂未解锁，不能进入战斗。\n\n正式版本会提示玩家先完成前置剧情或提升角色等级。"
+                );
+                return;
+            }
+
+            if (!ShouyouBackendBootstrap.HasBattleReadyFormation())
+            {
+                ShowStoryDetail(
+                    "进入战斗",
+                    currentMainlineStageName +
+                    "\n\n当前没有可出战角色，不能开始战斗。\n\n请先进入“行迹编队”至少放入 1 名角色。"
                 );
                 return;
             }
@@ -511,6 +523,8 @@ namespace Shouyou.UI
                 storyDetailBody,
                 currentMainlineStageName +
                 "\n\n李清照发动词意：如梦令。\n队伍获得气韵增益，顺利完成本次 PVE 试炼。" +
+                "\n\n出战队伍：" + ShouyouBackendBootstrap.GetFormationSummary() +
+                "\n队伍战力：" + ShouyouBackendBootstrap.GetFormationPower() +
                 "\n\n结算奖励：\n铜钱 1200\n词意经验 80\n主线进度 +1" +
                 "\n\n" + progressText +
                 "\n\n下一步你可以返回主线继续选关，也可以先去编队调整阵容。"
@@ -538,8 +552,12 @@ namespace Shouyou.UI
         /// </summary>
         private void ConfigureStoryDetailForMainlineStage(bool unlocked, bool cleared)
         {
-            UnityEngine.Events.UnityAction readAction = unlocked ? StartStoryReading : ShowLockedStageHint;
-            UnityEngine.Events.UnityAction skipAction = cleared ? EnterBattlePrototype : SkipStory;
+            UnityEngine.Events.UnityAction readAction = unlocked
+                ? new UnityEngine.Events.UnityAction(StartStoryReading)
+                : new UnityEngine.Events.UnityAction(ShowLockedStageHint);
+            UnityEngine.Events.UnityAction skipAction = cleared
+                ? new UnityEngine.Events.UnityAction(EnterBattlePrototype)
+                : new UnityEngine.Events.UnityAction(SkipStory);
 
             ConfigureDetailButton(
                 storyReadButton,
@@ -697,6 +715,17 @@ namespace Shouyou.UI
         private void ShowFormationSlot(string slotName)
         {
             ShowStoryDetail("编队位置", slotName + "\n\n点击空位后，正式版本会打开角色选择列表。\n当前先保留位置反馈。");
+        }
+
+        private string GetFormationSlotLabel(int slotIndex)
+        {
+            string[] labels = ShouyouBackendBootstrap.GetFormationSummary().Split('/');
+            if (slotIndex <= 0 || slotIndex > labels.Length)
+            {
+                return "空位";
+            }
+
+            return labels[slotIndex - 1].Trim();
         }
 
         /// <summary>
