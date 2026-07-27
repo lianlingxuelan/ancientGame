@@ -54,8 +54,13 @@ namespace Shouyou.UI
         /// </summary>
         public void SaveCurrentFormation()
         {
-            ShouyouBackendBootstrap.SaveFormationSlots(selectedCharacterIds);
-            RefreshView("已提交保存请求。保存成功后 Console 会显示“编队已保存到后端”。");
+            RefreshView("正在保存编队，请稍候。");
+            ShouyouBackendBootstrap.SaveFormationSlots(
+                selectedCharacterIds,
+                delegate(bool success, string message)
+                {
+                    RefreshView(success ? "保存成功：" + GetLocalFormationSummary() : "保存失败：" + message);
+                });
         }
 
         public void SelectSlotOne() { CycleSlot(0); }
@@ -87,13 +92,13 @@ namespace Shouyou.UI
                 if (!IsUsedByOtherSlot(nextId, slotIndex))
                 {
                     selectedCharacterIds[slotIndex] = nextId;
-                    RefreshView("已将 " + GetSlotDisplayName(slotIndex) + " 放入 " + GetPositionLabel(slotIndex) + "。");
+                    RefreshView("已将 " + GetSlotDisplayName(slotIndex) + " 放入 " + GetPositionLabel(slotIndex) + "。当前需要点击“保存编队”才会写入后端。");
                     return;
                 }
             }
 
             selectedCharacterIds[slotIndex] = null;
-            RefreshView(GetPositionLabel(slotIndex) + " 已切换为空位。");
+            RefreshView(GetPositionLabel(slotIndex) + " 已切换为空位。当前需要点击“保存编队”才会写入后端。");
         }
 
         private void BindRuntimeReferences()
@@ -141,7 +146,26 @@ namespace Shouyou.UI
 
         private string GetSlotDisplayName(int slotIndex)
         {
-            return ShouyouBackendBootstrap.GetCharacterNameById(selectedCharacterIds[slotIndex]);
+            string characterId = selectedCharacterIds[slotIndex];
+            string displayName = ShouyouBackendBootstrap.GetCharacterNameById(characterId);
+            CharacterDto character = FindCandidate(characterId);
+            if (character != null && !character.unlocked)
+            {
+                return displayName + "（试用）";
+            }
+
+            return displayName;
+        }
+
+        public string GetLocalFormationSummary()
+        {
+            string[] labels = new string[SlotCount];
+            for (int i = 0; i < labels.Length; i++)
+            {
+                labels[i] = GetSlotDisplayName(i);
+            }
+
+            return string.Join(" / ", labels);
         }
 
         private int CountFilledSlots()
@@ -210,6 +234,25 @@ namespace Shouyou.UI
             }
 
             return false;
+        }
+
+        private CharacterDto FindCandidate(string characterId)
+        {
+            if (string.IsNullOrEmpty(characterId))
+            {
+                return null;
+            }
+
+            CharacterDto[] candidates = ShouyouBackendBootstrap.GetFormationCandidateCharacters();
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                if (candidates[i] != null && candidates[i].id == characterId)
+                {
+                    return candidates[i];
+                }
+            }
+
+            return null;
         }
 
         private static int FindCandidateIndex(CharacterDto[] candidates, string characterId)

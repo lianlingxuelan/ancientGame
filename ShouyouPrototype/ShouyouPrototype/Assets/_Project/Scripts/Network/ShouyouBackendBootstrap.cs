@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using Shouyou.Data;
@@ -92,14 +93,21 @@ namespace Shouyou.Network
 
         public static void SaveFormationSlots(string[] characterIds)
         {
+            SaveFormationSlots(characterIds, null);
+        }
+
+        public static void SaveFormationSlots(string[] characterIds, Action<bool, string> onCompleted)
+        {
             ShouyouBackendBootstrap bootstrap = EnsureRuntimeObject();
             if (bootstrap == null)
             {
-                Debug.LogWarning("后端联调对象还没有创建，暂时无法保存真实编队。");
+                const string message = "后端联调对象还没有创建，暂时无法保存真实编队。";
+                Debug.LogWarning(message);
+                onCompleted?.Invoke(false, message);
                 return;
             }
 
-            bootstrap.StartCoroutine(bootstrap.SaveFormationSlotsRoutine(characterIds));
+            bootstrap.StartCoroutine(bootstrap.SaveFormationSlotsRoutine(characterIds, onCompleted));
         }
 
         public static void CompleteMainlineStage(int stageId)
@@ -367,16 +375,23 @@ namespace Shouyou.Network
                 error => Debug.LogWarning("编队保存失败，请确认本地后端仍在运行。\n" + error));
         }
 
-        private IEnumerator SaveFormationSlotsRoutine(string[] characterIds)
+        private IEnumerator SaveFormationSlotsRoutine(string[] characterIds, Action<bool, string> onCompleted)
         {
             yield return apiClient.SaveFormation(
                 characterIds,
                 data =>
                 {
                     formation = data;
-                    Debug.Log("编队已保存到后端：" + GetFormationSummary());
+                    string message = "编队已保存到后端：" + GetFormationSummary();
+                    Debug.Log(message);
+                    onCompleted?.Invoke(true, message);
                 },
-                error => Debug.LogWarning("真实编队保存失败，请确认本地后端仍在运行。\n" + error));
+                error =>
+                {
+                    string message = "真实编队保存失败，请确认本地后端仍在运行。\n" + error;
+                    Debug.LogWarning(message);
+                    onCompleted?.Invoke(false, message);
+                });
         }
 
         private IEnumerator CompleteMainlineStageRoutine(int stageId)

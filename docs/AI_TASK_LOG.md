@@ -1626,3 +1626,90 @@ remaining_rounds: 0
 - 遗留问题：无
 ---BLOCK_SUMMARY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo11-FE-R1-CODE
+parent_id: Todo10-FE-R2-FIX
+round: 1
+timestamp: 2026-07-27 08:35:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 编队页体验反馈
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_CHANGE_FILES_START---
+ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/FormationDemoController.cs
+ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouBackendBootstrap.cs
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 编队保存增加回调，保存成功或失败会回显在编队页提示区，不再只依赖 Console。
+2. 编队页对 locked 但允许 Demo 上阵的角色显示“试用”标记，当前用于婉禾。
+3. 点击槽位后提示“需要点击保存编队才会写入后端”，减少误解。
+4. 战斗页开场提示增加当前阵容摘要，便于确认本场战斗实际使用了谁。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+1. git diff --check 通过；仅有 Git LF/CRLF 行尾提示。
+2. rg 确认 SaveFormationSlots 回调、GetLocalFormationSummary、“试用”和“当前阵容”文案已接入。
+3. 待 Unity 验证：编队页保存成功后提示区出现“保存成功：李清照 / 婉禾（试用） / 空位...”一类结果。
+4. 待 Unity 验证：进入战斗页后，战斗提示文本显示当前阵容。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo11-FE-R1-REV
+parent_id: Todo11-FE-R1-CODE
+round: 1
+timestamp: 2026-07-27 20:15:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 编队页体验反馈
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+本次审查无缺陷。
+
+代码质量：
+- SaveFormationSlots 新增回调重载，默认参数保持向后兼容
+- onCompleted?.Invoke null 安全
+- "试用"标签 + "保存后才写入"提示，用户路径清晰
+- FindCandidate 复用已有 API，无重复逻辑
+- 战斗页阵容摘要仅追加一行字符串，无副作用
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：编队保存回调/试用标记/保存提示/战斗阵容摘要
+- 状态：PASS，零缺陷，1轮过
+- 遗留：无
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo11-FE-R1-PASS
+parent_id: Todo11-FE-R1-REV
+round: 1
+timestamp: 2026-07-27 20:15:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 编队页体验反馈
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：4个编队页UX改进，1轮通过
+- 最终状态：通过
+- 遗留问题：无
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===

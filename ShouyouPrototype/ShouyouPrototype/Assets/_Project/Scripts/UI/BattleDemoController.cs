@@ -63,7 +63,10 @@ namespace Shouyou.UI
                 enemyUnits[i] = CreateEnemyUnit(i);
             }
 
-            SetBattleMessage("第一回合：我方行动。选择敌方头像，或直接点击“开始战斗”。");
+            SetBattleMessage(
+                "第一回合：我方行动。选择敌方头像，或直接点击“开始战斗”。" +
+                "\n当前阵容：" + ShouyouBackendBootstrap.GetFormationSummary()
+            );
             RefreshAllViews();
         }
 
