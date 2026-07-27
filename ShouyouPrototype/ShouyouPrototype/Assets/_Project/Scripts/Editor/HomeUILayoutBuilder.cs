@@ -111,6 +111,20 @@ namespace Shouyou.EditorTools
             SetObject(serializedTheme, "dreamTheme", dreamTheme);
             serializedTheme.ApplyModifiedPropertiesWithoutUndo();
 
+            RectTransform battlePage = pageRoot.Find("Page_Battle") as RectTransform;
+            BattleDemoController battleController = battlePage == null ? null : battlePage.GetComponent<BattleDemoController>();
+            if (battlePage != null && battleController == null)
+            {
+                battleController = battlePage.gameObject.AddComponent<BattleDemoController>();
+            }
+
+            RectTransform formationPage = pageRoot.Find("Page_Formation") as RectTransform;
+            FormationDemoController formationController = formationPage == null ? null : formationPage.GetComponent<FormationDemoController>();
+            if (formationPage != null && formationController == null)
+            {
+                formationController = formationPage.gameObject.AddComponent<FormationDemoController>();
+            }
+
             // 自动绑定底部导航按钮的点击事件。
             BindNav(bottomNav, "Nav_Home", router, router.ShowHome);
             BindNav(bottomNav, "Nav_Character", router, router.ShowCharacter);
@@ -123,7 +137,12 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_Character"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Battle"), "BackHomeButton", router, router.ReturnHome);
             BindButton(pageRoot.Find("Page_Battle"), "BackMainlineButton", router, router.ShowMainlineChapter);
-            BindButton(pageRoot.Find("Page_Battle"), "StartBattleButton", router, router.ResolveBattleVictory);
+            if (battleController != null)
+            {
+                BindButton(pageRoot.Find("Page_Battle"), "StartBattleButton", battleController, battleController.PerformPlayerAttack);
+                BindButton(pageRoot.Find("Page_Battle"), "AutoBattleButton", battleController, battleController.PerformAutoAttacks);
+                BindButton(pageRoot.Find("Page_Battle"), "RetreatButton", battleController, battleController.RetreatBattle);
+            }
             BindButton(pageRoot.Find("Page_Battle"), "BattleStartCardButton", router, router.ResolveBattleVictory);
             BindButton(pageRoot.Find("Page_Battle"), "BattleFormationCardButton", router, router.ShowFormation);
             BindButton(pageRoot.Find("Page_Story"), "BackHomeButton", router, router.ReturnHome);
@@ -157,14 +176,27 @@ namespace Shouyou.EditorTools
             BindButton(pageRoot.Find("Page_DreamDomain"), "EnterDreamButton", router, router.ShowDreamNodeDetail);
 
             // 编队页：六个位置和底部业务按钮。
-            BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_1", router, router.ShowFormationSlotOne);
-            BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_2", router, router.ShowFormationSlotTwo);
-            BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_3", router, router.ShowFormationSlotThree);
-            BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_4", router, router.ShowFormationSlotFour);
-            BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_5", router, router.ShowFormationSlotFive);
-            BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_6", router, router.ShowFormationSlotSix);
+            if (formationController != null)
+            {
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_1", formationController, formationController.SelectSlotOne);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_2", formationController, formationController.SelectSlotTwo);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_3", formationController, formationController.SelectSlotThree);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_4", formationController, formationController.SelectSlotFour);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_5", formationController, formationController.SelectSlotFive);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_6", formationController, formationController.SelectSlotSix);
+                BindButton(pageRoot.Find("Page_Formation"), "SaveFormationButton", formationController, formationController.SaveCurrentFormation);
+            }
+            else
+            {
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_1", router, router.ShowFormationSlotOne);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_2", router, router.ShowFormationSlotTwo);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_3", router, router.ShowFormationSlotThree);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_4", router, router.ShowFormationSlotFour);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_5", router, router.ShowFormationSlotFive);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_6", router, router.ShowFormationSlotSix);
+                BindButton(pageRoot.Find("Page_Formation"), "SaveFormationButton", router, router.SaveFormation);
+            }
             BindButton(pageRoot.Find("Page_Formation"), "EditFormationButton", router, router.EditFormation);
-            BindButton(pageRoot.Find("Page_Formation"), "SaveFormationButton", router, router.SaveFormation);
             BindButton(pageRoot.Find("Page_Formation"), "BondPreviewButton", router, router.PreviewBond);
 
             // 剧情页三张章节卡片的详情按钮。
@@ -897,6 +929,12 @@ namespace Shouyou.EditorTools
                 Object.DestroyImmediate(effectAreaImage);
             }
 
+            RectTransform battleMessage = FindOrCreateRect(effectArea, "BattleMessage");
+            SetRect(battleMessage, 0, -210, 780, 70);
+            AddPanelImage(battleMessage, new Color32(255, 248, 236, 95));
+            battleMessage.GetComponent<Image>().raycastTarget = false;
+            SetupLabel(battleMessage, "第一回合：我方行动。选择敌方头像，或直接点击“开始战斗”。", 22, TextAnchor.MiddleCenter);
+
             BuildBattleSide(root, true);
             BuildBattleSide(root, false);
 
@@ -926,7 +964,7 @@ namespace Shouyou.EditorTools
             SetRect(actionPoint, 270, 0, 170, 58);
             AddPanelImage(actionPoint, new Color32(255, 248, 236, 150));
             actionPoint.GetComponent<Image>().raycastTarget = false;
-            SetupLabel(actionPoint, "行动点 3 / 5", 22, TextAnchor.MiddleCenter);
+            SetupLabel(actionPoint, "行动点 3 / 3", 22, TextAnchor.MiddleCenter);
 
             BuildActionButton(skillBar, "AutoBattleButton", "自动", 460, 0, 120, 58, 20);
             BuildActionButton(skillBar, "RetreatButton", "撤退", 610, 0, 120, 58, 20);
@@ -952,7 +990,15 @@ namespace Shouyou.EditorTools
                 RectTransform slot = FindOrCreateRect(root, prefix + "BattleSlot_" + (i + 1));
                 SetRect(slot, x, y, 118, 134);
                 AddPanelImage(slot, new Color32(255, 248, 236, 118));
-                slot.GetComponent<Image>().raycastTarget = false;
+                Image slotImage = slot.GetComponent<Image>();
+                slotImage.raycastTarget = true;
+                Button slotButton = slot.GetComponent<Button>();
+                if (slotButton == null)
+                {
+                    slotButton = slot.gameObject.AddComponent<Button>();
+                }
+
+                slotButton.targetGraphic = slotImage;
 
                 Image selectedRing = FindOrCreateImage(slot, "SelectedRing");
                 SetRect(selectedRing.rectTransform, 0, 22, 88, 88);

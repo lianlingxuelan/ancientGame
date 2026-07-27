@@ -90,6 +90,18 @@ namespace Shouyou.Network
             bootstrap.StartCoroutine(bootstrap.SaveDemoFormation());
         }
 
+        public static void SaveFormationSlots(string[] characterIds)
+        {
+            ShouyouBackendBootstrap bootstrap = EnsureRuntimeObject();
+            if (bootstrap == null)
+            {
+                Debug.LogWarning("后端联调对象还没有创建，暂时无法保存真实编队。");
+                return;
+            }
+
+            bootstrap.StartCoroutine(bootstrap.SaveFormationSlotsRoutine(characterIds));
+        }
+
         public static void CompleteMainlineStage(int stageId)
         {
             ShouyouBackendBootstrap bootstrap = EnsureRuntimeObject();
@@ -167,6 +179,110 @@ namespace Shouyou.Network
             }
 
             return power;
+        }
+
+        public static CharacterDto[] GetUnlockedCharacters()
+        {
+            CharacterListResponse currentCharacters = Instance != null ? Instance.characters : null;
+            if (currentCharacters == null || currentCharacters.characters == null)
+            {
+                return new[]
+                {
+                    CreateFallbackCharacter("li-qingzhao", "李清照", "如梦令"),
+                    CreateFallbackCharacter("wanhe", "婉禾", "协奏")
+                };
+            }
+
+            int count = 0;
+            for (int i = 0; i < currentCharacters.characters.Length; i++)
+            {
+                CharacterDto character = currentCharacters.characters[i];
+                if (character != null && character.unlocked)
+                {
+                    count++;
+                }
+            }
+
+            CharacterDto[] unlocked = new CharacterDto[count];
+            int writeIndex = 0;
+            for (int i = 0; i < currentCharacters.characters.Length; i++)
+            {
+                CharacterDto character = currentCharacters.characters[i];
+                if (character != null && character.unlocked)
+                {
+                    unlocked[writeIndex] = character;
+                    writeIndex++;
+                }
+            }
+
+            return unlocked;
+        }
+
+        public static CharacterDto[] GetFormationCandidateCharacters()
+        {
+            CharacterListResponse currentCharacters = Instance != null ? Instance.characters : null;
+            if (currentCharacters == null || currentCharacters.characters == null)
+            {
+                return new[]
+                {
+                    CreateFallbackCharacter("li-qingzhao", "李清照", "如梦令"),
+                    CreateFallbackCharacter("wanhe", "婉禾", "协奏")
+                };
+            }
+
+            // 编队 Demo 阶段允许使用所有已配置角色。
+            // 原因：后端目前把婉禾标成 locked，用于测试角色解锁状态；
+            // 但前端主流程需要她作为第二名试用角色参与编队和战斗。
+            return currentCharacters.characters;
+        }
+
+        public static string[] GetFormationCharacterIds()
+        {
+            string[] ids = new string[6];
+            FormationResponse currentFormation = Instance != null ? Instance.formation : null;
+            if (currentFormation == null || currentFormation.slots == null)
+            {
+                ids[0] = "li-qingzhao";
+                return ids;
+            }
+
+            for (int i = 0; i < currentFormation.slots.Length && i < ids.Length; i++)
+            {
+                FormationSlotDto slot = currentFormation.slots[i];
+                ids[i] = slot == null ? null : slot.characterId;
+            }
+
+            return ids;
+        }
+
+        public static string GetCharacterNameById(string characterId)
+        {
+            if (string.IsNullOrEmpty(characterId))
+            {
+                return "空位";
+            }
+
+            CharacterDto[] candidates = GetFormationCandidateCharacters();
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                if (candidates[i] != null && candidates[i].id == characterId)
+                {
+                    return string.IsNullOrEmpty(candidates[i].name) ? characterId : candidates[i].name;
+                }
+            }
+
+            return characterId;
+        }
+
+        public static string GetBattleFormationSlotName(int zeroBasedIndex)
+        {
+            string[] ids = GetFormationCharacterIds();
+            if (zeroBasedIndex < 0 || zeroBasedIndex >= ids.Length)
+            {
+                return "空位";
+            }
+
+            return GetCharacterNameById(ids[zeroBasedIndex]);
         }
 
         public static string GetDebugSummary()
@@ -251,6 +367,18 @@ namespace Shouyou.Network
                 error => Debug.LogWarning("编队保存失败，请确认本地后端仍在运行。\n" + error));
         }
 
+        private IEnumerator SaveFormationSlotsRoutine(string[] characterIds)
+        {
+            yield return apiClient.SaveFormation(
+                characterIds,
+                data =>
+                {
+                    formation = data;
+                    Debug.Log("编队已保存到后端：" + GetFormationSummary());
+                },
+                error => Debug.LogWarning("真实编队保存失败，请确认本地后端仍在运行。\n" + error));
+        }
+
         private IEnumerator CompleteMainlineStageRoutine(int stageId)
         {
             string backendStageId = "1-" + Mathf.Clamp(stageId, 1, LevelProgressManager.MaxMainlineStageId);
@@ -282,6 +410,22 @@ namespace Shouyou.Network
                 "，编队槽位=" + slotCount +
                 "，当前关卡=" + currentStage +
                 "，最高通关=" + highestClearedStage);
+        }
+
+        private static CharacterDto CreateFallbackCharacter(string id, string name, string wordIntent)
+        {
+            return new CharacterDto
+            {
+                id = id,
+                name = name,
+                rarity = "SR",
+                role = "Demo",
+                wordIntent = wordIntent,
+                description = "本地默认角色",
+                level = 1,
+                bondLevel = 1,
+                unlocked = true
+            };
         }
     }
 }

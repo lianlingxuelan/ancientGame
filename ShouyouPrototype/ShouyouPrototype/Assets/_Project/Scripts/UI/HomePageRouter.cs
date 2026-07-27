@@ -123,6 +123,17 @@ namespace Shouyou.UI
             currentBattleAlreadySettled = false;
             battleResultActionLocked = false;
             ShowOnly(battlePage);
+
+            BattleDemoController battleController = battlePage == null ? null : battlePage.GetComponent<BattleDemoController>();
+            if (battlePage != null && battleController == null)
+            {
+                battleController = battlePage.AddComponent<BattleDemoController>();
+            }
+
+            if (battleController != null)
+            {
+                battleController.ResetDemoBattle();
+            }
         }
 
         public void ShowStory()
@@ -144,6 +155,12 @@ namespace Shouyou.UI
         public void ShowFormation()
         {
             ShowOnly(formationPage);
+
+            FormationDemoController formationController = EnsureFormationController();
+            if (formationController != null)
+            {
+                formationController.LoadFormationFromBackendCache();
+            }
         }
 
         public void ShowDreamDomain()
@@ -337,12 +354,12 @@ namespace Shouyou.UI
         // 编队相关
         // -------------------------
 
-        public void ShowFormationSlotOne() { ShowFormationSlot("前排 1：" + GetFormationSlotLabel(1)); }
-        public void ShowFormationSlotTwo() { ShowFormationSlot("前排 2：" + GetFormationSlotLabel(2)); }
-        public void ShowFormationSlotThree() { ShowFormationSlot("前排 3：" + GetFormationSlotLabel(3)); }
-        public void ShowFormationSlotFour() { ShowFormationSlot("后排 1：" + GetFormationSlotLabel(4)); }
-        public void ShowFormationSlotFive() { ShowFormationSlot("后排 2：" + GetFormationSlotLabel(5)); }
-        public void ShowFormationSlotSix() { ShowFormationSlot("后排 3：" + GetFormationSlotLabel(6)); }
+        public void ShowFormationSlotOne() { SelectFormationSlot(1); }
+        public void ShowFormationSlotTwo() { SelectFormationSlot(2); }
+        public void ShowFormationSlotThree() { SelectFormationSlot(3); }
+        public void ShowFormationSlotFour() { SelectFormationSlot(4); }
+        public void ShowFormationSlotFive() { SelectFormationSlot(5); }
+        public void ShowFormationSlotSix() { SelectFormationSlot(6); }
 
         public void EditFormation()
         {
@@ -356,10 +373,20 @@ namespace Shouyou.UI
 
         public void SaveFormation()
         {
-            ShouyouBackendBootstrap.SaveCurrentDemoFormation();
+            FormationDemoController formationController = EnsureFormationController();
+            if (formationController != null)
+            {
+                formationController.SaveCurrentFormation();
+            }
+            else
+            {
+                ShouyouBackendBootstrap.SaveCurrentDemoFormation();
+            }
+
             ShowStoryDetail(
                 "保存编队",
-                "正在保存到本地后端。\n\n如果 ShouyouServer 已启动，Unity Console 会看到“编队已保存到后端”。\n当前 Demo 会保存：李清照 / 婉禾 / 空位 / 空位 / 空位 / 空位。"
+                "正在保存到本地后端。\n\n如果 ShouyouServer 已启动，Unity Console 会看到“编队已保存到后端”。\n\n当前保存内容：\n" +
+                ShouyouBackendBootstrap.GetFormationSummary()
             );
         }
 
@@ -422,6 +449,21 @@ namespace Shouyou.UI
 
             currentBattleAlreadySettled = true;
             ShowBattleVictoryDetail();
+        }
+
+        public void ResolveBattleDefeat()
+        {
+            if (currentBattleAlreadySettled)
+            {
+                return;
+            }
+
+            currentBattleAlreadySettled = true;
+            ShowStoryDetail(
+                "战斗失败",
+                currentMainlineStageName +
+                "\n\n我方全员已无法继续行动。\n\n当前 Demo 不扣除资源。后续会接入失败奖励、体力消耗、重新挑战和阵容调整。"
+            );
         }
 
         // -------------------------
@@ -751,9 +793,31 @@ namespace Shouyou.UI
             SetStoryText(label, text);
         }
 
+        private void SelectFormationSlot(int slotIndex)
+        {
+            FormationDemoController formationController = EnsureFormationController();
+            if (formationController != null)
+            {
+                if (slotIndex == 1) formationController.SelectSlotOne();
+                if (slotIndex == 2) formationController.SelectSlotTwo();
+                if (slotIndex == 3) formationController.SelectSlotThree();
+                if (slotIndex == 4) formationController.SelectSlotFour();
+                if (slotIndex == 5) formationController.SelectSlotFive();
+                if (slotIndex == 6) formationController.SelectSlotSix();
+                return;
+            }
+
+            ShowFormationSlot(GetFormationSlotPositionLabel(slotIndex) + "：" + GetFormationSlotLabel(slotIndex));
+        }
+
         private void ShowFormationSlot(string slotName)
         {
             ShowStoryDetail("编队位置", slotName + "\n\n点击空位后，正式版本会打开角色选择列表。\n当前先保留位置反馈。");
+        }
+
+        private string GetFormationSlotPositionLabel(int slotIndex)
+        {
+            return slotIndex <= 3 ? "前排 " + slotIndex : "后排 " + (slotIndex - 3);
         }
 
         private string GetFormationSlotLabel(int slotIndex)
@@ -944,6 +1008,22 @@ namespace Shouyou.UI
             {
                 target.text = value;
             }
+        }
+
+        private FormationDemoController EnsureFormationController()
+        {
+            if (formationPage == null)
+            {
+                return null;
+            }
+
+            FormationDemoController controller = formationPage.GetComponent<FormationDemoController>();
+            if (controller == null)
+            {
+                controller = formationPage.AddComponent<FormationDemoController>();
+            }
+
+            return controller;
         }
     }
 }

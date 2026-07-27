@@ -61,6 +61,29 @@ namespace Shouyou.Network
             yield return Put("/api/v1/formation?playerId=" + Escape(playerId), body, onSuccess, onError);
         }
 
+        public IEnumerator SaveFormation(string[] characterIds, Action<FormationResponse> onSuccess, Action<string> onError)
+        {
+            // 编队接口只关心 6 个槽位里的角色 id。
+            // 空位用 null 传给后端，避免用“空位”这种展示文本污染真实数据。
+            string[] normalizedSlots = new string[6];
+            for (int i = 0; i < normalizedSlots.Length; i++)
+            {
+                normalizedSlots[i] = characterIds != null && i < characterIds.Length ? characterIds[i] : null;
+            }
+
+            string body =
+                "{\"slots\":[" +
+                ToJsonSlot(normalizedSlots[0]) + "," +
+                ToJsonSlot(normalizedSlots[1]) + "," +
+                ToJsonSlot(normalizedSlots[2]) + "," +
+                ToJsonSlot(normalizedSlots[3]) + "," +
+                ToJsonSlot(normalizedSlots[4]) + "," +
+                ToJsonSlot(normalizedSlots[5]) +
+                "]}";
+
+            yield return Put("/api/v1/formation?playerId=" + Escape(playerId), body, onSuccess, onError);
+        }
+
         public IEnumerator SaveStageProgress(string stageId, Action<SaveProgressResponse> onSuccess, Action<string> onError)
         {
             string body = "{\"currentChapterId\":\"chapter-1\",\"currentStageId\":\"" + EscapeJson(stageId) + "\",\"completedStageIds\":[\"1-1\"]}";
@@ -133,6 +156,11 @@ namespace Shouyou.Network
         private static string EscapeJson(string value)
         {
             return (value ?? string.Empty).Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
+        private static string ToJsonSlot(string value)
+        {
+            return string.IsNullOrEmpty(value) ? "null" : "\"" + EscapeJson(value) + "\"";
         }
     }
 }
