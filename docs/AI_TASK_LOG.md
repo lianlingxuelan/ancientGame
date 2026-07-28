@@ -1713,3 +1713,177 @@ remaining_rounds: 2
 - 遗留问题：无
 ---BLOCK_SUMMARY_END---
 ===TASK_RECORD_END===
+
+
+===TASK_RECORD_START===
+task_id: Todo12-FE-R1-CODE
+parent_id: Todo11-FE-R1-PASS
+round: 1
+timestamp: 2026-07-28 00:00:00 Asia/Shanghai
+project_spec: minimal prototype
+module: battle feedback and settlement
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+??????????????????????????????????????????
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+???????????
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+?????
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+
+?????
+1. BattleDemoController.PerformPlayerAttack
+2. BattleDemoController.ApplyDamage
+3. BattleDemoController.ShowDamageText
+4. BattleDemoController.RefreshView
+5. HomePageRouter.ConfigureStoryDetailForBattleVictory
+6. HomePageRouter.ConfigureStoryDetailForBattleDefeat
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+????
+1. ????????????????????????????????????
+2. ???????????????????????????????????????
+3. ?????????????????????????????????
+4. ???????????????????????????????????????
+5. ???????????????????????????????????????????????????????
+
+???????
+???????
+??????? Unity Play Mode ????????? DamageText/DefeatedText ??????? UI ???
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex???
+1. git diff --check ???
+2. ?????? BattleDemoController ? ApplyDamage ??????????? ShowDamageText ? BuildAttackMessage?
+3. ?????? HomePageRouter ??? ConfigureStoryDetailForBattleDefeat??? ResolveBattleDefeat ???
+
+??Claude???
+1. ?????????????????????????????????????
+2. ???????????????????????? 0.8 ?????
+3. ?????????????????????????
+4. ?????????????????????????????
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+
+===TASK_RECORD_START===
+task_id: Todo12-FE-R1-FIX
+parent_id: Todo12-FE-R1-CODE
+round: 1
+timestamp: 2026-07-28 00:05:00 Asia/Shanghai
+project_spec: minimal prototype
+module: battle feedback and settlement
+flow_status: [CODE_FIXED]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Encoding correction for Todo12-FE-R1-CODE log entry; code changes remain the same.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+No Claude review yet. The prior Todo12-FE-R1-CODE log body was corrupted by terminal encoding, so this append-only record restates the same change summary in ASCII.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+3. docs/AI_TASK_LOG.md
+
+Key methods:
+1. BattleDemoController.PerformPlayerAttack
+2. BattleDemoController.ApplyDamage
+3. BattleDemoController.ShowDamageText
+4. BattleDemoController.RefreshView
+5. HomePageRouter.ConfigureStoryDetailForBattleVictory
+6. HomePageRouter.ConfigureStoryDetailForBattleDefeat
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Added temporary damage numbers on damaged unit portraits, with a serial guard so old hide coroutines do not hide newer damage text.
+2. Made the selected enemy target more visible by increasing selected ring opacity and size, plus selected slot tint.
+3. Added defeated unit text feedback. Empty ally slots still render as empty, not as real defeated units.
+4. Attack messages now include whether the target was defeated. Round title stays short to avoid overflowing the top hint area.
+5. Victory settlement buttons are now: return stage, edit formation, retry stage, next stage, collapse result.
+6. Defeat settlement now has its own button layout and does not offer next stage.
+
+Asset changes: none.
+Save impact: none.
+Risk: Unity Play Mode must confirm DamageText and DefeatedText are not hidden by existing UI layers.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. git diff --check passed.
+2. Static check confirmed ApplyDamage returns defeat state and is used by battle messages and damage popup flow.
+3. Static check confirmed ResolveBattleDefeat calls ConfigureStoryDetailForBattleDefeat.
+
+Suggested Claude tests:
+1. Enter battle, click enemy portrait, confirm selected target is visually obvious and attack hits that target.
+2. Click start battle, confirm damage number appears on damaged portrait and disappears after about 0.8 seconds.
+3. Continue attacking until a unit is defeated, confirm portrait greys out and defeated marker appears.
+4. Trigger victory and defeat separately, confirm settlement button labels and actions match the intended flow.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo12-FE-R1-REV
+parent_id: Todo12-FE-R1-CODE
+round: 1
+timestamp: 2026-07-28 18:35:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗反馈与结算
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 1
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+本次审查发现1个P2建议，无P1缺陷。
+
+P2建议：
+1.【P2】GetUnitDisplayText 判空位逻辑：`attack <= 0 && defeated` 多判了 attack 条件。
+   建议改为只判 `defeated`，避免 0 攻但存活角色显示 "--"。
+
+代码质量亮点：
+- ShowDamageText 用 serial 计数器防止协程覆盖，经典模式
+- 伤害颜色区分敌我（金色敌方/红色己方）
+- ConfigureStoryDetailForBattleDefeat 独立配置战败按钮
+- FindOrCreateSlotText 运行时创建 UI，Demo 阶段实用
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：伤害飘字、击杀提示、战败结算按钮
+- 状态：PASS
+- 遗留：1个P2可选修复
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo12-FE-R1-PASS
+parent_id: Todo12-FE-R1-REV
+round: 1
+timestamp: 2026-07-28 18:35:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗反馈与结算
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 1
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：战斗伤害飘字+击杀提示+战败结算菜单
+- 最终状态：通过（1轮）
+- 遗留问题：P2 GetUnitDisplayText 判空位逻辑可选修复
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===

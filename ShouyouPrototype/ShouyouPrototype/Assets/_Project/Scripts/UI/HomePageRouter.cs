@@ -460,14 +460,15 @@ namespace Shouyou.UI
 
             currentBattleAlreadySettled = true;
             ShowStoryDetail(
-                "战斗失败",
+                "\u6218\u6597\u5931\u8d25",
                 currentMainlineStageName +
-                "\n\n我方全员已无法继续行动。\n\n当前 Demo 不扣除资源。后续会接入失败奖励、体力消耗、重新挑战和阵容调整。"
+                "\n\n\u6211\u65b9\u5168\u5458\u5df2\u65e0\u6cd5\u7ee7\u7eed\u884c\u52a8\u3002\n\n\u5f53\u524d Demo \u4e0d\u6263\u9664\u8d44\u6e90\u3002\u5efa\u8bae\u5148\u8c03\u6574\u7f16\u961f\uff0c\u6216\u76f4\u63a5\u91cd\u6218\u672c\u5173\u3002"
             );
+            ConfigureStoryDetailForBattleDefeat();
         }
 
         // -------------------------
-        // 场景节点
+        // ????
         // -------------------------
 
         public void ShowScene31() { SetStoryBody("3-1 清晨赴会·街巷同行\n李清照与婉禾第一次走入汴京文坛社交场。"); }
@@ -676,15 +677,28 @@ namespace Shouyou.UI
         /// </summary>
         private void ConfigureStoryDetailForBattleVictory()
         {
-            ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "返回主线", true, OnBattleResultReturnMainline);
-            ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "进入编队", true, OnBattleResultOpenFormation);
-            ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "再来一战", true, OnBattleResultReplay);
-            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "继续下一关", true, OnBattleResultContinueNext);
-            ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "关闭结算", true, OnBattleResultClose);
+            ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "\u8fd4\u56de\u5173\u5361", true, OnBattleResultReturnMainline);
+            ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "\u8c03\u6574\u7f16\u961f", true, OnBattleResultOpenFormation);
+            ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "\u91cd\u6218\u672c\u5173", true, OnBattleResultReplay);
+            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "\u4e0b\u4e00\u5173", true, OnBattleResultContinueNext);
+            ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "\u6536\u8d77\u7ed3\u7b97", true, OnBattleResultClose);
         }
 
         /// <summary>
-        /// 返回主线关卡列表。
+        /// ??????????????
+        /// ?????????????????????????????????
+        /// </summary>
+        private void ConfigureStoryDetailForBattleDefeat()
+        {
+            ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "\u8fd4\u56de\u5173\u5361", true, OnBattleResultReturnMainline);
+            ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "\u8c03\u6574\u7f16\u961f", true, OnBattleResultOpenFormation);
+            ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "\u91cd\u6218\u672c\u5173", true, OnBattleResultReplay);
+            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "\u7ee7\u7eed\u67e5\u770b", false, OnBattleResultClose);
+            ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "\u6536\u8d77\u7ed3\u7b97", true, OnBattleResultClose);
+        }
+
+        /// <summary>
+        /// ??????????
         /// </summary>
         private void ReturnToMainlineAfterBattle()
         {

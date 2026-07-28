@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using Shouyou.Network;
@@ -14,6 +15,7 @@ namespace Shouyou.UI
         private const int UnitCount = 6;
         private const int ActionPointMax = 3;
         private const float HpBarMaxWidth = 86f;
+        private const float DamageTextVisibleSeconds = 0.8f;
 
         private readonly BattleUnitState[] allyUnits = new BattleUnitState[UnitCount];
         private readonly BattleUnitState[] enemyUnits = new BattleUnitState[UnitCount];
@@ -92,8 +94,9 @@ namespace Shouyou.UI
             }
 
             int playerDamage = CalculateDamage(attacker, target);
-            ApplyDamage(target, playerDamage);
-            SetBattleMessage(attacker.unitName + " 对 " + target.unitName + " 造成 " + playerDamage + " 点伤害。");
+            bool playerKilledTarget = ApplyDamage(target, playerDamage);
+            ShowDamageText(target, playerDamage);
+            SetBattleMessage(BuildAttackMessage(attacker, target, playerDamage, playerKilledTarget));
 
             if (AllDefeated(enemyUnits))
             {
@@ -111,10 +114,11 @@ namespace Shouyou.UI
             if (enemyAttacker != null && allyTarget != null)
             {
                 int enemyDamage = CalculateDamage(enemyAttacker, allyTarget);
-                ApplyDamage(allyTarget, enemyDamage);
+                bool enemyKilledTarget = ApplyDamage(allyTarget, enemyDamage);
+                ShowDamageText(allyTarget, enemyDamage);
                 SetBattleMessage(
-                    attacker.unitName + " 造成 " + playerDamage + " 点伤害；" +
-                    enemyAttacker.unitName + " 反击 " + allyTarget.unitName + "，造成 " + enemyDamage + " 点伤害。"
+                    BuildAttackMessage(attacker, target, playerDamage, playerKilledTarget) + "\n" +
+                    BuildAttackMessage(enemyAttacker, allyTarget, enemyDamage, enemyKilledTarget)
                 );
             }
 
@@ -286,8 +290,9 @@ namespace Shouyou.UI
             return Mathf.Max(60, attacker.attack - defenseOffset);
         }
 
-        private void ApplyDamage(BattleUnitState target, int damage)
+        private bool ApplyDamage(BattleUnitState target, int damage)
         {
+            bool wasAlive = !target.defeated;
             target.currentHp = Mathf.Max(0, target.currentHp - damage);
             target.defeated = target.currentHp <= 0;
 
@@ -296,6 +301,60 @@ namespace Shouyou.UI
                 BattleUnitState nextTarget = FindFirstAlive(enemyUnits);
                 selectedEnemyIndex = nextTarget == null ? selectedEnemyIndex : System.Array.IndexOf(enemyUnits, nextTarget);
             }
+
+            // ?? true ????????????????????????
+            return wasAlive && target.defeated;
+        }
+
+        private string BuildAttackMessage(BattleUnitState attacker, BattleUnitState target, int damage, bool targetDefeated)
+        {
+            string message = attacker.unitName + " \u5bf9 " + target.unitName + " \u9020\u6210 " + damage + " \u70b9\u4f24\u5bb3\u3002";
+            if (targetDefeated)
+            {
+                message += " " + target.unitName + " \u5df2\u9000\u573a\u3002";
+            }
+
+            return message;
+        }
+
+        private void ShowDamageText(BattleUnitState target, int damage)
+        {
+            BattleUnitView view = GetViewForUnit(target);
+            if (view == null || view.damageText == null)
+            {
+                return;
+            }
+
+            view.damageSerial++;
+            int serial = view.damageSerial;
+            view.damageText.text = "-" + damage;
+            view.damageText.color = target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255);
+            view.damageText.gameObject.SetActive(true);
+            StartCoroutine(HideDamageTextLater(view, serial));
+        }
+
+        private IEnumerator HideDamageTextLater(BattleUnitView view, int serial)
+        {
+            yield return new WaitForSeconds(DamageTextVisibleSeconds);
+
+            if (view != null && view.damageText != null && view.damageSerial == serial)
+            {
+                view.damageText.text = string.Empty;
+                view.damageText.gameObject.SetActive(false);
+            }
+        }
+
+        private BattleUnitView GetViewForUnit(BattleUnitState unit)
+        {
+            BattleUnitState[] states = unit.isAlly ? allyUnits : enemyUnits;
+            BattleUnitView[] views = unit.isAlly ? allyViews : enemyViews;
+            int index = System.Array.IndexOf(states, unit);
+            if (index < 0 || index >= views.Length)
+            {
+                return null;
+            }
+
+            return views[index];
         }
 
         private void RefreshAllViews()
@@ -339,6 +398,16 @@ namespace Shouyou.UI
             }
         }
 
+        private string GetUnitDisplayText(BattleUnitState unit)
+        {
+            if (unit.attack <= 0 && unit.defeated)
+            {
+                return unit.unitName + "\n--";
+            }
+
+            return unit.unitName + "\n" + unit.currentHp + "/" + unit.maxHp;
+        }
+
         private BattleUnitView BuildView(string slotName)
         {
             Transform slot = FindChildRecursive(transform, slotName);
@@ -370,14 +439,62 @@ namespace Shouyou.UI
                 nameText = nameLabel.GetComponentInChildren<Text>(true);
             }
 
+            Text damageText = FindOrCreateSlotText(slot, "DamageText", new Vector2(0, 74), new Vector2(150, 36), 28, TextAnchor.MiddleCenter, new Color32(255, 232, 128, 255));
+            Text defeatedText = FindOrCreateSlotText(slot, "DefeatedText", new Vector2(0, 22), new Vector2(108, 36), 24, TextAnchor.MiddleCenter, new Color32(255, 255, 255, 235));
+            damageText.gameObject.SetActive(false);
+            defeatedText.gameObject.SetActive(false);
+
             return new BattleUnitView
             {
                 button = button,
+                slotImage = slotImage,
                 hpBar = hpBar == null ? null : hpBar.GetComponent<RectTransform>(),
                 selectedRing = selectedRing == null ? null : selectedRing.GetComponent<Image>(),
                 portrait = portrait == null ? null : portrait.GetComponent<Image>(),
-                nameText = nameText
+                nameText = nameText,
+                damageText = damageText,
+                defeatedText = defeatedText
             };
+        }
+
+        private Text FindOrCreateSlotText(Transform parent, string objectName, Vector2 position, Vector2 size, int fontSize, TextAnchor anchor, Color color)
+        {
+            Transform target = parent.Find(objectName);
+            RectTransform rect;
+            if (target == null)
+            {
+                GameObject textObject = new GameObject(objectName, typeof(RectTransform));
+                textObject.transform.SetParent(parent, false);
+                rect = textObject.GetComponent<RectTransform>();
+            }
+            else
+            {
+                rect = target as RectTransform;
+                if (rect == null)
+                {
+                    rect = target.gameObject.AddComponent<RectTransform>();
+                }
+            }
+
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+
+            Text text = rect.GetComponent<Text>();
+            if (text == null)
+            {
+                text = rect.gameObject.AddComponent<Text>();
+            }
+
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.fontSize = fontSize;
+            text.alignment = anchor;
+            text.color = color;
+            text.raycastTarget = false;
+            text.supportRichText = true;
+            return text;
         }
 
         private Text FindLabel(string objectName)
@@ -419,7 +536,7 @@ namespace Shouyou.UI
         private void SetBattleMessage(string message)
         {
             SetText(battleMessageText, message);
-            SetText(roundTipText, "第 " + roundIndex + " 回合    我方行动    " + message);
+            SetText(roundTipText, "\u7b2c " + roundIndex + " \u56de\u5408    \u6211\u65b9\u884c\u52a8    \u56de\u5408 PVE Demo");
         }
 
         private void SetText(Text text, string value)
@@ -476,10 +593,14 @@ namespace Shouyou.UI
         private sealed class BattleUnitView
         {
             public Button button;
+            public Image slotImage;
             public RectTransform hpBar;
             public Image selectedRing;
             public Image portrait;
             public Text nameText;
+            public Text damageText;
+            public Text defeatedText;
+            public int damageSerial;
         }
     }
 }
