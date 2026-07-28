@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>纯 SVG 古风花瓣渐变边框</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    min-height:100vh;display:flex;flex-wrap:wrap;gap:40px;
+    justify-content:center;align-items:center;padding:50px 30px;
+    background:#0a0a0a;font-family:'SimSun','STSong',serif;
+  }
+  .panel{
+    position:relative;background:#1a1008;overflow:hidden;
+  }
+  .panel>.frame-svg{
+    position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;
+  }
+  .panel>.inner-bg{
+    position:absolute;inset:48px;
+    background:url("all_aseet/gameUI/commonBg/commonbg5.png") center/cover;
+    opacity:0.5;z-index:0;
+  }
+  .panel>.inner-shadow{
+    position:absolute;inset:48px;
+    box-shadow:inset 0 0 80px rgba(0,0,0,0.85);z-index:1;pointer-events:none;
+  }
+  .panel.s1{width:540px;height:380px}
+  .panel.s2{width:740px;height:500px}
+  .panel.s3{width:820px;height:340px}
+  .label{
+    position:absolute;top:-26px;left:6px;font-size:11px;
+    color:#C8963E;letter-spacing:3px;
+  }
+  .item{position:relative;margin-top:32px}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     这是三个独立 SVG 面板，
+     每个都自包含 defs，无外部 ID 依赖
+     ============================================================ -->
+
+<!-- ==================== 面板 1：540×380 ==================== -->
+<div class="item">
+  <span class="label">纯 SVG | 莲花角饰 + 祥云纹 + 金属渐变</span>
+  <div class="panel s1">
+    <svg class="frame-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 380">
+      <defs>
+        <!-- 金属渐变 -->
+        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2A1500"/><stop offset="5%" stop-color="#5C3D0E"/>
+          <stop offset="12%" stop-color="#8B6914"/><stop offset="22%" stop-color="#C8963E"/>
+          <stop offset="35%" stop-color="#E8D080"/><stop offset="48%" stop-color="#C8963E"/>
+          <stop offset="55%" stop-color="#F0D68A"/><stop offset="65%" stop-color="#D4A843"/>
+          <stop offset="78%" stop-color="#A67C2E"/><stop offset="88%" stop-color="#6B4F12"/>
+          <stop offset="95%" stop-color="#3D2000"/><stop offset="100%" stop-color="#1A0A00"/>
+        </linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#1A0A00"/><stop offset="8%" stop-color="#5C3D0E"/>
+          <stop offset="18%" stop-color="#A67C2E"/><stop offset="30%" stop-color="#D4A843"/>
+          <stop offset="45%" stop-color="#F0D68A"/><stop offset="55%" stop-color="#C8963E"/>
+          <stop offset="70%" stop-color="#E8D080"/><stop offset="82%" stop-color="#A67C2E"/>
+          <stop offset="92%" stop-color="#5C3D0E"/><stop offset="100%" stop-color="#1A0A00"/>
+        </linearGradient>
+        <!-- 花瓣径向渐变 -->
+        <radialGradient id="pg" cx="35%" cy="25%">
+          <stop offset="0%" stop-color="#FFF4CC"/><stop offset="25%" stop-color="#F0D080"/>
+          <stop offset="55%" stop-color="#D4A843"/><stop offset="80%" stop-color="#A67C2E"/>
+          <stop offset="100%" stop-color="#6B4F12"/>
+        </radialGradient>
+        <!-- 莲花瓣 -->
+        <g id="lp">
+          <path d="M0,3C-5,-2 -9,-11 -6,-20C-4,-26 0,-28 0,-28C0,-28 4,-26 6,-20
+                   C9,-11 5,-2 0,3Z"
+                fill="url(#pg)" stroke="rgba(140,100,30,0.45)" stroke-width=".5"/>
+          <path d="M0,1C0,-7 0,-18 0,-26" fill="none"
+                stroke="rgba(255,255,220,.25)" stroke-width=".4"/>
+        </g>
+        <!-- 角花（7瓣扇形 + 卷草） -->
+        <g id="flower">
+          <use href="#lp" transform="rotate(0)   translate(0,-10)"/>
+          <use href="#lp" transform="rotate(13)  translate(0,-10)"/>
+          <use href="#lp" transform="rotate(26)  translate(0,-10)"/>
+          <use href="#lp" transform="rotate(42)  translate(0,-11) scale(1.08)"/>
+          <use href="#lp" transform="rotate(58)  translate(0,-10)"/>
+          <use href="#lp" transform="rotate(72)  translate(0,-10)"/>
+          <use href="#lp" transform="rotate(88)  translate(0,-10)"/>
+          <!-- 花心 -->
+          <circle cx="0" cy="0" r="3.5" fill="#E8C860" stroke="#8B6508" stroke-width=".7"/>
+          <circle cx="0" cy="0" r="1.5" fill="#FFF8DC"/>
+          <!-- 卷草：沿上边 -->
+          <path d="M3,0C10,-5 20,-9 32,-8C38,-7 42,-5 44,-2"
+                fill="none" stroke="#C8963E" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M44,-2C48,-1 50,-5 48,-8C46,-10 42,-9 42,-6"
+                fill="none" stroke="#C8963E" stroke-width="1" stroke-linecap="round"/>
+          <!-- 卷草：沿左边 -->
+          <path d="M0,3C-5,10 -9,20 -8,32C-7,38 -5,42 -2,44"
+                fill="none" stroke="#C8963E" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M-2,44C-1,48 -5,50 -8,48C-10,46 -9,42 -6,42"
+                fill="none" stroke="#C8963E" stroke-width="1" stroke-linecap="round"/>
+          <!-- 对角的细卷须 -->
+          <path d="M1,1C6,6 12,14 15,23C17,27 17,30 15,32"
+                fill="none" stroke="rgba(180,140,50,.35)" stroke-width=".7" stroke-linecap="round"/>
+        </g>
+        <!-- 祥云 -->
+        <g id="cloud">
+          <path d="M0,18C0,11 5,6 10,7C13,2 18,0 23,3C27,-2 34,-1 36,5
+                   C40,2 46,3 48,9C52,7 58,9 56,15C60,16 60,23 54,25
+                   C52,30 45,32 40,29C34,34 28,34 22,30C16,34 8,32 5,27
+                   C0,25 -1,21 0,18Z"
+                fill="rgba(215,180,105,.5)" stroke="rgba(170,130,55,.65)" stroke-width="1.1"/>
+          <!-- 螺旋线 -->
+          <path d="M16,20C14,14 20,10 25,13C27,8 34,8 36,13C40,9 46,12 44,17
+                   C48,17 48,22 44,23"
+                fill="none" stroke="rgba(245,225,165,.45)" stroke-width="1" stroke-linecap="round"/>
+          <!-- 尾卷 -->
+          <path d="M50,25C56,22 61,26 59,31C57,33 53,31 52,28"
+                fill="none" stroke="rgba(170,130,55,.45)" stroke-width=".9" stroke-linecap="round"/>
+        </g>
+        <!-- 小云 -->
+        <g id="scloud">
+          <path d="M0,13C0,7 3,3 7,4C9,0 14,-1 17,2C20,-1 25,0 26,5
+                   C30,2 34,4 32,9C35,10 34,15 30,15C28,19 23,20 20,17
+                   C15,20 10,20 8,16C5,18 2,16 0,13Z"
+                fill="rgba(200,165,90,.4)" stroke="rgba(160,120,45,.55)" stroke-width=".9"/>
+        </g>
+        <!-- 菱形 -->
+        <g id="dia">
+          <polygon points="0,-5 3.5,0 0,5 -3.5,0"
+                   fill="url(#pg)" stroke="rgba(140,100,30,.45)" stroke-width=".4"/>
+        </g>
+      </defs>
+
+      <!-- ===== 边框层次 ===== -->
+      <!-- L1: 最外暗边 -->
+      <rect x="0" y="0" width="540" height="380" rx="2" fill="none" stroke="#080300" stroke-width="3"/>
+      <!-- L2: 主金框 -->
+      <rect x="4" y="4" width="532" height="372" rx="1" fill="none" stroke="url(#g1)" stroke-width="9"/>
+      <!-- L3: 高光细线 -->
+      <rect x="10" y="10" width="520" height="360" fill="none" stroke="rgba(240,214,138,.2)" stroke-width="1"/>
+      <!-- L4: 暗色分隔 -->
+      <rect x="13" y="13" width="514" height="354" fill="none" stroke="#080300" stroke-width="3"/>
+      <!-- L5: 内金线 -->
+      <rect x="17" y="17" width="506" height="346" fill="none" stroke="url(#g1)" stroke-width="2" opacity=".65"/>
+      <!-- L6: 最内暗线 -->
+      <rect x="20" y="20" width="500" height="340" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1"/>
+
+      <!-- ===== 四角花 ===== -->
+      <use href="#flower" transform="translate(24,24)"/>
+      <use href="#flower" transform="translate(516,24) scale(-1,1)"/>
+      <use href="#flower" transform="translate(24,356) scale(1,-1)"/>
+      <use href="#flower" transform="translate(516,356) scale(-1,-1)"/>
+
+      <!-- ===== 上边云纹 ===== -->
+      <use href="#cloud"  transform="translate( 95,7)"/>
+      <use href="#cloud"  transform="translate(175,5)"/>
+      <use href="#cloud"  transform="translate(255,7)"/>
+      <use href="#cloud"  transform="translate(335,5)"/>
+      <use href="#cloud"  transform="translate(415,7)"/>
+      <use href="#scloud" transform="translate(135,9)"/>
+      <use href="#scloud" transform="translate(215,7)"/>
+      <use href="#scloud" transform="translate(295,9)"/>
+      <use href="#scloud" transform="translate(375,7)"/>
+      <use href="#scloud" transform="translate(455,9)"/>
+
+      <!-- ===== 下边云纹 ===== -->
+      <g transform="translate(0,380) scale(1,-1)">
+        <use href="#cloud"  transform="translate( 95,7)"/>
+        <use href="#cloud"  transform="translate(175,5)"/>
+        <use href="#cloud"  transform="translate(255,7)"/>
+        <use href="#cloud"  transform="translate(335,5)"/>
+        <use href="#cloud"  transform="translate(415,7)"/>
+        <use href="#scloud" transform="translate(135,9)"/>
+        <use href="#scloud" transform="translate(215,7)"/>
+        <use href="#scloud" transform="translate(295,9)"/>
+        <use href="#scloud" transform="translate(375,7)"/>
+        <use href="#scloud" transform="translate(455,9)"/>
+      </g>
+
+      <!-- ===== 左边云纹 ===== -->
+      <g transform="translate(7,380) rotate(-90)">
+        <use href="#cloud"  transform="translate( 80,0)"/>
+        <use href="#cloud"  transform="translate(165,0)"/>
+        <use href="#cloud"  transform="translate(250,0)"/>
+        <use href="#scloud" transform="translate(122,0)"/>
+        <use href="#scloud" transform="translate(208,0)"/>
+      </g>
+
+      <!-- ===== 右边云纹 ===== -->
+      <g transform="translate(533,0) rotate(90)">
+        <use href="#cloud"  transform="translate( 80,0)"/>
+        <use href="#cloud"  transform="translate(165,0)"/>
+        <use href="#cloud"  transform="translate(250,0)"/>
+        <use href="#scloud" transform="translate(122,0)"/>
+        <use href="#scloud" transform="translate(208,0)"/>
+      </g>
+
+      <!-- ===== 四角小菱形 ===== -->
+      <use href="#dia" transform="translate(18,18)"/>
+      <use href="#dia" transform="translate(522,18)"/>
+      <use href="#dia" transform="translate(18,362)"/>
+      <use href="#dia" transform="translate(522,362)"/>
+
+      <!-- ===== 边中点菱形 ===== -->
+      <g transform="translate(270,18)">
+        <use href="#dia" transform="scale(.6)"/>
+        <line x1="-14" y1="0" x2="-3" y2="0" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+        <line x1="3"  y1="0" x2="14" y2="0" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+      </g>
+      <g transform="translate(270,362)">
+        <use href="#dia" transform="scale(.6)"/>
+        <line x1="-14" y1="0" x2="-3" y2="0" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+        <line x1="3"  y1="0" x2="14" y2="0" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+      </g>
+      <g transform="translate(18,190)">
+        <use href="#dia" transform="scale(.6)"/>
+        <line x1="0" y1="-14" x2="0" y2="-3" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+        <line x1="0" y1="3"  x2="0" y2="14" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+      </g>
+      <g transform="translate(522,190)">
+        <use href="#dia" transform="scale(.6)"/>
+        <line x1="0" y1="-14" x2="0" y2="-3" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+        <line x1="0" y1="3"  x2="0" y2="14" stroke="rgba(200,160,60,.25)" stroke-width=".7"/>
+      </g>
+    </svg>
+    <div class="inner-bg"></div>
+    <div class="inner-shadow"></div>
+  </div>
+</div>
+
+<!-- ==================== 面板 2：740×500 ==================== -->
+<div class="item">
+  <span class="label">大尺寸 740×500 | 组件自适应</span>
+  <div class="panel s2">
+    <svg class="frame-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 500">
+      <defs>
+        <linearGradient id="g1b" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2A1500"/><stop offset="5%" stop-color="#5C3D0E"/>
+          <stop offset="12%" stop-color="#8B6914"/><stop offset="22%" stop-color="#C8963E"/>
+          <stop offset="35%" stop-color="#E8D080"/><stop offset="48%" stop-color="#C8963E"/>
+          <stop offset="55%" stop-color="#F0D68A"/><stop offset="65%" stop-color="#D4A843"/>
+          <stop offset="78%" stop-color="#A67C2E"/><stop offset="88%" stop-color="#6B4F12"/>
+          <stop offset="95%" stop-color="#3D2000"/><stop offset="100%" stop-color="#1A0A00"/>
+        </linearGradient>
+        <radialGradient id="pgb" cx="35%" cy="25%">
+          <stop offset="0%" stop-color="#FFF4CC"/><stop offset="25%" stop-color="#F0D080"/>
+          <stop offset="55%" stop-color="#D4A843"/><stop offset="80%" stop-color="#A67C2E"/>
+          <stop offset="100%" stop-color="#6B4F12"/>
+        </radialGradient>
+        <!-- 莲花瓣（放大版） -->
+        <g id="lpb">
+          <path d="M0,4C-7,-3 -12,-14 -8,-27C-5,-34 0,-38 0,-38
+                   C0,-38 5,-34 8,-27C12,-14 7,-3 0,4Z"
+                fill="url(#pgb)" stroke="rgba(140,100,30,.4)" stroke-width=".6"/>
+          <path d="M0,2C0,-10 0,-24 0,-36" fill="none"
+                stroke="rgba(255,255,220,.2)" stroke-width=".5"/>
+        </g>
+        <g id="flowerb">
+          <use href="#lpb" transform="rotate(0)   translate(0,-14)"/>
+          <use href="#lpb" transform="rotate(12)  translate(0,-14)"/>
+          <use href="#lpb" transform="rotate(24)  translate(0,-14)"/>
+          <use href="#lpb" transform="rotate(38)  translate(0,-15) scale(1.1)"/>
+          <use href="#lpb" transform="rotate(54)  translate(0,-14)"/>
+          <use href="#lpb" transform="rotate(68)  translate(0,-14)"/>
+          <use href="#lpb" transform="rotate(82)  translate(0,-14)"/>
+          <circle cx="0" cy="0" r="5" fill="#E8C860" stroke="#8B6508" stroke-width=".9"/>
+          <circle cx="0" cy="0" r="2.2" fill="#FFF8DC"/>
+          <path d="M4,0C14,-7 28,-12 45,-11C53,-9 58,-6 62,-3"
+                fill="none" stroke="#C8963E" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M62,-3C68,-2 70,-7 67,-11C64,-14 59,-13 58,-9"
+                fill="none" stroke="#C8963E" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M0,4C-7,14 -12,28 -11,45C-9,53 -6,58 -3,62"
+                fill="none" stroke="#C8963E" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M-3,62C-2,68 -7,70 -11,67C-14,64 -13,59 -9,58"
+                fill="none" stroke="#C8963E" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M1,1C8,9 17,20 22,33C24,39 24,42 21,45"
+                fill="none" stroke="rgba(180,140,50,.3)" stroke-width=".9" stroke-linecap="round"/>
+        </g>
+        <g id="cloudb">
+          <path d="M0,24C0,14 6,8 13,9C17,3 24,0 30,4C36,-3 45,-1 47,7
+                   C52,3 60,4 62,12C68,9 76,12 73,20C78,21 78,30 70,32
+                   C67,39 58,41 52,37C44,44 36,44 28,39C20,44 10,42 6,35
+                   C0,33 -1,28 0,24Z"
+                fill="rgba(215,180,105,.5)" stroke="rgba(170,130,55,.65)" stroke-width="1.4"/>
+          <path d="M20,26C18,19 25,14 31,17C34,10 42,10 45,17
+                   C50,12 59,15 56,22C61,22 61,28 56,30"
+                fill="none" stroke="rgba(245,225,165,.4)" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M66,32C74,28 80,34 77,40C74,43 69,40 68,36"
+                fill="none" stroke="rgba(170,130,55,.4)" stroke-width="1.2" stroke-linecap="round"/>
+        </g>
+      </defs>
+
+      <rect x="0" y="0" width="740" height="500" rx="2" fill="none" stroke="#080300" stroke-width="4"/>
+      <rect x="5" y="5" width="730" height="490" rx="1" fill="none" stroke="url(#g1b)" stroke-width="12"/>
+      <rect x="14" y="14" width="712" height="472" fill="none" stroke="rgba(240,214,138,.18)" stroke-width="1"/>
+      <rect x="18" y="18" width="704" height="464" fill="none" stroke="#080300" stroke-width="4"/>
+      <rect x="23" y="23" width="694" height="454" fill="none" stroke="url(#g1b)" stroke-width="2.5" opacity=".6"/>
+      <rect x="27" y="27" width="686" height="446" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1"/>
+
+      <use href="#flowerb" transform="translate(32,32)"/>
+      <use href="#flowerb" transform="translate(708,32) scale(-1,1)"/>
+      <use href="#flowerb" transform="translate(32,468) scale(1,-1)"/>
+      <use href="#flowerb" transform="translate(708,468) scale(-1,-1)"/>
+
+      <use href="#cloudb" transform="translate(120,9)"/>
+      <use href="#cloudb" transform="translate(240,7)"/>
+      <use href="#cloudb" transform="translate(360,9)"/>
+      <use href="#cloudb" transform="translate(480,7)"/>
+      <use href="#cloudb" transform="translate(600,9)"/>
+
+      <g transform="translate(0,500) scale(1,-1)">
+        <use href="#cloudb" transform="translate(120,9)"/>
+        <use href="#cloudb" transform="translate(240,7)"/>
+        <use href="#cloudb" transform="translate(360,9)"/>
+        <use href="#cloudb" transform="translate(480,7)"/>
+        <use href="#cloudb" transform="translate(600,9)"/>
+      </g>
+
+      <g transform="translate(9,500) rotate(-90)">
+        <use href="#cloudb" transform="translate(120,0)"/>
+        <use href="#cloudb" transform="translate(260,0)"/>
+        <use href="#cloudb" transform="translate(400,0)"/>
+      </g>
+
+      <g transform="translate(731,0) rotate(90)">
+        <use href="#cloudb" transform="translate(120,0)"/>
+        <use href="#cloudb" transform="translate(260,0)"/>
+        <use href="#cloudb" transform="translate(400,0)"/>
+      </g>
+
+    </svg>
+    <div class="inner-bg" style="inset:56px"></div>
+    <div class="inner-shadow" style="inset:56px"></div>
+  </div>
+</div>
+
+<!-- ==================== 面板 3：820×340（宽幅） ==================== -->
+<div class="item">
+  <span class="label">宽幅 820×340 | 云纹自动增多</span>
+  <div class="panel s3">
+    <svg class="frame-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 340">
+      <defs>
+        <linearGradient id="g1c" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2A1500"/><stop offset="5%" stop-color="#5C3D0E"/>
+          <stop offset="12%" stop-color="#8B6914"/><stop offset="22%" stop-color="#C8963E"/>
+          <stop offset="35%" stop-color="#E8D080"/><stop offset="48%" stop-color="#C8963E"/>
+          <stop offset="55%" stop-color="#F0D68A"/><stop offset="65%" stop-color="#D4A843"/>
+          <stop offset="78%" stop-color="#A67C2E"/><stop offset="88%" stop-color="#6B4F12"/>
+          <stop offset="95%" stop-color="#3D2000"/><stop offset="100%" stop-color="#1A0A00"/>
+        </linearGradient>
+        <radialGradient id="pgc" cx="35%" cy="25%">
+          <stop offset="0%" stop-color="#FFF4CC"/><stop offset="25%" stop-color="#F0D080"/>
+          <stop offset="55%" stop-color="#D4A843"/><stop offset="80%" stop-color="#A67C2E"/>
+          <stop offset="100%" stop-color="#6B4F12"/>
+        </radialGradient>
+        <g id="lpc">
+          <path d="M0,3C-5,-2 -9,-11 -6,-20C-4,-26 0,-28 0,-28
+                   C0,-28 4,-26 6,-20C9,-11 5,-2 0,3Z"
+                fill="url(#pgc)" stroke="rgba(140,100,30,.45)" stroke-width=".5"/>
+          <path d="M0,1C0,-7 0,-18 0,-26" fill="none"
+                stroke="rgba(255,255,220,.25)" stroke-width=".4"/>
+        </g>
+        <g id="flowerc">
+          <use href="#lpc" transform="rotate(0)   translate(0,-10)"/>
+          <use href="#lpc" transform="rotate(13)  translate(0,-10)"/>
+          <use href="#lpc" transform="rotate(26)  translate(0,-10)"/>
+          <use href="#lpc" transform="rotate(42)  translate(0,-11) scale(1.08)"/>
+          <use href="#lpc" transform="rotate(58)  translate(0,-10)"/>
+          <use href="#lpc" transform="rotate(72)  translate(0,-10)"/>
+          <use href="#lpc" transform="rotate(88)  translate(0,-10)"/>
+          <circle cx="0" cy="0" r="3.5" fill="#E8C860" stroke="#8B6508" stroke-width=".7"/>
+          <circle cx="0" cy="0" r="1.5" fill="#FFF8DC"/>
+          <path d="M3,0C10,-5 20,-9 32,-8C38,-7 42,-5 44,-2"
+                fill="none" stroke="#C8963E" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M44,-2C48,-1 50,-5 48,-8C46,-10 42,-9 42,-6"
+                fill="none" stroke="#C8963E" stroke-width="1" stroke-linecap="round"/>
+          <path d="M0,3C-5,10 -9,20 -8,32C-7,38 -5,42 -2,44"
+                fill="none" stroke="#C8963E" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M-2,44C-1,48 -5,50 -8,48C-10,46 -9,42 -6,42"
+                fill="none" stroke="#C8963E" stroke-width="1" stroke-linecap="round"/>
+          <path d="M1,1C6,6 12,14 15,23C17,27 17,30 15,32"
+                fill="none" stroke="rgba(180,140,50,.35)" stroke-width=".7" stroke-linecap="round"/>
+        </g>
+        <g id="cloudc">
+          <path d="M0,18C0,11 5,6 10,7C13,2 18,0 23,3C27,-2 34,-1 36,5
+                   C40,2 46,3 48,9C52,7 58,9 56,15C60,16 60,23 54,25
+                   C52,30 45,32 40,29C34,34 28,34 22,30C16,34 8,32 5,27
+                   C0,25 -1,21 0,18Z"
+                fill="rgba(215,180,105,.5)" stroke="rgba(170,130,55,.65)" stroke-width="1.1"/>
+          <path d="M16,20C14,14 20,10 25,13C27,8 34,8 36,13C40,9 46,12 44,17
+                   C48,17 48,22 44,23"
+                fill="none" stroke="rgba(245,225,165,.45)" stroke-width="1" stroke-linecap="round"/>
+          <path d="M50,25C56,22 61,26 59,31C57,33 53,31 52,28"
+                fill="none" stroke="rgba(170,130,55,.45)" stroke-width=".9" stroke-linecap="round"/>
+        </g>
+      </defs>
+
+      <rect x="0" y="0" width="820" height="340" rx="2" fill="none" stroke="#080300" stroke-width="3"/>
+      <rect x="4" y="4" width="812" height="332" rx="1" fill="none" stroke="url(#g1c)" stroke-width="10"/>
+      <rect x="11" y="11" width="798" height="318" fill="none" stroke="rgba(240,214,138,.2)" stroke-width="1"/>
+      <rect x="14" y="14" width="792" height="312" fill="none" stroke="#080300" stroke-width="3"/>
+      <rect x="18" y="18" width="784" height="304" fill="none" stroke="url(#g1c)" stroke-width="2" opacity=".65"/>
+      <rect x="21" y="21" width="778" height="298" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1"/>
+
+      <use href="#flowerc" transform="translate(24,24)"/>
+      <use href="#flowerc" transform="translate(796,24) scale(-1,1)"/>
+      <use href="#flowerc" transform="translate(24,316) scale(1,-1)"/>
+      <use href="#flowerc" transform="translate(796,316) scale(-1,-1)"/>
+
+      <!-- 宽幅→更多云 -->
+      <use href="#cloudc" transform="translate( 90,7)"/>
+      <use href="#cloudc" transform="translate(175,5)"/>
+      <use href="#cloudc" transform="translate(260,7)"/>
+      <use href="#cloudc" transform="translate(345,5)"/>
+      <use href="#cloudc" transform="translate(430,7)"/>
+      <use href="#cloudc" transform="translate(515,5)"/>
+      <use href="#cloudc" transform="translate(600,7)"/>
+      <use href="#cloudc" transform="translate(685,5)"/>
+
+      <g transform="translate(0,340) scale(1,-1)">
+        <use href="#cloudc" transform="translate( 90,7)"/>
+        <use href="#cloudc" transform="translate(175,5)"/>
+        <use href="#cloudc" transform="translate(260,7)"/>
+        <use href="#cloudc" transform="translate(345,5)"/>
+        <use href="#cloudc" transform="translate(430,7)"/>
+        <use href="#cloudc" transform="translate(515,5)"/>
+        <use href="#cloudc" transform="translate(600,7)"/>
+        <use href="#cloudc" transform="translate(685,5)"/>
+      </g>
+
+      <g transform="translate(7,340) rotate(-90)">
+        <use href="#cloudc" transform="translate( 70,0)"/>
+        <use href="#cloudc" transform="translate(155,0)"/>
+        <use href="#cloudc" transform="translate(240,0)"/>
+      </g>
+
+      <g transform="translate(813,0) rotate(90)">
+        <use href="#cloudc" transform="translate( 70,0)"/>
+        <use href="#cloudc" transform="translate(155,0)"/>
+        <use href="#cloudc" transform="translate(240,0)"/>
+      </g>
+
+    </svg>
+    <div class="inner-bg" style="inset:44px"></div>
+    <div class="inner-shadow" style="inset:44px"></div>
+  </div>
+</div>
+
+</body>
+</html>

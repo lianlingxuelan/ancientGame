@@ -400,7 +400,7 @@ namespace Shouyou.UI
 
         private string GetUnitDisplayText(BattleUnitState unit)
         {
-            if (unit.attack <= 0 && unit.defeated)
+            if (unit.defeated)
             {
                 return unit.unitName + "\n--";
             }
