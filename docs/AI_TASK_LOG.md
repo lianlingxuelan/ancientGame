@@ -1887,3 +1887,173 @@ remaining_rounds: 2
 - 遗留问题：P2 GetUnitDisplayText 判空位逻辑可选修复
 ---BLOCK_SUMMARY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Assets-R1
+parent_id: none
+round: 1
+timestamp: 2026-07-28 21:15:00 Asia/Shanghai
+project_spec: 极简速查版
+module: UI 素材入库
+flow_status: [INFO]
+agent: claude
+---BLOCK_CHANGE_LOG_START---
+新增可用 UI 素材：
+
+头像（圆形，RGBA，羽化边缘）：
+  Assets/_Project/Art/UI/GameIcons/circles/circle_01~12.png
+  尺寸 368-594px，共 12 张
+
+UI 装饰元素（RGBA）：
+  Assets/_Project/Art/UI/GameIcons/elements/element_05~24.png
+  尺寸 167-226px，共 19 张
+
+Codex 可以在 Unity 中直接引用这些路径，用于：
+- 角色列表头像展示（circle_xx.png）
+- 编队槽位头像
+- UI 面板装饰（element_xx.png）
+- 按钮底框、边框装饰
+
+素材路径约定：
+- 所有图标统一放在 Assets/_Project/Art/UI/GameIcons/ 下
+- circles/ 中编号无特定对应关系，可按需分配
+- elements/ 可根据 visual 需要自由选用
+---BLOCK_CHANGE_LOG_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: ResourcePlan-R1
+parent_id: Assets-R1
+round: 1
+timestamp: 2026-07-28 21:25:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 资源管理方案
+flow_status: [INFO]
+agent: claude+codex
+---BLOCK_CHANGE_LOG_START---
+Claude + Codex 达成一致：图标资源走后端统一管理，Unity 用 iconKey 引用。
+
+资源接口（Claude 后续实现）：
+  GET /api/v1/assets?iconKey=xxx
+  返回：{ iconKey, displayName, url, category }
+
+Unity 端 iconKey 清单（Codex 可直接用）：
+  技能类：
+    skill_basic_attack    普攻
+    skill_poetry_attack   词意攻击
+    skill_group_damage    群体伤害
+    skill_heal            治疗
+    skill_buff            增益
+    skill_debuff          减益
+  货币类：
+    currency_gold         铜钱
+    currency_jade         玉
+  战斗类：
+    battle_victory        胜利
+    battle_defeat         失败
+    battle_retreat        撤退
+
+当前阶段：
+- 技能按钮先用文字占位（如"词意攻击"），不等图标
+- Claude 负责后端资源接口 + assets 目录结构
+- Codex 负责技能/大招占位逻辑
+- 图标素材暂不入 Unity 工程
+---BLOCK_CHANGE_LOG_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: AssetsAPI-R1
+parent_id: ResourcePlan-R1
+round: 1
+timestamp: 2026-07-28 21:35:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 资源 API 实现
+flow_status: [DONE]
+agent: claude
+---BLOCK_CHANGE_LOG_START---
+新增资源接口：GET /api/v1/assets
+
+用法：
+- 列出所有图标：GET /api/v1/assets
+- 获取图标文件：GET /api/v1/assets?iconKey=char_liqingzhao
+- 占位图标（无文件）：GET /api/v1/assets?iconKey=skill_basic_attack
+
+返回格式：
+{
+  "iconKey": "char_liqingzhao",
+  "displayName": "李清照",
+  "url": null,           // null=无文件，前端用文字占位
+  "category": "character_avatar",
+  "_placeholder": true   // 占位标记
+}
+
+已映射的 iconKey：
+  有文件：char_liqingzhao, char_wanhe, skill_bg_01, skill_bg_02, ui_panel_bg
+  占位(无文件)：skill_basic_attack, skill_poetry_attack, skill_group_damage,
+                skill_heal, currency_gold, currency_jade
+
+图标注册表：ShouyouServer/src/assets/icon-registry.json
+换图/加图只需改这个文件，不碰 Unity 代码。
+
+数据库查看工具：DB Browser for SQLite 已安装
+  打开 ShouyouServer/data/shouyou.db 即可实时查看表格
+---BLOCK_CHANGE_LOG_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo13-FE-R1-CODE
+parent_id: AssetsAPI-R1
+round: 1
+timestamp: 2026-07-28 21:52:09 Asia/Shanghai
+project_spec: AncientGame prototype
+module: battle skill placeholder
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement:
+Add placeholder battle skill actions so the 6v6 PVE demo is not limited to basic attacks.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+First coding round; no Claude review response for this task yet.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+
+Key methods:
+1. PerformPlayerAttack
+2. CastPoetryStrike
+3. CastDreamAreaAttack
+4. CastHealingVerse
+5. CompletePlayerAction
+6. ResolveEnemyCounterAttack
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Bound SkillButton_1..4 to runtime battle actions: basic attack, single-target burst, group damage, and healing.
+2. Added shared action resolution so each player action checks victory, triggers one enemy counterattack, checks defeat, then advances round/action points.
+3. Added healing floating text using the existing damage text overlay path.
+4. Kept icon assets out of Unity for now; skill buttons use text placeholders only.
+
+Asset changes: none.
+Save impact: none.
+Risk points:
+1. Unity Play Mode validation is still required because this environment cannot run Unity Editor compilation directly.
+2. New runtime display strings use C# unicode escapes to avoid local PowerShell encoding corruption.
+3. Some pre-existing comments in BattleDemoController.cs are mojibake; this task avoids expanding the issue but does not fully clean historical encoding.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. Checked BattleSkillBar structure in HomeUILayoutBuilder.cs: SkillButton_1..4 exist.
+2. Ran git diff --check; no whitespace errors reported for this task.
+3. Checked method counts: no duplicate public skill methods remain.
+4. Checked brace balance in BattleDemoController.cs: balanced.
+
+Suggested Claude tests:
+1. Unity Play Mode: enter battle page, verify buttons show basic attack / poetry strike / dream area / heal labels in Chinese.
+2. Select an enemy, click single-target skill, verify selected enemy HP decreases and enemy counterattacks once.
+3. Click group skill, verify all alive enemies lose HP and victory settlement appears when all enemies are defeated.
+4. Damage an ally, click heal skill, verify green healing popup and HP recovery.
+5. Confirm no new assets under all_aseet are staged or required.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

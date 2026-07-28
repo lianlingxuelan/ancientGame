@@ -1,4 +1,7 @@
 import { createServer } from "node:http";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, dirname, extname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   closeDatabase,
   completeStage,
@@ -13,6 +16,18 @@ import {
   saveProgress,
   updatePlayerName,
 } from "./database.mjs";
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const iconRegistryPath = resolve(projectRoot, "src/assets/icon-registry.json");
+const iconRegistry = JSON.parse(readFileSync(iconRegistryPath, "utf8"));
+const iconMap = iconRegistry.icons ?? {};
+
+const mimeTypes = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
 
 const host = process.env.SHOUYOU_SERVER_HOST ?? "127.0.0.1";
 const port = Number(process.env.SHOUYOU_SERVER_PORT ?? 5188);
@@ -149,6 +164,56 @@ const server = createServer(async (request, response) => {
         ),
       };
       sendJson(response, 200, saveProgress(playerId, progress));
+      return;
+    }
+
+    if (request.method === "GET" && pathname === "/api/v1/assets") {
+      const iconKey = url.searchParams.get("iconKey");
+      if (!iconKey) {
+        // 列出所有可用的 iconKey
+        const list = Object.entries(iconMap).map(([key, entry]) => ({
+          iconKey: key,
+          displayName: entry.displayName,
+          category: entry.category,
+          hasFile: entry.file !== null,
+        }));
+        sendJson(response, 200, { icons: list });
+        return;
+      }
+
+      const entry = iconMap[iconKey];
+      if (!entry) {
+        sendJson(response, 404, { error: "未知的 iconKey", iconKey });
+        return;
+      }
+
+      if (!entry.file) {
+        sendJson(response, 200, {
+          iconKey,
+          displayName: entry.displayName,
+          url: null,
+          category: entry.category,
+          _placeholder: true,
+        });
+        return;
+      }
+
+      const filePath = resolve(projectRoot, "src/assets", entry.file);
+      if (!existsSync(filePath)) {
+        sendJson(response, 404, { error: "图标文件不存在", iconKey });
+        return;
+      }
+
+      const ext = extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] ?? "application/octet-stream";
+      const data = readFileSync(filePath);
+
+      response.writeHead(200, {
+        "Content-Type": contentType,
+        "Content-Length": Buffer.byteLength(data),
+        "Cache-Control": "public, max-age=86400",
+      });
+      response.end(data);
       return;
     }
 

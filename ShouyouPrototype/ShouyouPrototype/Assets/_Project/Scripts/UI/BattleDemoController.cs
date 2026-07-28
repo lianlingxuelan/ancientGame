@@ -29,6 +29,10 @@ namespace Shouyou.UI
         private Button startBattleButton;
         private Button autoBattleButton;
         private Button retreatButton;
+        private Button basicSkillButton;
+        private Button poetryStrikeButton;
+        private Button dreamAreaButton;
+        private Button healSkillButton;
 
         private int selectedEnemyIndex;
         private int roundIndex = 1;
@@ -73,74 +77,104 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// 主按钮：执行一次我方攻击，然后敌方自动反击一次。
+        /// ???????????????????????????
         /// </summary>
         public void PerformPlayerAttack()
+        {
+            BattleUnitState attacker;
+            BattleUnitState target;
+            if (!TryGetBattleActionContext(out attacker, out target))
+            {
+                return;
+            }
+
+            int damage = CalculateDamage(attacker, target);
+            bool targetDefeated = ApplyDamage(target, damage);
+            ShowDamageText(target, damage);
+            CompletePlayerAction(BuildAttackMessage(attacker, target, damage, targetDefeated));
+        }
+
+        /// <summary>
+        /// ?????????????????????????
+        /// ??????????????????????????
+        /// </summary>
+        public void CastPoetryStrike()
+        {
+            BattleUnitState attacker;
+            BattleUnitState target;
+            if (!TryGetBattleActionContext(out attacker, out target))
+            {
+                return;
+            }
+
+            int damage = Mathf.Max(360, CalculateDamage(attacker, target) + 220);
+            bool targetDefeated = ApplyDamage(target, damage);
+            ShowDamageText(target, damage);
+            CompletePlayerAction(attacker.unitName + " \u65bd\u653e\u8bcd\u610f\u8fde\u51fb\uff0c\u5bf9 " + target.unitName + " \u9020\u6210 " + damage + " \u70b9\u4f24\u5bb3\u3002" + (targetDefeated ? " " + target.unitName + " \u5df2\u9000\u573a\u3002" : string.Empty));
+        }
+
+        /// <summary>
+        /// ?????????????????????? Demo ???????????????
+        /// </summary>
+        public void CastDreamAreaAttack()
+        {
+            BattleUnitState attacker;
+            BattleUnitState ignoredTarget;
+            if (!TryGetBattleActionContext(out attacker, out ignoredTarget))
+            {
+                return;
+            }
+
+            int aliveTargets = 0;
+            int defeatedTargets = 0;
+            int damage = Mathf.Max(170, attacker.attack - 20);
+
+            for (int i = 0; i < enemyUnits.Length; i++)
+            {
+                BattleUnitState enemy = enemyUnits[i];
+                if (enemy == null || enemy.defeated)
+                {
+                    continue;
+                }
+
+                aliveTargets++;
+                if (ApplyDamage(enemy, damage))
+                {
+                    defeatedTargets++;
+                }
+
+                ShowDamageText(enemy, damage);
+            }
+
+            CompletePlayerAction(attacker.unitName + " \u65bd\u653e\u5982\u68a6\u4ee4\uff0c\u547d\u4e2d " + aliveTargets + " \u4e2a\u654c\u65b9\u76ee\u6807\uff0c\u6bcf\u4eba\u53d7\u5230 " + damage + " \u70b9\u4f24\u5bb3\u3002\u9000\u573a " + defeatedTargets + " \u4eba\u3002");
+        }
+
+        /// <summary>
+        /// ?????????????????????
+        /// ?????????????????????????????
+        /// </summary>
+        public void CastHealingVerse()
         {
             BindRuntimeReferences();
 
             if (battleEnded)
             {
-                SetBattleMessage("本场战斗已经结算，请返回主线或重新进入。");
+                SetBattleMessage("\u672c\u573a\u6218\u6597\u5df2\u7ecf\u7ed3\u7b97\uff0c\u8bf7\u8fd4\u56de\u4e3b\u7ebf\u6216\u91cd\u65b0\u8fdb\u5165\u3002");
                 return;
             }
 
-            BattleUnitState attacker = FindFirstAlive(allyUnits);
-            BattleUnitState target = GetSelectedOrFirstAliveEnemy();
-            if (attacker == null || target == null)
+            BattleUnitState healer = FindFirstAlive(allyUnits);
+            BattleUnitState target = FindLowestHpAlly();
+            if (healer == null || target == null)
             {
-                Debug.LogError("[BattleDemo] 战斗状态异常：找不到可行动单位或可攻击目标。");
+                Debug.LogError("[BattleDemo] \u6218\u6597\u72b6\u6001\u5f02\u5e38\uff1a\u627e\u4e0d\u5230\u53ef\u6cbb\u7597\u7684\u53cb\u65b9\u5355\u4f4d\u3002");
                 return;
             }
 
-            int playerDamage = CalculateDamage(attacker, target);
-            bool playerKilledTarget = ApplyDamage(target, playerDamage);
-            ShowDamageText(target, playerDamage);
-            SetBattleMessage(BuildAttackMessage(attacker, target, playerDamage, playerKilledTarget));
-
-            if (AllDefeated(enemyUnits))
-            {
-                battleEnded = true;
-                RefreshAllViews();
-                if (router != null)
-                {
-                    router.ResolveBattleVictory();
-                }
-                return;
-            }
-
-            BattleUnitState enemyAttacker = FindFirstAlive(enemyUnits);
-            BattleUnitState allyTarget = FindFirstAlive(allyUnits);
-            if (enemyAttacker != null && allyTarget != null)
-            {
-                int enemyDamage = CalculateDamage(enemyAttacker, allyTarget);
-                bool enemyKilledTarget = ApplyDamage(allyTarget, enemyDamage);
-                ShowDamageText(allyTarget, enemyDamage);
-                SetBattleMessage(
-                    BuildAttackMessage(attacker, target, playerDamage, playerKilledTarget) + "\n" +
-                    BuildAttackMessage(enemyAttacker, allyTarget, enemyDamage, enemyKilledTarget)
-                );
-            }
-
-            if (AllDefeated(allyUnits))
-            {
-                battleEnded = true;
-                RefreshAllViews();
-                if (router != null)
-                {
-                    router.ResolveBattleDefeat();
-                }
-                return;
-            }
-
-            roundIndex++;
-            actionPoint = Mathf.Max(0, actionPoint - 1);
-            if (actionPoint == 0)
-            {
-                actionPoint = ActionPointMax;
-            }
-
-            RefreshAllViews();
+            int healAmount = 360;
+            int actualHeal = HealUnit(target, healAmount);
+            ShowHealText(target, actualHeal);
+            CompletePlayerAction(healer.unitName + " \u65bd\u653e\u7597\u6108\uff0c\u4e3a " + target.unitName + " \u56de\u590d " + actualHeal + " \u70b9\u751f\u547d\u3002");
         }
 
         /// <summary>
@@ -180,10 +214,23 @@ namespace Shouyou.UI
             startBattleButton = FindButton("StartBattleButton");
             autoBattleButton = FindButton("AutoBattleButton");
             retreatButton = FindButton("RetreatButton");
+            basicSkillButton = FindButton("SkillButton_1");
+            poetryStrikeButton = FindButton("SkillButton_2");
+            dreamAreaButton = FindButton("SkillButton_3");
+            healSkillButton = FindButton("SkillButton_4");
 
             BindButton(startBattleButton, PerformPlayerAttack);
             BindButton(autoBattleButton, PerformAutoAttacks);
             BindButton(retreatButton, RetreatBattle);
+            BindButton(basicSkillButton, PerformPlayerAttack);
+            BindButton(poetryStrikeButton, CastPoetryStrike);
+            BindButton(dreamAreaButton, CastDreamAreaAttack);
+            BindButton(healSkillButton, CastHealingVerse);
+
+            SetButtonLabel(basicSkillButton, "\u666e\u653b");
+            SetButtonLabel(poetryStrikeButton, "\u8bcd\u610f\u8fde\u51fb");
+            SetButtonLabel(dreamAreaButton, "\u5982\u68a6\u4ee4");
+            SetButtonLabel(healSkillButton, "\u7597\u6108");
 
             for (int i = 0; i < UnitCount; i++)
             {
@@ -282,6 +329,123 @@ namespace Shouyou.UI
             return true;
         }
 
+        private bool TryGetBattleActionContext(out BattleUnitState attacker, out BattleUnitState target)
+        {
+            BindRuntimeReferences();
+
+            attacker = null;
+            target = null;
+
+            if (battleEnded)
+            {
+                SetBattleMessage("\u672c\u573a\u6218\u6597\u5df2\u7ecf\u7ed3\u7b97\uff0c\u8bf7\u8fd4\u56de\u4e3b\u7ebf\u6216\u91cd\u65b0\u8fdb\u5165\u3002");
+                return false;
+            }
+
+            attacker = FindFirstAlive(allyUnits);
+            target = GetSelectedOrFirstAliveEnemy();
+            if (attacker == null || target == null)
+            {
+                Debug.LogError("[BattleDemo] \u6218\u6597\u72b6\u6001\u5f02\u5e38\uff1a\u627e\u4e0d\u5230\u53ef\u884c\u52a8\u5355\u4f4d\u6216\u53ef\u653b\u51fb\u76ee\u6807\u3002");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void CompletePlayerAction(string playerMessage)
+        {
+            SetBattleMessage(playerMessage);
+
+            if (AllDefeated(enemyUnits))
+            {
+                battleEnded = true;
+                RefreshAllViews();
+                if (router != null)
+                {
+                    router.ResolveBattleVictory();
+                }
+                return;
+            }
+
+            string enemyMessage = ResolveEnemyCounterAttack();
+            if (!string.IsNullOrEmpty(enemyMessage))
+            {
+                SetBattleMessage(playerMessage + "\n" + enemyMessage);
+            }
+
+            if (AllDefeated(allyUnits))
+            {
+                battleEnded = true;
+                RefreshAllViews();
+                if (router != null)
+                {
+                    router.ResolveBattleDefeat();
+                }
+                return;
+            }
+
+            AdvanceRoundClock();
+            RefreshAllViews();
+        }
+
+        private string ResolveEnemyCounterAttack()
+        {
+            BattleUnitState enemyAttacker = FindFirstAlive(enemyUnits);
+            BattleUnitState allyTarget = FindFirstAlive(allyUnits);
+            if (enemyAttacker == null || allyTarget == null)
+            {
+                return string.Empty;
+            }
+
+            int enemyDamage = CalculateDamage(enemyAttacker, allyTarget);
+            bool enemyKilledTarget = ApplyDamage(allyTarget, enemyDamage);
+            ShowDamageText(allyTarget, enemyDamage);
+            return BuildAttackMessage(enemyAttacker, allyTarget, enemyDamage, enemyKilledTarget);
+        }
+
+        private void AdvanceRoundClock()
+        {
+            roundIndex++;
+            actionPoint = Mathf.Max(0, actionPoint - 1);
+            if (actionPoint == 0)
+            {
+                actionPoint = ActionPointMax;
+            }
+        }
+
+        private BattleUnitState FindLowestHpAlly()
+        {
+            BattleUnitState best = null;
+            float bestRate = 2f;
+
+            for (int i = 0; i < allyUnits.Length; i++)
+            {
+                BattleUnitState unit = allyUnits[i];
+                if (unit == null || unit.defeated)
+                {
+                    continue;
+                }
+
+                float hpRate = unit.maxHp <= 0 ? 1f : (float)unit.currentHp / unit.maxHp;
+                if (best == null || hpRate < bestRate)
+                {
+                    best = unit;
+                    bestRate = hpRate;
+                }
+            }
+
+            return best;
+        }
+
+        private int HealUnit(BattleUnitState target, int healAmount)
+        {
+            int oldHp = target.currentHp;
+            target.currentHp = Mathf.Min(target.maxHp, target.currentHp + healAmount);
+            target.defeated = target.currentHp <= 0;
+            return target.currentHp - oldHp;
+        }
+
         private int CalculateDamage(BattleUnitState attacker, BattleUnitState target)
         {
             // 先用稳定的轻量公式：攻击力 - 少量防御修正。
@@ -319,6 +483,16 @@ namespace Shouyou.UI
 
         private void ShowDamageText(BattleUnitState target, int damage)
         {
+            ShowFloatingText(target, "-" + damage, target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255));
+        }
+
+        private void ShowHealText(BattleUnitState target, int healAmount)
+        {
+            ShowFloatingText(target, "+" + healAmount, new Color32(110, 255, 160, 255));
+        }
+
+        private void ShowFloatingText(BattleUnitState target, string content, Color32 color)
+        {
             BattleUnitView view = GetViewForUnit(target);
             if (view == null || view.damageText == null)
             {
@@ -327,8 +501,8 @@ namespace Shouyou.UI
 
             view.damageSerial++;
             int serial = view.damageSerial;
-            view.damageText.text = "-" + damage;
-            view.damageText.color = target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255);
+            view.damageText.text = content;
+            view.damageText.color = color;
             view.damageText.gameObject.SetActive(true);
             StartCoroutine(HideDamageTextLater(view, serial));
         }
@@ -526,11 +700,23 @@ namespace Shouyou.UI
                 return;
             }
 
-            // 运行时直接替换点击事件。
-            // 原因：当前场景里可能残留编辑器持久化绑定，例如“开始战斗”旧逻辑会直接弹胜利。
-            // 这里清掉后再绑定，可以避免一次点击同时触发旧逻辑和新战斗逻辑。
+            // ?????????????????????????????
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(action);
+        }
+
+        private void SetButtonLabel(Button button, string label)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            Text text = button.GetComponentInChildren<Text>(true);
+            if (text != null)
+            {
+                text.text = label;
+            }
         }
 
         private void SetBattleMessage(string message)
