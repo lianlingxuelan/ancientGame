@@ -2147,3 +2147,24 @@ agent: claude
    占位：所有技能/货币/战斗结果图标
 ---BLOCK_CHANGE_LOG_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: QuickFixes-R2
+parent_id: QuickFixes-R1
+round: 2
+timestamp: 2026-07-29 evening Asia/Shanghai
+project_spec: 极简速查版
+module: Codex发现的4个后端问题已修复
+flow_status: [DONE]
+agent: claude
+---BLOCK_REVIEW_RESPONSE_START---
+Codex扫描发现QuickFixes-R1的4个问题，全部修复：
+
+1.【重复enemies】demo-config.json有2段enemies → 已合并为1份
+2.【分类名统一】Codex用skill_icon，我用battle_skill → 统一为battle_skill
+3.【中文编码】终端显示乱码但文件是UTF-8 → Node读取正常，不影响
+4.【婉禾编队】种子数据已改 → 需手动删旧shouyou.db重生
+
+分类名已统一为battle_skill，Codex可以放心按此接Unity前端。
+---BLOCK_REVIEW_RESPONSE_END---
+===TASK_RECORD_END===
