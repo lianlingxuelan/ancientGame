@@ -169,32 +169,45 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "GET" && pathname === "/api/v1/assets") {
       const iconKey = url.searchParams.get("iconKey");
-      if (!iconKey) {
-        // 列出所有可用的 iconKey
-        const list = Object.entries(iconMap).map(([key, entry]) => ({
-          iconKey: key,
-          displayName: entry.displayName,
-          category: entry.category,
-          hasFile: entry.file !== null,
-        }));
-        sendJson(response, 200, { icons: list });
+      const category = url.searchParams.get("category");
+
+      const registryVersion = iconRegistry.version ?? 1;
+
+      // 按 category 查询 — 返回图标列表
+      if (category && !iconKey) {
+        const filtered = Object.entries(iconMap)
+          .filter(([_, entry]) => entry.category === category)
+          .map(([key, entry]) => buildAssetResponse(key, entry, registryVersion));
+        sendJson(response, 200, { category, version: registryVersion, icons: filtered });
         return;
       }
 
+      // 列出所有图标
+      if (!iconKey && !category) {
+        const list = Object.entries(iconMap).map(([key, entry]) =>
+          buildAssetResponse(key, entry, registryVersion),
+        );
+        sendJson(response, 200, { version: registryVersion, icons: list });
+        return;
+      }
+
+      // 单个图标查询
       const entry = iconMap[iconKey];
       if (!entry) {
         sendJson(response, 404, { error: "未知的 iconKey", iconKey });
         return;
       }
 
+      // 占位图标 — 返回元数据，不返回文件
       if (!entry.file) {
-        sendJson(response, 200, {
-          iconKey,
-          displayName: entry.displayName,
-          url: null,
-          category: entry.category,
-          _placeholder: true,
-        });
+        sendJson(response, 200, buildAssetResponse(iconKey, entry, registryVersion));
+        return;
+      }
+
+      // 有文件的图标 — 检查是否请求元数据 vs 文件
+      const wantMeta = url.searchParams.get("meta") === "1";
+      if (wantMeta) {
+        sendJson(response, 200, buildAssetResponse(iconKey, entry, registryVersion));
         return;
       }
 
@@ -232,6 +245,21 @@ const server = createServer(async (request, response) => {
     });
   }
 });
+
+function buildAssetResponse(iconKey, entry, registryVersion) {
+  const fileExists = entry.file !== null;
+  const baseUrl = `http://${host}:${port}/assets`;
+  return {
+    iconKey,
+    displayName: entry.displayName,
+    url: fileExists ? `${baseUrl}/${entry.file}` : null,
+    category: entry.category,
+    version: registryVersion,
+    width: entry.width ?? 0,
+    height: entry.height ?? 0,
+    _placeholder: !fileExists,
+  };
+}
 
 server.listen(port, host, () => {
   console.log(`手游本地服务器已启动：http://${host}:${port}`);

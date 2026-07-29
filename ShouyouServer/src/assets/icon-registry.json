@@ -1,0 +1,129 @@
+{
+  "_comment": "图标注册表 v2。category查询已支持。version字段用于缓存失效。",
+  "version": 2,
+  "icons": {
+    "char_liqingzhao": {
+      "displayName": "李清照",
+      "file": "icons/char_liqingzhao.png",
+      "category": "character_avatar",
+      "width": 506,
+      "height": 506
+    },
+    "char_wanhe": {
+      "displayName": "婉禾",
+      "file": "icons/char_wanhe.png",
+      "category": "character_avatar",
+      "width": 508,
+      "height": 508
+    },
+    "skill_bg_01": {
+      "displayName": "技能槽底框1",
+      "file": "icons/skill_bg_01.png",
+      "category": "ui_element",
+      "width": 198,
+      "height": 192
+    },
+    "skill_bg_02": {
+      "displayName": "技能槽底框2",
+      "file": "icons/skill_bg_02.png",
+      "category": "ui_element",
+      "width": 220,
+      "height": 220
+    },
+    "ui_panel_bg": {
+      "displayName": "面板背景装饰",
+      "file": "icons/ui_panel_bg.png",
+      "category": "ui_element",
+      "width": 202,
+      "height": 202
+    },
+    "skill_basic_attack": {
+      "displayName": "普攻",
+      "file": null,
+      "category": "battle_skill",
+      "width": 128,
+      "height": 128,
+      "_note": "图标待补充"
+    },
+    "skill_poetry_attack": {
+      "displayName": "词意攻击",
+      "file": null,
+      "category": "battle_skill",
+      "width": 128,
+      "height": 128,
+      "_note": "图标待补充"
+    },
+    "skill_group_damage": {
+      "displayName": "群体伤害",
+      "file": null,
+      "category": "battle_skill",
+      "width": 128,
+      "height": 128,
+      "_note": "图标待补充"
+    },
+    "skill_heal": {
+      "displayName": "治疗",
+      "file": null,
+      "category": "battle_skill",
+      "width": 128,
+      "height": 128,
+      "_note": "图标待补充"
+    },
+    "skill_buff": {
+      "displayName": "增益",
+      "file": null,
+      "category": "battle_skill",
+      "width": 128,
+      "height": 128,
+      "_note": "图标待补充"
+    },
+    "skill_debuff": {
+      "displayName": "减益",
+      "file": null,
+      "category": "battle_skill",
+      "width": 128,
+      "height": 128,
+      "_note": "图标待补充"
+    },
+    "currency_gold": {
+      "displayName": "铜钱",
+      "file": null,
+      "category": "currency",
+      "width": 64,
+      "height": 64,
+      "_note": "图标待补充"
+    },
+    "currency_jade": {
+      "displayName": "玉",
+      "file": null,
+      "category": "currency",
+      "width": 64,
+      "height": 64,
+      "_note": "图标待补充"
+    },
+    "battle_victory": {
+      "displayName": "胜利",
+      "file": null,
+      "category": "battle_result",
+      "width": 256,
+      "height": 256,
+      "_note": "图标待补充"
+    },
+    "battle_defeat": {
+      "displayName": "失败",
+      "file": null,
+      "category": "battle_result",
+      "width": 256,
+      "height": 256,
+      "_note": "图标待补充"
+    },
+    "battle_retreat": {
+      "displayName": "撤退",
+      "file": null,
+      "category": "battle_result",
+      "width": 256,
+      "height": 256,
+      "_note": "图标待补充"
+    }
+  }
+}
