@@ -58,8 +58,15 @@ const server = createServer(async (request, response) => {
       sendJson(response, 200, {
         ok: true,
         service: "ShouyouServer",
-        version: "0.1.0",
+        version: "0.2.0",
         time: new Date().toISOString(),
+        database: database.open,
+        endpoints: {
+          battleConfig: "/api/v1/battle/demo-config",
+          assets: "/api/v1/assets",
+          formation: "/api/v1/formation",
+          characters: "/api/v1/characters",
+        },
       });
       return;
     }
@@ -295,12 +302,13 @@ function normalizePath(pathname) {
 }
 
 function sendJson(response, statusCode, value) {
-  const json = JSON.stringify(value, null, 2);
+  const json = JSON.stringify(value);
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(json),
+    "Content-Length": Buffer.byteLength(json, "utf8"),
+    "Cache-Control": "no-cache",
   });
-  response.end(json);
+  response.end(json, "utf8");
 }
 
 function sendHtml(response, html) {
