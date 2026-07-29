@@ -1,0 +1,65 @@
+{
+  "_comment": "战斗Demo配置。Unity通过GET /api/v1/battle/demo-config拉取，不再硬编码数值。",
+  "stageId": "1-1",
+  "maxActionPoint": 3,
+  "allies": [
+    {
+      "id": "li-qingzhao",
+      "name": "李清照",
+      "slot": 1,
+      "hp": 1200,
+      "attack": 220,
+      "portraitIconKey": "char_liqingzhao"
+    },
+    {
+      "id": "wanhe",
+      "name": "婉禾",
+      "slot": 2,
+      "hp": 1100,
+      "attack": 160,
+      "portraitIconKey": "char_wanhe"
+    }
+  ],
+  "enemies": [
+    {"id": "enemy_1", "name": "敌一", "slot": 1, "hp": 520, "attack": 105, "portraitIconKey": null},
+    {"id": "enemy_2", "name": "敌二", "slot": 2, "hp": 590, "attack": 123, "portraitIconKey": null},
+    {"id": "enemy_3", "name": "敌三", "slot": 3, "hp": 660, "attack": 141, "portraitIconKey": null},
+    {"id": "enemy_4", "name": "敌四", "slot": 4, "hp": 730, "attack": 159, "portraitIconKey": null},
+    {"id": "enemy_5", "name": "敌五", "slot": 5, "hp": 800, "attack": 177, "portraitIconKey": null},
+    {"id": "enemy_6", "name": "敌六", "slot": 6, "hp": 870, "attack": 195, "portraitIconKey": null}
+  ],
+  "skills": [
+    {
+      "id": "basic",
+      "label": "普攻",
+      "iconKey": "skill_basic_attack",
+      "target": "enemy_single",
+      "multiplier": 1.0,
+      "cooldown": 0
+    },
+    {
+      "id": "poetry_strike",
+      "label": "词意连击",
+      "iconKey": "skill_poetry_attack",
+      "target": "enemy_single",
+      "multiplier": 1.8,
+      "cooldown": 2
+    },
+    {
+      "id": "dream_area",
+      "label": "如梦令",
+      "iconKey": "skill_group_damage",
+      "target": "enemy_all",
+      "multiplier": 0.75,
+      "cooldown": 3
+    },
+    {
+      "id": "healing_verse",
+      "label": "疗愈",
+      "iconKey": "skill_heal",
+      "target": "ally_lowest_hp",
+      "multiplier": 1.2,
+      "cooldown": 3
+    }
+  ]
+}

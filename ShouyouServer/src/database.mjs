@@ -184,12 +184,10 @@ function seedInitialData() {
     VALUES (?, ?, ?, ?)
   `);
   for (let slot = 1; slot <= 6; slot += 1) {
-    insertFormation.run(
-      "demo-player",
-      slot,
-      slot === 1 ? "li-qingzhao" : null,
-      now,
-    );
+    let characterId = null;
+    if (slot === 1) characterId = "li-qingzhao";
+    else if (slot === 2) characterId = "wanhe";
+    insertFormation.run("demo-player", slot, characterId, now);
   }
 
   database

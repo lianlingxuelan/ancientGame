@@ -230,6 +230,14 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "GET" && pathname === "/api/v1/battle/demo-config") {
+      const config = JSON.parse(
+        readFileSync(resolve(projectRoot, "src/assets/demo-config.json"), "utf8"),
+      );
+      sendJson(response, 200, config);
+      return;
+    }
+
     sendJson(response, 404, {
       error: "接口不存在",
       path: pathname,
