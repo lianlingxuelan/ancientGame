@@ -2168,3 +2168,41 @@ Codex扫描发现QuickFixes-R1的4个问题，全部修复：
 分类名已统一为battle_skill，Codex可以放心按此接Unity前端。
 ---BLOCK_REVIEW_RESPONSE_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: AssetsAPI-R3
+parent_id: QuickFixes-R2
+round: 3
+timestamp: 2026-07-29 21:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 技能图标全部入库
+flow_status: [DONE]
+agent: claude
+---BLOCK_CHANGE_LOG_START---
+所有技能图标已入库（Codex 可以直接接前端）：
+
+现状态（battle_skill 下全部有实体文件）：
+  skill_bg_01  → 词意连击底框
+  skill_bg_02  → 如梦令底框
+  skill_bg_03  → 普攻底框
+  skill_bg_04  → 疗愈底框
+  skill_basic_attack   → 普攻图标
+  skill_poetry_attack  → 词意攻击图标
+  skill_group_damage   → 群体伤害图标
+  skill_heal           → 治疗图标
+  skill_buff           → 增益图标
+  skill_debuff         → 减益图标
+
+另外搞定：
+- 角色头像已入库：char_liqingzhao / char_wanhe / enemy_shadow / enemy_shadow2
+- demo-config.json 已清理（无重复enemies，中文UTF-8）
+- 分类名已统一：battle_skill
+- 婉禾已在编队slot2（不需要删库）
+
+Codex 可以直接：
+1. GET /api/v1/battle/demo-config  获取战斗配置
+2. GET /api/v1/assets?category=battle_skill  获取技能图标列表
+3. GET /api/v1/assets?iconKey=xxx  获取具体图标文件
+4. 中文暂时用Unity本地映射（后端JSON在Node读取正常）
+---BLOCK_CHANGE_LOG_END---
+===TASK_RECORD_END===
