@@ -67,51 +67,45 @@
     },
     "skill_basic_attack": {
       "displayName": "普攻",
-      "file": null,
+      "file": "icons/skill_basic_attack.png",
       "category": "battle_skill",
-      "width": 128,
-      "height": 128,
-      "_note": "图标待补充"
+      "width": 174,
+      "height": 174
     },
     "skill_poetry_attack": {
       "displayName": "词意攻击",
-      "file": null,
+      "file": "icons/skill_poetry_attack.png",
       "category": "battle_skill",
-      "width": 128,
-      "height": 128,
-      "_note": "图标待补充"
+      "width": 174,
+      "height": 174
     },
     "skill_group_damage": {
       "displayName": "群体伤害",
-      "file": null,
+      "file": "icons/skill_group_damage.png",
       "category": "battle_skill",
-      "width": 128,
-      "height": 128,
-      "_note": "图标待补充"
+      "width": 174,
+      "height": 174
     },
     "skill_heal": {
       "displayName": "治疗",
-      "file": null,
+      "file": "icons/skill_heal.png",
       "category": "battle_skill",
-      "width": 128,
-      "height": 128,
-      "_note": "图标待补充"
+      "width": 174,
+      "height": 174
     },
     "skill_buff": {
       "displayName": "增益",
-      "file": null,
+      "file": "icons/skill_buff.png",
       "category": "battle_skill",
-      "width": 128,
-      "height": 128,
-      "_note": "图标待补充"
+      "width": 174,
+      "height": 174
     },
     "skill_debuff": {
       "displayName": "减益",
-      "file": null,
+      "file": "icons/skill_debuff.png",
       "category": "battle_skill",
-      "width": 128,
-      "height": 128,
-      "_note": "图标待补充"
+      "width": 174,
+      "height": 174
     },
     "currency_gold": {
       "displayName": "铜钱",
