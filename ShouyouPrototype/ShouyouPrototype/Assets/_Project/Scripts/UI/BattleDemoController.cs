@@ -79,6 +79,19 @@ namespace Shouyou.UI
         /// <summary>
         /// ???????????????????????????
         /// </summary>
+        public void PressMainBattleButton()
+        {
+            BindRuntimeReferences();
+
+            if (battleEnded)
+            {
+                ResetDemoBattle();
+                return;
+            }
+
+            PerformPlayerAttack();
+        }
+
         public void PerformPlayerAttack()
         {
             BattleUnitState attacker;
@@ -202,11 +215,6 @@ namespace Shouyou.UI
 
         private void BindRuntimeReferences()
         {
-            if (referencesBound)
-            {
-                return;
-            }
-
             router = GetComponentInParent<HomePageRouter>();
             roundTipText = FindLabel("BattleRoundTip");
             actionPointText = FindLabel("ActionPointText");
@@ -219,7 +227,7 @@ namespace Shouyou.UI
             dreamAreaButton = FindButton("SkillButton_3");
             healSkillButton = FindButton("SkillButton_4");
 
-            BindButton(startBattleButton, PerformPlayerAttack);
+            BindButton(startBattleButton, PressMainBattleButton);
             BindButton(autoBattleButton, PerformAutoAttacks);
             BindButton(retreatButton, RetreatBattle);
             BindButton(basicSkillButton, PerformPlayerAttack);
@@ -227,10 +235,7 @@ namespace Shouyou.UI
             BindButton(dreamAreaButton, CastDreamAreaAttack);
             BindButton(healSkillButton, CastHealingVerse);
 
-            SetButtonLabel(basicSkillButton, "\u666e\u653b");
-            SetButtonLabel(poetryStrikeButton, "\u8bcd\u610f\u8fde\u51fb");
-            SetButtonLabel(dreamAreaButton, "\u5982\u68a6\u4ee4");
-            SetButtonLabel(healSkillButton, "\u7597\u6108");
+            RefreshBattleControls();
 
             for (int i = 0; i < UnitCount; i++)
             {
@@ -531,6 +536,22 @@ namespace Shouyou.UI
             return views[index];
         }
 
+        private void RefreshBattleControls()
+        {
+            SetButtonLabel(startBattleButton, battleEnded ? "\u91cd\u65b0\u5f00\u59cb" : "\u5f00\u59cb\u6218\u6597");
+            SetButtonLabel(basicSkillButton, "\u666e\u653b");
+            SetButtonLabel(poetryStrikeButton, "\u8bcd\u610f\u8fde\u51fb");
+            SetButtonLabel(dreamAreaButton, "\u5982\u68a6\u4ee4");
+            SetButtonLabel(healSkillButton, "\u7597\u6108");
+
+            SetButtonInteractable(startBattleButton, true);
+            SetButtonInteractable(autoBattleButton, !battleEnded);
+            SetButtonInteractable(basicSkillButton, !battleEnded);
+            SetButtonInteractable(poetryStrikeButton, !battleEnded);
+            SetButtonInteractable(dreamAreaButton, !battleEnded);
+            SetButtonInteractable(healSkillButton, !battleEnded);
+        }
+
         private void RefreshAllViews()
         {
             SetText(roundTipText, "第 " + roundIndex + " 回合    我方行动    回合 PVE Demo");
@@ -703,6 +724,14 @@ namespace Shouyou.UI
             // ?????????????????????????????
             button.onClick = new Button.ButtonClickedEvent();
             button.onClick.AddListener(action);
+        }
+
+        private void SetButtonInteractable(Button button, bool interactable)
+        {
+            if (button != null)
+            {
+                button.interactable = interactable;
+            }
         }
 
         private void SetButtonLabel(Button button, string label)

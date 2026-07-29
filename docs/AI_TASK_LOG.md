@@ -2057,3 +2057,47 @@ Suggested Claude tests:
 5. Confirm no new assets under all_aseet are staged or required.
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo13-FE-R2-FIX
+parent_id: Todo13-FE-R1-CODE
+round: 2
+timestamp: 2026-07-28 23:20:00 Asia/Shanghai
+project_spec: AncientGame prototype
+module: battle skill controls
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement:
+Fix skill controls not being visible/clickable in Play Mode and prepare backend handoff items for Claude.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+Claude review for Todo13 was not found yet. Latest backend note is AssetsAPI-R1. Older Todo12 review only had a P2 suggestion about empty-slot display logic.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. docs/CLAUDE_NEXT_TASKS.md
+
+Key methods:
+1. PressMainBattleButton
+2. BindRuntimeReferences
+3. RefreshBattleControls
+4. SetButtonInteractable
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Start battle button now routes through PressMainBattleButton. If the battle has already ended, it resets the demo battle instead of silently staying in the settlement state.
+2. Runtime references are refreshed each bind pass so rebuilt UI objects do not keep stale button labels or stale click handlers.
+3. Skill button labels are refreshed from one place: basic attack, poetry strike, dream area, healing.
+4. Skill buttons are disabled only after battle settlement; the main battle button remains enabled and becomes restart.
+5. Added docs/CLAUDE_NEXT_TASKS.md with backend interface requests for skill icon assets, demo battle config, and Wanhe data verification.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. Checked key method counts in BattleDemoController.cs: no duplicate methods.
+2. Checked brace balance: balanced.
+3. Ran git diff --check; only existing Unity asset LF/CRLF warnings appeared.
+4. Unity Play Mode validation is still required by user/Claude because this environment cannot compile Unity directly.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
