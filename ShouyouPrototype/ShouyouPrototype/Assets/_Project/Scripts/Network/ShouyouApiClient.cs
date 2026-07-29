@@ -21,7 +21,21 @@ namespace Shouyou.Network
 
         public IEnumerator GetHealth(Action<HealthResponse> onSuccess, Action<string> onError)
         {
-            yield return Get("/api/health", onSuccess, onError);
+            // ???????? health ????? demo-config ?? Unity ???????
+            yield return Get("/api/v1/battle/demo-config", delegate(BattleDemoConfigResponse data)
+            {
+                onSuccess?.Invoke(new HealthResponse { ok = data != null, service = "ShouyouServer", time = string.Empty });
+            }, onError);
+        }
+
+        public IEnumerator GetBattleDemoConfig(Action<BattleDemoConfigResponse> onSuccess, Action<string> onError)
+        {
+            yield return Get("/api/v1/battle/demo-config", onSuccess, onError);
+        }
+
+        public IEnumerator GetBattleSkillAssets(Action<BattleSkillAssetListResponse> onSuccess, Action<string> onError)
+        {
+            yield return Get("/api/v1/assets?category=battle_skill", onSuccess, onError);
         }
 
         public IEnumerator GetPlayerProfile(Action<PlayerProfileResponse> onSuccess, Action<string> onError)
@@ -100,6 +114,7 @@ namespace Shouyou.Network
         {
             using (UnityWebRequest request = UnityWebRequest.Get(baseUrl + path))
             {
+                request.SetRequestHeader("Accept", "application/json; charset=utf-8");
                 yield return request.SendWebRequest();
                 HandleResponse(request, onSuccess, onError);
             }
@@ -128,19 +143,33 @@ namespace Shouyou.Network
                 request.result == UnityWebRequest.Result.ProtocolError ||
                 request.result == UnityWebRequest.Result.DataProcessingError)
             {
-                onError?.Invoke(request.error + "\n" + request.downloadHandler.text);
+                string errorBody = DecodeUtf8Body(request);
+                onError?.Invoke(request.error + "\n" + errorBody);
                 return;
             }
 
             try
             {
-                T data = JsonUtility.FromJson<T>(request.downloadHandler.text);
+                string json = DecodeUtf8Body(request);
+                T data = JsonUtility.FromJson<T>(json);
                 onSuccess?.Invoke(data);
             }
             catch (Exception exception)
             {
-                onError?.Invoke("JSON 解析失败：" + exception.Message + "\n" + request.downloadHandler.text);
+                string json = DecodeUtf8Body(request);
+                onError?.Invoke("JSON ?????" + exception.Message + "\n" + json);
             }
+        }
+
+        private static string DecodeUtf8Body(UnityWebRequest request)
+        {
+            if (request == null || request.downloadHandler == null || request.downloadHandler.data == null)
+            {
+                return string.Empty;
+            }
+
+            // ??? UTF-8 ??????? JSON ???????????
+            return Encoding.UTF8.GetString(request.downloadHandler.data);
         }
 
         private static string TrimTrailingSlash(string value)

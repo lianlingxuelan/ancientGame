@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 using Shouyou.Network;
 
@@ -13,7 +15,8 @@ namespace Shouyou.UI
     public sealed class BattleDemoController : MonoBehaviour
     {
         private const int UnitCount = 6;
-        private const int ActionPointMax = 3;
+        private const int FallbackActionPointMax = 3;
+        private const string BattleApiBaseUrl = "http://127.0.0.1:5188";
         private const float HpBarMaxWidth = 86f;
         private const float DamageTextVisibleSeconds = 0.8f;
 
@@ -21,6 +24,13 @@ namespace Shouyou.UI
         private readonly BattleUnitState[] enemyUnits = new BattleUnitState[UnitCount];
         private readonly BattleUnitView[] allyViews = new BattleUnitView[UnitCount];
         private readonly BattleUnitView[] enemyViews = new BattleUnitView[UnitCount];
+        private readonly Dictionary<string, Sprite> skillIconCache = new Dictionary<string, Sprite>();
+
+        private BattleDemoConfigResponse battleConfig;
+        private BattleSkillDto[] backendSkills;
+        private int actionPointMax = FallbackActionPointMax;
+        private bool backendBattleConfigLoaded;
+        private bool backendBattleConfigLoading;
 
         private HomePageRouter router;
         private Text roundTipText;
@@ -36,7 +46,7 @@ namespace Shouyou.UI
 
         private int selectedEnemyIndex;
         private int roundIndex = 1;
-        private int actionPoint = ActionPointMax;
+        private int actionPoint = FallbackActionPointMax;
         private bool battleEnded;
         private bool referencesBound;
 
@@ -44,12 +54,14 @@ namespace Shouyou.UI
         {
             BindRuntimeReferences();
             ResetDemoBattle();
+            StartCoroutine(LoadBackendBattleConfig());
         }
 
         private void OnEnable()
         {
             BindRuntimeReferences();
             ResetDemoBattle();
+            StartCoroutine(LoadBackendBattleConfig());
         }
 
         /// <summary>
@@ -60,7 +72,7 @@ namespace Shouyou.UI
         {
             selectedEnemyIndex = 0;
             roundIndex = 1;
-            actionPoint = ActionPointMax;
+            actionPoint = actionPointMax;
             battleEnded = false;
 
             for (int i = 0; i < UnitCount; i++)
@@ -120,7 +132,7 @@ namespace Shouyou.UI
                 return;
             }
 
-            int damage = Mathf.Max(360, CalculateDamage(attacker, target) + 220);
+            int damage = CalculateSkillDamage(attacker, target, "poetry_strike", 1.8f, 220);
             bool targetDefeated = ApplyDamage(target, damage);
             ShowDamageText(target, damage);
             CompletePlayerAction(attacker.unitName + " \u65bd\u653e\u8bcd\u610f\u8fde\u51fb\uff0c\u5bf9 " + target.unitName + " \u9020\u6210 " + damage + " \u70b9\u4f24\u5bb3\u3002" + (targetDefeated ? " " + target.unitName + " \u5df2\u9000\u573a\u3002" : string.Empty));
@@ -140,7 +152,7 @@ namespace Shouyou.UI
 
             int aliveTargets = 0;
             int defeatedTargets = 0;
-            int damage = Mathf.Max(170, attacker.attack - 20);
+            int damage = CalculateAreaSkillDamage(attacker, "dream_area", 0.75f);
 
             for (int i = 0; i < enemyUnits.Length; i++)
             {
@@ -184,7 +196,7 @@ namespace Shouyou.UI
                 return;
             }
 
-            int healAmount = 360;
+            int healAmount = CalculateHealAmount(healer, "healing_verse", 1.2f);
             int actualHeal = HealUnit(target, healAmount);
             ShowHealText(target, actualHeal);
             CompletePlayerAction(healer.unitName + " \u65bd\u653e\u7597\u6108\uff0c\u4e3a " + target.unitName + " \u56de\u590d " + actualHeal + " \u70b9\u751f\u547d\u3002");
@@ -274,28 +286,178 @@ namespace Shouyou.UI
 
         private BattleUnitState CreateAllyUnit(int index)
         {
+            BattleUnitDto dto = FindBackendUnitBySlot(battleConfig == null ? null : battleConfig.allies, index);
+            if (dto != null)
+            {
+                return CreateUnitFromDto(dto, true, index);
+            }
+
             string unitName = ShouyouBackendBootstrap.GetBattleFormationSlotName(index);
             if (string.IsNullOrEmpty(unitName) || unitName == "空位")
             {
-                // 空槽位在战斗里显示为灰色，不参与攻击和承伤。
-                BattleUnitState emptyUnit = new BattleUnitState("空位 " + (index + 1), true, 1, 0);
-                emptyUnit.currentHp = 0;
-                emptyUnit.defeated = true;
-                return emptyUnit;
+                return CreateEmptyAllyUnit(index);
             }
 
             if (unitName == "李清照")
             {
-                return new BattleUnitState(unitName, true, 1200, 220);
+                return new BattleUnitState(unitName, true, 1200, 220, "char_liqingzhao");
             }
 
-            return new BattleUnitState(unitName, true, 900, 165);
+            if (unitName == "婉禾")
+            {
+                return new BattleUnitState(unitName, true, 1100, 160, "char_wanhe");
+            }
+
+            return new BattleUnitState(unitName, true, 900, 165, string.Empty);
         }
 
         private BattleUnitState CreateEnemyUnit(int index)
         {
+            BattleUnitDto dto = FindBackendUnitBySlot(battleConfig == null ? null : battleConfig.enemies, index);
+            if (dto != null)
+            {
+                return CreateUnitFromDto(dto, false, index);
+            }
+
             string[] names = { "敌一", "敌二", "敌三", "敌四", "敌五", "敌六" };
-            return new BattleUnitState(names[index], false, 520 + index * 70, 105 + index * 18);
+            return new BattleUnitState(names[index], false, 520 + index * 70, 105 + index * 18, index < 2 ? "enemy_shadow" : string.Empty);
+        }
+
+        private IEnumerator LoadBackendBattleConfig()
+        {
+            if (backendBattleConfigLoading || backendBattleConfigLoaded)
+            {
+                yield break;
+            }
+
+            backendBattleConfigLoading = true;
+            ShouyouApiClient client = new ShouyouApiClient(BattleApiBaseUrl, "demo-player");
+
+            // ????????? demo-config????????????????????
+            yield return client.GetBattleDemoConfig(delegate(BattleDemoConfigResponse response)
+            {
+                battleConfig = response;
+                backendSkills = response == null ? null : response.skills;
+                actionPointMax = response != null && response.maxActionPoint > 0 ? response.maxActionPoint : FallbackActionPointMax;
+                backendBattleConfigLoaded = response != null;
+            }, delegate(string error)
+            {
+                Debug.LogWarning("[BattleDemo] ????????????????????" + error);
+            });
+
+            yield return client.GetBattleSkillAssets(delegate(BattleSkillAssetListResponse response)
+            {
+                if (response != null && response.icons != null)
+                {
+                    StartCoroutine(DownloadSkillIcons(response.icons));
+                }
+            }, delegate(string error)
+            {
+                Debug.LogWarning("[BattleDemo] ????????????????????" + error);
+            });
+
+            backendBattleConfigLoading = false;
+
+            if (backendBattleConfigLoaded)
+            {
+                // ?????????????????? DB ???? demo-config ?????
+                ResetDemoBattle();
+            }
+        }
+
+        private IEnumerator DownloadSkillIcons(BattleSkillAssetDto[] assets)
+        {
+            if (assets == null)
+            {
+                yield break;
+            }
+
+            for (int i = 0; i < assets.Length; i++)
+            {
+                BattleSkillAssetDto asset = assets[i];
+                if (asset == null || string.IsNullOrEmpty(asset.iconKey) || string.IsNullOrEmpty(asset.url) || asset._placeholder)
+                {
+                    continue;
+                }
+
+                string url = asset.url.StartsWith("http") ? asset.url : BattleApiBaseUrl + asset.url;
+                using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url))
+                {
+                    yield return request.SendWebRequest();
+                    if (request.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogWarning("[BattleDemo] ?????????" + asset.iconKey + " " + request.error);
+                        continue;
+                    }
+
+                    Texture2D texture = DownloadHandlerTexture.GetContent(request);
+                    if (texture == null)
+                    {
+                        continue;
+                    }
+
+                    Sprite sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+                    skillIconCache[asset.iconKey] = sprite;
+                }
+            }
+
+            RefreshBattleControls();
+        }
+
+        private BattleUnitDto FindBackendUnitBySlot(BattleUnitDto[] units, int zeroBasedIndex)
+        {
+            if (units == null)
+            {
+                return null;
+            }
+
+            int slot = zeroBasedIndex + 1;
+            for (int i = 0; i < units.Length; i++)
+            {
+                if (units[i] != null && units[i].slot == slot)
+                {
+                    return units[i];
+                }
+            }
+
+            return null;
+        }
+
+        private BattleUnitState CreateUnitFromDto(BattleUnitDto dto, bool isAlly, int index)
+        {
+            if (dto == null || string.IsNullOrEmpty(dto.name))
+            {
+                return isAlly ? CreateEmptyAllyUnit(index) : new BattleUnitState("敌" + (index + 1), false, 520 + index * 70, 105 + index * 18, string.Empty);
+            }
+
+            int hp = dto.hp > 0 ? dto.hp : (isAlly ? 900 : 520 + index * 70);
+            int attack = dto.attack > 0 ? dto.attack : (isAlly ? 160 : 105 + index * 18);
+            return new BattleUnitState(dto.name, isAlly, hp, attack, dto.portraitIconKey);
+        }
+
+        private BattleUnitState CreateEmptyAllyUnit(int index)
+        {
+            BattleUnitState emptyUnit = new BattleUnitState("空位 " + (index + 1), true, 1, 0, string.Empty);
+            emptyUnit.currentHp = 0;
+            emptyUnit.defeated = true;
+            return emptyUnit;
+        }
+
+        private string GetFormationSummaryForBattle()
+        {
+            if (battleConfig != null && battleConfig.allies != null)
+            {
+                string summary = string.Empty;
+                for (int i = 0; i < UnitCount; i++)
+                {
+                    BattleUnitDto dto = FindBackendUnitBySlot(battleConfig.allies, i);
+                    summary += (i == 0 ? string.Empty : " / ") + (dto == null || string.IsNullOrEmpty(dto.name) ? "空位" : dto.name);
+                }
+
+                return summary;
+            }
+
+            return ShouyouBackendBootstrap.GetFormationSummary();
         }
 
         private BattleUnitState GetSelectedOrFirstAliveEnemy()
@@ -415,7 +577,7 @@ namespace Shouyou.UI
             actionPoint = Mathf.Max(0, actionPoint - 1);
             if (actionPoint == 0)
             {
-                actionPoint = ActionPointMax;
+                actionPoint = actionPointMax;
             }
         }
 
@@ -539,10 +701,10 @@ namespace Shouyou.UI
         private void RefreshBattleControls()
         {
             SetButtonLabel(startBattleButton, battleEnded ? "\u91cd\u65b0\u5f00\u59cb" : "\u5f00\u59cb\u6218\u6597");
-            SetButtonLabel(basicSkillButton, "\u666e\u653b");
-            SetButtonLabel(poetryStrikeButton, "\u8bcd\u610f\u8fde\u51fb");
-            SetButtonLabel(dreamAreaButton, "\u5982\u68a6\u4ee4");
-            SetButtonLabel(healSkillButton, "\u7597\u6108");
+            SetSkillButton(basicSkillButton, "basic", "\u666e\u653b");
+            SetSkillButton(poetryStrikeButton, "poetry_strike", "\u8bcd\u610f\u8fde\u51fb");
+            SetSkillButton(dreamAreaButton, "dream_area", "\u5982\u68a6\u4ee4");
+            SetSkillButton(healSkillButton, "healing_verse", "\u7597\u6108");
 
             SetButtonInteractable(startBattleButton, true);
             SetButtonInteractable(autoBattleButton, !battleEnded);
@@ -555,7 +717,7 @@ namespace Shouyou.UI
         private void RefreshAllViews()
         {
             SetText(roundTipText, "第 " + roundIndex + " 回合    我方行动    回合 PVE Demo");
-            SetText(actionPointText, "行动点 " + actionPoint + " / " + ActionPointMax);
+            SetText(actionPointText, "行动点 " + actionPoint + " / " + actionPointMax);
 
             for (int i = 0; i < UnitCount; i++)
             {
@@ -792,15 +954,17 @@ namespace Shouyou.UI
             public readonly bool isAlly;
             public readonly int maxHp;
             public readonly int attack;
+            public readonly string portraitIconKey;
             public int currentHp;
             public bool defeated;
 
-            public BattleUnitState(string unitName, bool isAlly, int maxHp, int attack)
+            public BattleUnitState(string unitName, bool isAlly, int maxHp, int attack, string portraitIconKey)
             {
                 this.unitName = unitName;
                 this.isAlly = isAlly;
                 this.maxHp = maxHp;
                 this.attack = attack;
+                this.portraitIconKey = portraitIconKey;
                 currentHp = maxHp;
             }
         }

@@ -2206,3 +2206,68 @@ Codex 可以直接：
 4. 中文暂时用Unity本地映射（后端JSON在Node读取正常）
 ---BLOCK_CHANGE_LOG_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo14-FE-R1-CODE
+parent_id: AssetsAPI-R3
+round: 1
+timestamp: 2026-07-29 21:30 Asia/Shanghai
+project_spec: AncientGame prototype
+module: battle backend config integration
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement:
+Connect Unity battle page to backend demo battle config and battle skill icon APIs; avoid old DB formation conflict; add UTF-8 response decoding on Unity side.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+Claude latest notes say `/api/v1/battle/demo-config` and `/api/v1/assets?category=battle_skill` are available; user explicitly did not approve deleting old `shouyou.db`.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouApiModels.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouApiClient.cs
+3. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+4. docs/CLAUDE_NEXT_TASKS.md
+
+Key methods/classes:
+1. BattleDemoConfigResponse / BattleUnitDto / BattleSkillDto / BattleSkillAssetListResponse
+2. ShouyouApiClient.GetBattleDemoConfig
+3. ShouyouApiClient.GetBattleSkillAssets
+4. ShouyouApiClient.DecodeUtf8Body
+5. BattleDemoController.LoadBackendBattleConfig
+6. BattleDemoController.DownloadSkillIcons
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Added Unity DTOs for backend battle config and battle skill assets.
+2. Added frontend API calls for `/api/v1/battle/demo-config` and `/api/v1/assets?category=battle_skill`.
+3. Updated Unity response handling to decode JSON bodies as UTF-8 bytes before JsonUtility parsing.
+4. Battle page now loads backend config and reinitializes allies/enemies/skills from demo-config when available.
+5. Battle page treats demo-config as the authority for battle formation, so Wanhe from slot2 is not overridden by old local formation state.
+6. Skill buttons now use backend skill labels and can download backend skill sprites from icon URLs; if the API fails, existing text controls remain usable.
+7. Updated Claude handoff document with health endpoint, charset, no-delete-db, and Play Mode review requirements.
+
+Asset changes: none.
+DB changes: none. Old shouyou.db was not deleted.
+Risk points:
+1. Unity Editor Play Mode validation is still required.
+2. Backend currently returns `icons`, not `assets`; Unity now matches `icons`.
+3. Backend health endpoint is still requested from Claude; Unity temporarily uses demo-config as practical startup health check.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. Confirmed `/api/v1/battle/demo-config` responds on local port 5188 and includes Li Qingzhao + Wanhe.
+2. Confirmed `/api/v1/assets?category=battle_skill` responds with top-level `icons` array.
+3. Checked brace balance for modified C# files: balanced.
+4. Checked key symbols exist: DTOs, API methods, UTF-8 decoder, backend load coroutine, Wanhe literal, icons field.
+5. Ran `git diff --check`; no whitespace errors reported.
+
+Suggested Claude tests:
+1. Unity Play Mode compile check.
+2. Enter battle page and verify Li Qingzhao appears in slot1 and Wanhe appears in slot2.
+3. Verify skill buttons are visible/clickable and labels/icons come from backend config/assets.
+4. Stop backend and verify battle page still falls back to local demo instead of blank screen.
+5. Confirm no deletion or regeneration of `ShouyouServer/data/shouyou.db`.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

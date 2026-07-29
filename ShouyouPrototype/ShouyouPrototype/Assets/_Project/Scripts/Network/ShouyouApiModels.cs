@@ -116,6 +116,60 @@ namespace Shouyou.Network
         public bool unlocked;
     }
 
+
+    [Serializable]
+    public sealed class BattleDemoConfigResponse
+    {
+        public string stageId;
+        public string title;
+        public int maxActionPoint;
+        public BattleUnitDto[] allies;
+        public BattleUnitDto[] enemies;
+        public BattleSkillDto[] skills;
+    }
+
+    [Serializable]
+    public sealed class BattleUnitDto
+    {
+        public string id;
+        public string name;
+        public int slot;
+        public int hp;
+        public int attack;
+        public string portraitIconKey;
+    }
+
+    [Serializable]
+    public sealed class BattleSkillDto
+    {
+        public string id;
+        public string label;
+        public string iconKey;
+        public string target;
+        public float multiplier;
+        public int cooldown;
+    }
+
+    [Serializable]
+    public sealed class BattleSkillAssetListResponse
+    {
+        public string category;
+        public int version;
+        public BattleSkillAssetDto[] icons;
+    }
+
+    [Serializable]
+    public sealed class BattleSkillAssetDto
+    {
+        public string iconKey;
+        public string displayName;
+        public string url;
+        public string category;
+        public int width;
+        public int height;
+        public bool _placeholder;
+    }
+
     [Serializable]
     public sealed class HealthResponse
     {
