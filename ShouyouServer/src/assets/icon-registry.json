@@ -24,7 +24,7 @@
       "height": 192
     },
     "skill_bg_02": {
-      "displayName": "如夢令",
+      "displayName": "如梦令",
       "file": "icons/skill_bg_02.png",
       "category": "battle_skill",
       "width": 220,
@@ -38,21 +38,21 @@
       "height": 200
     },
     "skill_bg_04": {
-      "displayName": "療癒",
+      "displayName": "疗愈",
       "file": "icons/skill_bg_04.png",
       "category": "battle_skill",
       "width": 200,
       "height": 200
     },
     "enemy_shadow": {
-      "displayName": "敵方·夢影",
+      "displayName": "敌方·梦影",
       "file": "icons/enemy_shadow.png",
       "category": "character_avatar",
       "width": 508,
       "height": 508
     },
     "enemy_shadow2": {
-      "displayName": "敵方·夢影2",
+      "displayName": "敌方·梦影2",
       "file": "icons/enemy_shadow2.png",
       "category": "character_avatar",
       "width": 508,
