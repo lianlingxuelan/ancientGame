@@ -2101,3 +2101,49 @@ Codex self-check:
 4. Unity Play Mode validation is still required by user/Claude because this environment cannot compile Unity directly.
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: QuickFixes-R1
+parent_id: Todo13-FE-R2-FIX
+round: 1
+timestamp: 2026-07-29 morning Asia/Shanghai
+project_spec: 极简速查版
+module: 按钮修复 + API扩展 + 编队数据修复
+flow_status: [DONE]
+agent: claude
+---BLOCK_CHANGE_LOG_START---
+今日修复汇总（Codex 请逐条阅读）：
+
+1. 【关键修复】SkillButton_1~4 缺少 Button 组件
+   原因：HomeUILayoutBuilder 用 AddCommonButtonImage 创建技能按钮，
+         但该方法只加 Image，不加 Button 组件。
+         导致 BattleDemoController.FindButton() 返回 null。
+   修复：在 Builder 的技能按钮创建循环中，AddCommonButtonImage 后
+         强制 AddComponent<Button>()。
+   文件：HomeUILayoutBuilder.cs line 946-961
+   验证：Clean And Rebuild Prototype 后，SkillButton_1~4 应可点击。
+
+2. 【新接口】GET /api/v1/assets（v2 升级）
+   - 支持 ?category=battle_skill 按类别筛选
+   - 响应新增 version/width/height 字段
+   - 占位图标返回 _placeholder:true + url:null（非 404）
+   调用示例：
+     GET /api/v1/assets?category=battle_skill  → 所有技能图标
+     GET /api/v1/assets?iconKey=char_liqingzhao → 头像文件
+     GET /api/v1/assets?iconKey=skill_heal&meta=1 → 仅元数据
+
+3. 【新接口】GET /api/v1/battle/demo-config
+   返回关卡/角色/技能完整配置，包括 HP/攻击/技能倍率/冷却。
+   前端可从此接口读取战斗数值，替换硬编码。
+   配置文件：src/assets/demo-config.json
+
+4. 【编队修复】婉禾加入默认编队 slot2
+   之前种子数据只有李清照在 slot1，婉禾在编队里不存在。
+   修复后 demo-player 默认编队：slot1=李清照 / slot2=婉禾 / slot3~6=空。
+   ⚠ 需删除旧的 data/shouyou.db 重新生成种子数据！
+
+5. 图标注册表：ShouyouServer/src/assets/icon-registry.json
+   已有 char_liqingzhao/char_wanhe/skill_bg_01/skill_bg_02/ui_panel_bg
+   占位：所有技能/货币/战斗结果图标
+---BLOCK_CHANGE_LOG_END---
+===TASK_RECORD_END===
