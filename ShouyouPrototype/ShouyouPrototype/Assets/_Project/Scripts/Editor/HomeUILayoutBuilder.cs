@@ -949,6 +949,12 @@ namespace Shouyou.EditorTools
                 SetRect(skill, -360 + i * 145, 0, 90, 78);
                 AddCommonButtonImage(skill);
                 Image skillImage = skill.GetComponent<Image>();
+                Button skillButton = skill.GetComponent<Button>();
+                if (skillButton == null)
+                {
+                    skillButton = skill.gameObject.AddComponent<Button>();
+                    skillButton.targetGraphic = skillImage;
+                }
                 Sprite skillSprite = LoadBattleSprite("skill_button_0" + (i + 1) + ".png");
                 if (skillSprite != null)
                 {
