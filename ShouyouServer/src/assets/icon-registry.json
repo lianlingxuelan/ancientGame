@@ -17,18 +17,46 @@
       "height": 508
     },
     "skill_bg_01": {
-      "displayName": "技能槽底框1",
+      "displayName": "词意连击",
       "file": "icons/skill_bg_01.png",
-      "category": "ui_element",
+      "category": "battle_skill",
       "width": 198,
       "height": 192
     },
     "skill_bg_02": {
-      "displayName": "技能槽底框2",
+      "displayName": "如夢令",
       "file": "icons/skill_bg_02.png",
-      "category": "ui_element",
+      "category": "battle_skill",
       "width": 220,
       "height": 220
+    },
+    "skill_bg_03": {
+      "displayName": "普攻",
+      "file": "icons/skill_bg_03.png",
+      "category": "battle_skill",
+      "width": 200,
+      "height": 200
+    },
+    "skill_bg_04": {
+      "displayName": "療癒",
+      "file": "icons/skill_bg_04.png",
+      "category": "battle_skill",
+      "width": 200,
+      "height": 200
+    },
+    "enemy_shadow": {
+      "displayName": "敵方·夢影",
+      "file": "icons/enemy_shadow.png",
+      "category": "character_avatar",
+      "width": 508,
+      "height": 508
+    },
+    "enemy_shadow2": {
+      "displayName": "敵方·夢影2",
+      "file": "icons/enemy_shadow2.png",
+      "category": "character_avatar",
+      "width": 508,
+      "height": 508
     },
     "ui_panel_bg": {
       "displayName": "面板背景装饰",
