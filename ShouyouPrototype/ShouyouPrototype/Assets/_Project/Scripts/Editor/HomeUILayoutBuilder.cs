@@ -912,7 +912,7 @@ namespace Shouyou.EditorTools
 
             Image warmOverlay = FindOrCreateImage(root, "BattleWarmOverlay");
             StretchFull(warmOverlay.rectTransform);
-            warmOverlay.color = new Color32(255, 198, 226, 34);
+            warmOverlay.color = new Color32(255, 198, 226, 0);  // 全透明，去掉遮罩。需要时可调回34
             warmOverlay.raycastTarget = false;
 
             RectTransform topTip = FindOrCreateRect(root, "BattleRoundTip");
