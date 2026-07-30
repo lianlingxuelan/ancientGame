@@ -613,6 +613,154 @@ namespace Shouyou.UI
             return target.currentHp - oldHp;
         }
 
+        private int CalculateSkillDamage(BattleUnitState attacker, BattleUnitState target, string skillId, float fallbackMultiplier, int fallbackBonus)
+        {
+            BattleSkillDto skill = FindSkill(skillId);
+            float multiplier = skill != null && skill.multiplier > 0f ? skill.multiplier : fallbackMultiplier;
+            return Mathf.Max(90, Mathf.RoundToInt(CalculateDamage(attacker, target) * multiplier) + fallbackBonus);
+        }
+
+        private int CalculateAreaSkillDamage(BattleUnitState attacker, string skillId, float fallbackMultiplier)
+        {
+            BattleSkillDto skill = FindSkill(skillId);
+            float multiplier = skill != null && skill.multiplier > 0f ? skill.multiplier : fallbackMultiplier;
+            return Mathf.Max(70, Mathf.RoundToInt(attacker.attack * multiplier));
+        }
+
+        private int CalculateHealAmount(BattleUnitState healer, string skillId, float fallbackMultiplier)
+        {
+            BattleSkillDto skill = FindSkill(skillId);
+            float multiplier = skill != null && skill.multiplier > 0f ? skill.multiplier : fallbackMultiplier;
+            return Mathf.Max(160, Mathf.RoundToInt(healer.attack * multiplier));
+        }
+
+        private BattleSkillDto FindSkill(string skillId)
+        {
+            if (backendSkills == null || string.IsNullOrEmpty(skillId))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < backendSkills.Length; i++)
+            {
+                if (backendSkills[i] != null && backendSkills[i].id == skillId)
+                {
+                    return backendSkills[i];
+                }
+            }
+
+            return null;
+        }
+
+        private void SetSkillButton(Button button, string skillId, string fallbackLabel)
+        {
+            BattleSkillDto skill = FindSkill(skillId);
+            string label = skill != null && !string.IsNullOrEmpty(skill.label) ? skill.label : fallbackLabel;
+            SetButtonLabel(button, label);
+
+            if (button == null || skill == null || string.IsNullOrEmpty(skill.iconKey))
+            {
+                return;
+            }
+
+            string iconKey = ResolveSkillIconKey(skillId, skill.iconKey);
+            Sprite sprite;
+            if (skillIconCache.TryGetValue(iconKey, out sprite) && sprite != null)
+            {
+                Image iconImage = GetOrCreateSkillIconImage(button);
+                if (iconImage != null)
+                {
+                    iconImage.sprite = sprite;
+                    iconImage.color = Color.white;
+                    iconImage.type = Image.Type.Simple;
+                    iconImage.preserveAspect = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 后端 demo-config 当前给的是 skill_bg_01~04，这类更像按钮底纹。
+        /// 这里先按技能 ID 映射到真正的技能图标，避免把按钮背景误当技能图标显示。
+        /// 后续如果后端直接返回 skill_basic_attack 等 iconKey，这个方法会自动尊重后端配置。
+        /// </summary>
+        private string ResolveSkillIconKey(string skillId, string backendIconKey)
+        {
+            if (backendIconKey == "skill_basic_attack" ||
+                backendIconKey == "skill_poetry_attack" ||
+                backendIconKey == "skill_group_damage" ||
+                backendIconKey == "skill_heal")
+            {
+                return backendIconKey;
+            }
+
+            if (skillId == "basic")
+            {
+                return "skill_basic_attack";
+            }
+
+            if (skillId == "poetry_strike")
+            {
+                return "skill_poetry_attack";
+            }
+
+            if (skillId == "dream_area")
+            {
+                return "skill_group_damage";
+            }
+
+            if (skillId == "healing_verse")
+            {
+                return "skill_heal";
+            }
+
+            return backendIconKey;
+        }
+
+        /// <summary>
+        /// 技能图标独立放在按钮子节点中，不覆盖按钮本身的通用底图。
+        /// 这样后续换按钮皮肤时，技能图标和按钮框不会互相干扰。
+        /// </summary>
+        private Image GetOrCreateSkillIconImage(Button button)
+        {
+            if (button == null)
+            {
+                return null;
+            }
+
+            Transform iconTransform = button.transform.Find("SkillIcon");
+            RectTransform rect;
+            if (iconTransform == null)
+            {
+                GameObject iconObject = new GameObject("SkillIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                iconObject.transform.SetParent(button.transform, false);
+                rect = iconObject.GetComponent<RectTransform>();
+            }
+            else
+            {
+                rect = iconTransform as RectTransform;
+                if (rect == null)
+                {
+                    rect = iconTransform.gameObject.AddComponent<RectTransform>();
+                }
+            }
+
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 10f);
+            rect.sizeDelta = new Vector2(46f, 46f);
+
+            Image image = rect.GetComponent<Image>();
+            if (image == null)
+            {
+                image = rect.gameObject.AddComponent<Image>();
+            }
+
+            image.raycastTarget = false;
+            rect.SetAsFirstSibling();
+            return image;
+        }
+
         private int CalculateDamage(BattleUnitState attacker, BattleUnitState target)
         {
             // 先用稳定的轻量公式：攻击力 - 少量防御修正。

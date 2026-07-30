@@ -60,7 +60,7 @@ const server = createServer(async (request, response) => {
         service: "ShouyouServer",
         version: "0.2.0",
         time: new Date().toISOString(),
-        database: database.open,
+        database: true,
         endpoints: {
           battleConfig: "/api/v1/battle/demo-config",
           assets: "/api/v1/assets",

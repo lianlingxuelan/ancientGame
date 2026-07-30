@@ -2271,3 +2271,105 @@ Suggested Claude tests:
 5. Confirm no deletion or regeneration of `ShouyouServer/data/shouyou.db`.
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo14-FE-R2-FIX
+parent_id: Todo14-FE-R1-CODE
+round: 2
+timestamp: 2026-07-30 07:59:57 Asia/Shanghai
+project_spec: AncientGame Unity Demo
+module: BattleDemo
+flow_status: [CODE_FIXED]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：修复 BattleDemoController 编译失败，恢复 Unity Play Mode 与 Shouyou/Clean 菜单可用。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+对审查/运行问题的修复：
+1. [P1] CalculateSkillDamage 缺失导致 CS0103 -> 已补回技能单体伤害计算方法，并优先读取后端技能倍率。
+2. [P1] CalculateAreaSkillDamage 缺失导致 CS0103 -> 已补回群体技能伤害计算方法。
+3. [P1] CalculateHealAmount 缺失导致 CS0103 -> 已补回治疗量计算方法。
+4. [P1] SetSkillButton 缺失导致 CS0103 -> 已补回技能按钮文本、图标与可点击状态绑定方法。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+
+关键方法：
+1. CalculateSkillDamage
+2. CalculateAreaSkillDamage
+3. CalculateHealAmount
+4. SetSkillButton
+5. FindSkill
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 补齐战斗技能演示依赖的缺失 helper 方法，解决 Unity 编译阶段找不到方法的问题。
+2. 技能伤害、群体伤害、治疗量现在优先使用后端 demo-config 的 skill 配置，取不到时使用本地 fallback。
+3. 技能按钮支持从后端图标缓存设置 Sprite，缺图时仍显示文本按钮。
+
+资源变更：无。
+存档影响：无，未删除或重建 shouyou.db。
+风险点：当前只做静态检查，仍需要 Unity Editor 重新编译确认 Console 变为 0 Error。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. Python 检查 ShouyouApiModels.cs、ShouyouApiClient.cs、BattleDemoController.cs 括号平衡均为 0。
+2. rg 确认 CalculateSkillDamage、CalculateAreaSkillDamage、CalculateHealAmount、SetSkillButton 均已存在。
+3. git diff --check 通过。
+
+建议Claude测试：
+1. 打开 Unity 后确认 Console 不再出现 BattleDemoController.cs 的 CS0103 编译错误。
+2. Play Mode 跑通：进入主线 -> 开始本关 -> 进入战斗页 -> 点击技能/普攻 -> 能出现伤害或治疗反馈。
+3. 后端 5188 开启时确认婉禾进入编队，技能图标接口返回后技能按钮能显示图标或至少可点击。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo15-FE-R1-CODE
+parent_id: Todo14-FE-R2-FIX
+round: 1
+timestamp: 2026-07-30 08:31:32 Asia/Shanghai
+project_spec: AncientGame Unity Demo
+module: BattleSkillIcons
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement: make battle skill buttons show real skill icons instead of backend button-bg keys.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+First implementation for the skill icon display issue reported by user. No prior Claude review for this task.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+
+Key methods:
+1. SetSkillButton
+2. ResolveSkillIconKey
+3. GetOrCreateSkillIconImage
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Skill buttons no longer replace the Button background sprite directly.
+2. Runtime creates a child Image named SkillIcon and puts the downloaded skill sprite there.
+3. Added temporary frontend mapping from backend skill_bg_01~04 to real icon keys: skill_basic_attack, skill_poetry_attack, skill_group_damage, skill_heal.
+
+Asset changes: none.
+DB changes: none.
+Risk points: Unity Editor Play Mode validation is required because static C# checks cannot confirm actual sprite rendering order.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. Checked BattleDemoController.cs brace balance: 0.
+2. Confirmed ResolveSkillIconKey and GetOrCreateSkillIconImage exist.
+3. Confirmed target icon keys exist in ShouyouServer/src/assets/icon-registry.json.
+4. Ran git diff --check; no whitespace errors.
+
+Suggested Claude tests:
+1. Start backend 5188, enter battle page, verify four bottom skill buttons show distinct skill icons.
+2. Confirm skill text labels remain visible and buttons remain clickable.
+3. Confirm backend skill_bg_01~04 no longer visually replace the button background as skill icons.
+4. Confirm no DB deletion or raw all_aseet asset changes.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

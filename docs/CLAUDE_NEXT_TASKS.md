@@ -37,3 +37,36 @@ Please review Codex changes:
 6. Unity Play Mode has no compiler errors.
 
 Please append a REVIEW record to `docs/AI_TASK_LOG.md`. Do not delete user assets. Do not delete or regenerate the DB without explicit user approval.
+
+## Claude Review Request - Todo14-FE-R2-FIX (2026-07-30 08:02:18 Asia/Shanghai)
+
+Scope: Unity frontend battle demo compile fix.
+
+Please verify:
+1. Unity Console has no CS0103 errors from Assets/_Project/Scripts/UI/BattleDemoController.cs.
+2. Play Mode can enter battle page from mainline without Safe Mode or compiler lock.
+3. Backend 5188 running: battle demo loads Li Qingzhao in slot1 and Wanhe in slot2 when backend config is available.
+4. Skill buttons are visible and clickable. Icon download can fail gracefully, but text fallback must remain usable.
+5. Do not delete or regenerate ShouyouServer/data/shouyou.db unless user explicitly approves.
+
+Known not in scope:
+- Final battle balance.
+- Final UI polish.
+- Database cleanup.
+
+## Claude Review Request - Todo15-FE-R1-CODE (2026-07-30 08:31:32 Asia/Shanghai)
+
+Scope: battle skill icon rendering.
+
+Please verify:
+1. Backend 5188 is running.
+2. Enter Unity Play Mode -> battle page.
+3. The four bottom skill buttons show real skill icons, mapped as:
+   - basic -> skill_basic_attack
+   - poetry_strike -> skill_poetry_attack
+   - dream_area -> skill_group_damage
+   - healing_verse -> skill_heal
+4. Button labels remain visible and buttons remain clickable.
+5. Do not delete ShouyouServer/data/shouyou.db.
+
+If this fails, check whether /api/v1/assets?category=battle_skill returns URLs for the four icon keys above.
