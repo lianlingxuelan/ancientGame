@@ -237,6 +237,26 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    // 静态资源路由：/assets/icons/xxx.png -> src/assets/icons/xxx.png
+    if (request.method === "GET" && pathname.startsWith("/assets/icons/")) {
+      const fileName = pathname.replace("/assets/icons/", "").replace(/\.\./g, "");
+      const iconPath = resolve(projectRoot, "src/assets/icons", fileName);
+      if (existsSync(iconPath)) {
+        const ext = extname(iconPath).toLowerCase();
+        const contentType = mimeTypes[ext] ?? "application/octet-stream";
+        const data = readFileSync(iconPath);
+        response.writeHead(200, {
+          "Content-Type": contentType,
+          "Content-Length": Buffer.byteLength(data),
+          "Cache-Control": "public, max-age=86400",
+        });
+        response.end(data);
+        return;
+      }
+      sendJson(response, 404, { error: "图标文件不存在", path: pathname });
+      return;
+    }
+
     if (request.method === "GET" && pathname === "/api/v1/battle/demo-config") {
       const config = JSON.parse(
         readFileSync(resolve(projectRoot, "src/assets/demo-config.json"), "utf8"),

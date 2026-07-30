@@ -136,6 +136,8 @@ namespace Shouyou.Network
         public int slot;
         public int hp;
         public int attack;
+        // 行动值越高越早行动；旧接口未返回时前端会使用 Demo 默认值。
+        public int actionValue;
         public string portraitIconKey;
     }
 

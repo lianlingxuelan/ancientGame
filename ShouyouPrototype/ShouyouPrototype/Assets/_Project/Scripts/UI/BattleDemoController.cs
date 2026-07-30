@@ -19,12 +19,18 @@ namespace Shouyou.UI
         private const string BattleApiBaseUrl = "http://127.0.0.1:5188";
         private const float HpBarMaxWidth = 86f;
         private const float DamageTextVisibleSeconds = 0.8f;
+        private const int BasicSkillCost = 0;
+        private const int PoetryStrikeCost = 1;
+        private const int DreamAreaCost = 2;
+        private const int HealingVerseCost = 2;
 
         private readonly BattleUnitState[] allyUnits = new BattleUnitState[UnitCount];
         private readonly BattleUnitState[] enemyUnits = new BattleUnitState[UnitCount];
         private readonly BattleUnitView[] allyViews = new BattleUnitView[UnitCount];
         private readonly BattleUnitView[] enemyViews = new BattleUnitView[UnitCount];
         private readonly Dictionary<string, Sprite> skillIconCache = new Dictionary<string, Sprite>();
+        private readonly Dictionary<string, int> skillCooldowns = new Dictionary<string, int>();
+        private readonly List<BattleUnitState> actionOrder = new List<BattleUnitState>();
 
         private BattleDemoConfigResponse battleConfig;
         private BattleSkillDto[] backendSkills;
@@ -45,9 +51,13 @@ namespace Shouyou.UI
         private Button healSkillButton;
 
         private int selectedEnemyIndex;
+        private int selectedAllyIndex;
+        private int actionCursor;
+        private BattleUnitState currentActor;
         private int roundIndex = 1;
         private int actionPoint = FallbackActionPointMax;
         private bool battleEnded;
+        private bool resolvingEnemyTurn;
         private bool referencesBound;
 
         private void Awake()
@@ -71,9 +81,12 @@ namespace Shouyou.UI
         public void ResetDemoBattle()
         {
             selectedEnemyIndex = 0;
+            selectedAllyIndex = 0;
             roundIndex = 1;
             actionPoint = actionPointMax;
             battleEnded = false;
+            resolvingEnemyTurn = false;
+            skillCooldowns.Clear();
 
             for (int i = 0; i < UnitCount; i++)
             {
@@ -81,9 +94,12 @@ namespace Shouyou.UI
                 enemyUnits[i] = CreateEnemyUnit(i);
             }
 
+            BuildActionOrder();
+            MoveToNextAvailableActor(false);
+
             SetBattleMessage(
                 "第一回合：我方行动。选择敌方头像，或直接点击“开始战斗”。" +
-                "\n当前阵容：" + ShouyouBackendBootstrap.GetFormationSummary()
+                "\n当前阵容：" + GetFormationSummaryForBattle()
             );
             RefreshAllViews();
         }
@@ -108,7 +124,7 @@ namespace Shouyou.UI
         {
             BattleUnitState attacker;
             BattleUnitState target;
-            if (!TryGetBattleActionContext(out attacker, out target))
+            if (!TryGetBattleActionContext(BasicSkillCost, "basic", out attacker, out target))
             {
                 return;
             }
@@ -127,7 +143,7 @@ namespace Shouyou.UI
         {
             BattleUnitState attacker;
             BattleUnitState target;
-            if (!TryGetBattleActionContext(out attacker, out target))
+            if (!TryGetBattleActionContext(PoetryStrikeCost, "poetry_strike", out attacker, out target))
             {
                 return;
             }
@@ -135,6 +151,7 @@ namespace Shouyou.UI
             int damage = CalculateSkillDamage(attacker, target, "poetry_strike", 1.8f, 220);
             bool targetDefeated = ApplyDamage(target, damage);
             ShowDamageText(target, damage);
+            ConsumeSkill("poetry_strike", PoetryStrikeCost);
             CompletePlayerAction(attacker.unitName + " \u65bd\u653e\u8bcd\u610f\u8fde\u51fb\uff0c\u5bf9 " + target.unitName + " \u9020\u6210 " + damage + " \u70b9\u4f24\u5bb3\u3002" + (targetDefeated ? " " + target.unitName + " \u5df2\u9000\u573a\u3002" : string.Empty));
         }
 
@@ -145,7 +162,7 @@ namespace Shouyou.UI
         {
             BattleUnitState attacker;
             BattleUnitState ignoredTarget;
-            if (!TryGetBattleActionContext(out attacker, out ignoredTarget))
+            if (!TryGetBattleActionContext(DreamAreaCost, "dream_area", out attacker, out ignoredTarget))
             {
                 return;
             }
@@ -171,6 +188,7 @@ namespace Shouyou.UI
                 ShowDamageText(enemy, damage);
             }
 
+            ConsumeSkill("dream_area", DreamAreaCost);
             CompletePlayerAction(attacker.unitName + " \u65bd\u653e\u5982\u68a6\u4ee4\uff0c\u547d\u4e2d " + aliveTargets + " \u4e2a\u654c\u65b9\u76ee\u6807\uff0c\u6bcf\u4eba\u53d7\u5230 " + damage + " \u70b9\u4f24\u5bb3\u3002\u9000\u573a " + defeatedTargets + " \u4eba\u3002");
         }
 
@@ -180,17 +198,15 @@ namespace Shouyou.UI
         /// </summary>
         public void CastHealingVerse()
         {
-            BindRuntimeReferences();
-
-            if (battleEnded)
+            BattleUnitState healer;
+            BattleUnitState ignoredTarget;
+            if (!TryGetBattleActionContext(HealingVerseCost, "healing_verse", out healer, out ignoredTarget))
             {
-                SetBattleMessage("\u672c\u573a\u6218\u6597\u5df2\u7ecf\u7ed3\u7b97\uff0c\u8bf7\u8fd4\u56de\u4e3b\u7ebf\u6216\u91cd\u65b0\u8fdb\u5165\u3002");
                 return;
             }
 
-            BattleUnitState healer = FindFirstAlive(allyUnits);
             BattleUnitState target = FindLowestHpAlly();
-            if (healer == null || target == null)
+            if (target == null)
             {
                 Debug.LogError("[BattleDemo] \u6218\u6597\u72b6\u6001\u5f02\u5e38\uff1a\u627e\u4e0d\u5230\u53ef\u6cbb\u7597\u7684\u53cb\u65b9\u5355\u4f4d\u3002");
                 return;
@@ -199,6 +215,7 @@ namespace Shouyou.UI
             int healAmount = CalculateHealAmount(healer, "healing_verse", 1.2f);
             int actualHeal = HealUnit(target, healAmount);
             ShowHealText(target, actualHeal);
+            ConsumeSkill("healing_verse", HealingVerseCost);
             CompletePlayerAction(healer.unitName + " \u65bd\u653e\u7597\u6108\uff0c\u4e3a " + target.unitName + " \u56de\u590d " + actualHeal + " \u70b9\u751f\u547d\u3002");
         }
 
@@ -208,7 +225,8 @@ namespace Shouyou.UI
         /// </summary>
         public void PerformAutoAttacks()
         {
-            for (int i = 0; i < 3 && !battleEnded; i++)
+            int safety = UnitCount * 2;
+            while (!battleEnded && IsPlayerTurn() && safety-- > 0)
             {
                 PerformPlayerAttack();
             }
@@ -219,6 +237,8 @@ namespace Shouyou.UI
         /// </summary>
         public void RetreatBattle()
         {
+            battleEnded = true;
+            SetBattleMessage("\u5df2\u64a4\u9000\u672c\u573a\u6218\u6597\uff0c\u672a\u83b7\u5f97\u5956\u52b1\u3002");
             if (router != null)
             {
                 router.ShowMainlineChapter();
@@ -269,7 +289,16 @@ namespace Shouyou.UI
                 return;
             }
 
-            SetBattleMessage(allyUnits[index].unitName + "：生命 " + allyUnits[index].currentHp + " / " + allyUnits[index].maxHp);
+            selectedAllyIndex = index;
+            BattleUnitState selectedUnit = allyUnits[index];
+            string message = selectedUnit.unitName + "：生命 " + selectedUnit.currentHp + " / " + selectedUnit.maxHp;
+            if (selectedUnit != currentActor)
+            {
+                message += "\n当前轮到 " + GetCurrentActorName() + " 行动，头像只用于查看状态。";
+            }
+
+            SetBattleMessage(message);
+            RefreshAllViews();
         }
 
         private void SelectEnemy(int index)
@@ -345,16 +374,21 @@ namespace Shouyou.UI
                 Debug.LogWarning("[BattleDemo] ????????????????????" + error);
             });
 
+            BattleSkillAssetListResponse skillAssets = null;
             yield return client.GetBattleSkillAssets(delegate(BattleSkillAssetListResponse response)
             {
-                if (response != null && response.icons != null)
-                {
-                    StartCoroutine(DownloadSkillIcons(response.icons));
-                }
+                skillAssets = response;
             }, delegate(string error)
             {
                 Debug.LogWarning("[BattleDemo] ????????????????????" + error);
             });
+
+            // 图标下载完成后再刷新按钮，避免按钮首次渲染时只显示文字、
+            // 随后因页面重置或切换而错过一次图标刷新。
+            if (skillAssets != null && skillAssets.icons != null)
+            {
+                yield return DownloadSkillIcons(skillAssets.icons);
+            }
 
             backendBattleConfigLoading = false;
 
@@ -432,7 +466,9 @@ namespace Shouyou.UI
 
             int hp = dto.hp > 0 ? dto.hp : (isAlly ? 900 : 520 + index * 70);
             int attack = dto.attack > 0 ? dto.attack : (isAlly ? 160 : 105 + index * 18);
-            return new BattleUnitState(dto.name, isAlly, hp, attack, dto.portraitIconKey);
+            int defaultActionValue = isAlly ? 120 - index * 2 : 100 - index * 2;
+            int actionValue = dto.actionValue > 0 ? dto.actionValue : defaultActionValue;
+            return new BattleUnitState(dto.name, isAlly, hp, attack, dto.portraitIconKey, actionValue);
         }
 
         private BattleUnitState CreateEmptyAllyUnit(int index)
@@ -496,10 +532,13 @@ namespace Shouyou.UI
             return true;
         }
 
-        private bool TryGetBattleActionContext(out BattleUnitState attacker, out BattleUnitState target)
+        /// <summary>
+        /// 校验当前是否轮到我方单位行动，同时校验技能消耗和冷却。
+        /// 行动者由行动值队列决定，不能通过点击头像绕过回合顺序。
+        /// </summary>
+        private bool TryGetBattleActionContext(int actionCost, string skillId, out BattleUnitState attacker, out BattleUnitState target)
         {
             BindRuntimeReferences();
-
             attacker = null;
             target = null;
 
@@ -509,7 +548,26 @@ namespace Shouyou.UI
                 return false;
             }
 
-            attacker = FindFirstAlive(allyUnits);
+            if (!IsPlayerTurn())
+            {
+                SetBattleMessage("\u5f53\u524d\u8f6e\u5230 " + GetCurrentActorName() + " \u884c\u52a8\uff0c\u8bf7\u7b49\u5f85\u654c\u65b9\u884c\u52a8\u7ed3\u675f\u3002");
+                return false;
+            }
+
+            if (actionPoint < actionCost)
+            {
+                SetBattleMessage("\u884c\u52a8\u70b9\u4e0d\u8db3\uff0c\u8be5\u6280\u80fd\u9700\u8981 " + actionCost + " \u70b9\u884c\u52a8\u70b9\u3002");
+                return false;
+            }
+
+            int cooldown = GetSkillCooldown(skillId);
+            if (cooldown > 0)
+            {
+                SetBattleMessage("\u6280\u80fd\u8fd8\u5728\u51b7\u5374\uff0c\u5269\u4f59 " + cooldown + " \u56de\u5408\u3002");
+                return false;
+            }
+
+            attacker = currentActor;
             target = GetSelectedOrFirstAliveEnemy();
             if (attacker == null || target == null)
             {
@@ -520,46 +578,72 @@ namespace Shouyou.UI
             return true;
         }
 
+        /// <summary>
+        /// 扣除行动点并登记技能冷却。普通攻击不消耗行动点，也不进入冷却。
+        /// </summary>
+        private void ConsumeSkill(string skillId, int actionCost)
+        {
+            actionPoint = Mathf.Max(0, actionPoint - actionCost);
+            BattleSkillDto skill = FindSkill(skillId);
+            int cooldown = skill == null ? 0 : Mathf.Max(0, skill.cooldown);
+            if (cooldown > 0)
+            {
+                skillCooldowns[skillId] = cooldown;
+            }
+        }
+
+        private int GetSkillCooldown(string skillId)
+        {
+            int cooldown;
+            return !string.IsNullOrEmpty(skillId) && skillCooldowns.TryGetValue(skillId, out cooldown) ? cooldown : 0;
+        }
+
+        private bool CanUseSkill(string skillId, int actionCost)
+        {
+            return !battleEnded && IsPlayerTurn() && actionPoint >= actionCost && GetSkillCooldown(skillId) <= 0;
+        }
+
+        /// <summary>
+        /// 本次玩家行动结束后，连续处理所有应当行动的敌人，直到重新轮到我方。
+        /// </summary>
         private void CompletePlayerAction(string playerMessage)
         {
-            SetBattleMessage(playerMessage);
-
-            if (AllDefeated(enemyUnits))
+            if (TryFinishBattle())
             {
-                battleEnded = true;
-                RefreshAllViews();
-                if (router != null)
-                {
-                    router.ResolveBattleVictory();
-                }
                 return;
             }
 
-            string enemyMessage = ResolveEnemyCounterAttack();
-            if (!string.IsNullOrEmpty(enemyMessage))
-            {
-                SetBattleMessage(playerMessage + "\n" + enemyMessage);
-            }
+            MoveToNextAvailableActor(true);
+            string actionLog = playerMessage;
+            int safety = UnitCount * 3;
 
-            if (AllDefeated(allyUnits))
+            resolvingEnemyTurn = true;
+            while (!battleEnded && currentActor != null && !currentActor.isAlly && safety-- > 0)
             {
-                battleEnded = true;
-                RefreshAllViews();
-                if (router != null)
+                string enemyMessage = ResolveEnemyAction(currentActor);
+                if (!string.IsNullOrEmpty(enemyMessage))
                 {
-                    router.ResolveBattleDefeat();
+                    actionLog += "\n" + enemyMessage;
                 }
-                return;
-            }
 
-            AdvanceRoundClock();
+                if (TryFinishBattle())
+                {
+                    resolvingEnemyTurn = false;
+                    return;
+                }
+
+                MoveToNextAvailableActor(true);
+            }
+            resolvingEnemyTurn = false;
+
+            actionLog += "\n" + BuildTurnPrompt();
+            SetBattleMessage(actionLog);
             RefreshAllViews();
         }
 
-        private string ResolveEnemyCounterAttack()
+        private string ResolveEnemyAction(BattleUnitState enemyAttacker)
         {
-            BattleUnitState enemyAttacker = FindFirstAlive(enemyUnits);
-            BattleUnitState allyTarget = FindFirstAlive(allyUnits);
+            BattleUnitState allyTarget = FindLowestHpAlly();
             if (enemyAttacker == null || allyTarget == null)
             {
                 return string.Empty;
@@ -571,14 +655,150 @@ namespace Shouyou.UI
             return BuildAttackMessage(enemyAttacker, allyTarget, enemyDamage, enemyKilledTarget);
         }
 
-        private void AdvanceRoundClock()
+        /// <summary>
+        /// 以行动值从高到低建立一回合的顺序；同值时我方优先，便于 Demo 首回合直接操作。
+        /// </summary>
+        private void BuildActionOrder()
+        {
+            actionOrder.Clear();
+            AddAliveUnitsToActionOrder(allyUnits);
+            AddAliveUnitsToActionOrder(enemyUnits);
+            actionOrder.Sort(delegate(BattleUnitState left, BattleUnitState right)
+            {
+                int valueCompare = right.actionValue.CompareTo(left.actionValue);
+                if (valueCompare != 0)
+                {
+                    return valueCompare;
+                }
+
+                if (left.isAlly == right.isAlly)
+                {
+                    return 0;
+                }
+
+                return left.isAlly ? -1 : 1;
+            });
+            actionCursor = 0;
+            currentActor = actionOrder.Count > 0 ? actionOrder[0] : null;
+        }
+
+        private void AddAliveUnitsToActionOrder(BattleUnitState[] units)
+        {
+            for (int i = 0; i < units.Length; i++)
+            {
+                if (units[i] != null && !units[i].defeated)
+                {
+                    actionOrder.Add(units[i]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 移动到下一个仍存活的行动者；队列走完时进入新回合并恢复行动点、减少冷却。
+        /// </summary>
+        private void MoveToNextAvailableActor(bool advanceCursor)
+        {
+            if (actionOrder.Count == 0)
+            {
+                BuildActionOrder();
+                return;
+            }
+
+            if (advanceCursor)
+            {
+                actionCursor++;
+            }
+
+            int safety = UnitCount * 3;
+            while (safety-- > 0)
+            {
+                if (actionCursor >= actionOrder.Count)
+                {
+                    StartNewRound();
+                    return;
+                }
+
+                BattleUnitState candidate = actionOrder[actionCursor];
+                if (candidate != null && !candidate.defeated)
+                {
+                    currentActor = candidate;
+                    return;
+                }
+
+                actionCursor++;
+            }
+
+            currentActor = null;
+        }
+
+        private void StartNewRound()
         {
             roundIndex++;
-            actionPoint = Mathf.Max(0, actionPoint - 1);
-            if (actionPoint == 0)
+            actionPoint = actionPointMax;
+            DecreaseAllSkillCooldowns();
+            BuildActionOrder();
+        }
+
+        private void DecreaseAllSkillCooldowns()
+        {
+            List<string> keys = new List<string>(skillCooldowns.Keys);
+            for (int i = 0; i < keys.Count; i++)
             {
-                actionPoint = actionPointMax;
+                string key = keys[i];
+                int remaining = Mathf.Max(0, skillCooldowns[key] - 1);
+                if (remaining == 0)
+                {
+                    skillCooldowns.Remove(key);
+                }
+                else
+                {
+                    skillCooldowns[key] = remaining;
+                }
             }
+        }
+
+        private bool TryFinishBattle()
+        {
+            if (AllDefeated(enemyUnits))
+            {
+                battleEnded = true;
+                RefreshAllViews();
+                if (router != null)
+                {
+                    router.ResolveBattleVictory();
+                }
+                return true;
+            }
+
+            if (AllDefeated(allyUnits))
+            {
+                battleEnded = true;
+                RefreshAllViews();
+                if (router != null)
+                {
+                    router.ResolveBattleDefeat();
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsPlayerTurn()
+        {
+            return currentActor != null && currentActor.isAlly && !currentActor.defeated && !resolvingEnemyTurn;
+        }
+
+        private string GetCurrentActorName()
+        {
+            return currentActor == null ? "\u65e0\u4eba" : currentActor.unitName;
+        }
+
+        private string BuildTurnPrompt()
+        {
+            return IsPlayerTurn()
+                ? "\u8f6e\u5230 " + currentActor.unitName + " \u884c\u52a8\uff0c\u53ef\u9009\u62e9\u76ee\u6807\u540e\u65bd\u653e\u6280\u80fd\u3002"
+                : "\u6b63\u5728\u5904\u7406\u654c\u65b9\u884c\u52a8\u3002";
         }
 
         private BattleUnitState FindLowestHpAlly()
@@ -656,7 +876,13 @@ namespace Shouyou.UI
         {
             BattleSkillDto skill = FindSkill(skillId);
             string label = skill != null && !string.IsNullOrEmpty(skill.label) ? skill.label : fallbackLabel;
+            int cooldown = GetSkillCooldown(skillId);
+            if (cooldown > 0)
+            {
+                label += " CD " + cooldown;
+            }
             SetButtonLabel(button, label);
+            LayoutSkillButtonContent(button);
 
             if (button == null || skill == null || string.IsNullOrEmpty(skill.iconKey))
             {
@@ -757,8 +983,38 @@ namespace Shouyou.UI
             }
 
             image.raycastTarget = false;
+            image.enabled = true;
             rect.SetAsFirstSibling();
             return image;
+        }
+
+        /// <summary>
+        /// 把图标和文字分开摆放：图标在上、技能名称在下。
+        /// 这样既不会遮住通用按钮底图，也不会和文字重叠而看起来像“没有图标”。
+        /// </summary>
+        private void LayoutSkillButtonContent(Button button)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            Text label = button.GetComponentInChildren<Text>(true);
+            if (label == null)
+            {
+                return;
+            }
+
+            RectTransform labelRect = label.rectTransform;
+            labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+            labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            labelRect.pivot = new Vector2(0.5f, 0.5f);
+            labelRect.anchoredPosition = new Vector2(0f, -18f);
+            labelRect.sizeDelta = new Vector2(150f, 32f);
+            label.alignment = TextAnchor.MiddleCenter;
+            label.fontSize = Mathf.Min(label.fontSize, 18);
+            label.raycastTarget = false;
+            label.rectTransform.SetAsLastSibling();
         }
 
         private int CalculateDamage(BattleUnitState attacker, BattleUnitState target)
@@ -854,27 +1110,29 @@ namespace Shouyou.UI
             SetSkillButton(dreamAreaButton, "dream_area", "\u5982\u68a6\u4ee4");
             SetSkillButton(healSkillButton, "healing_verse", "\u7597\u6108");
 
-            SetButtonInteractable(startBattleButton, true);
-            SetButtonInteractable(autoBattleButton, !battleEnded);
-            SetButtonInteractable(basicSkillButton, !battleEnded);
-            SetButtonInteractable(poetryStrikeButton, !battleEnded);
-            SetButtonInteractable(dreamAreaButton, !battleEnded);
-            SetButtonInteractable(healSkillButton, !battleEnded);
+            SetButtonInteractable(startBattleButton, battleEnded || IsPlayerTurn());
+            SetButtonInteractable(autoBattleButton, !battleEnded && IsPlayerTurn());
+            SetButtonInteractable(basicSkillButton, CanUseSkill("basic", BasicSkillCost));
+            SetButtonInteractable(poetryStrikeButton, CanUseSkill("poetry_strike", PoetryStrikeCost));
+            SetButtonInteractable(dreamAreaButton, CanUseSkill("dream_area", DreamAreaCost));
+            SetButtonInteractable(healSkillButton, CanUseSkill("healing_verse", HealingVerseCost));
         }
 
         private void RefreshAllViews()
         {
-            SetText(roundTipText, "第 " + roundIndex + " 回合    我方行动    回合 PVE Demo");
+            SetText(roundTipText, "第 " + roundIndex + " 回合    " + GetCurrentActorName() + " 行动    回合 PVE Demo");
             SetText(actionPointText, "行动点 " + actionPoint + " / " + actionPointMax);
 
             for (int i = 0; i < UnitCount; i++)
             {
-                RefreshView(allyViews[i], allyUnits[i], false);
-                RefreshView(enemyViews[i], enemyUnits[i], i == selectedEnemyIndex);
+                RefreshView(allyViews[i], allyUnits[i], i == selectedAllyIndex, allyUnits[i] == currentActor);
+                RefreshView(enemyViews[i], enemyUnits[i], i == selectedEnemyIndex, enemyUnits[i] == currentActor);
             }
+
+            RefreshBattleControls();
         }
 
-        private void RefreshView(BattleUnitView view, BattleUnitState unit, bool selected)
+        private void RefreshView(BattleUnitView view, BattleUnitState unit, bool selected, bool acting)
         {
             if (view == null || unit == null)
             {
@@ -889,17 +1147,25 @@ namespace Shouyou.UI
                 view.hpBar.sizeDelta = size;
             }
 
-            SetText(view.nameText, unit.unitName + "\n" + unit.currentHp + "/" + unit.maxHp);
+            SetText(view.nameText, GetUnitDisplayText(unit));
 
             if (view.selectedRing != null)
             {
-                view.selectedRing.color = selected ? new Color32(255, 226, 145, 180) : new Color32(255, 226, 145, 0);
+                view.selectedRing.color = acting
+                    ? new Color32(104, 255, 204, 220)
+                    : (selected ? new Color32(255, 226, 145, 180) : new Color32(255, 226, 145, 0));
             }
 
             Color portraitColor = unit.defeated ? new Color(0.45f, 0.45f, 0.45f, 0.55f) : Color.white;
             if (view.portrait != null)
             {
                 view.portrait.color = portraitColor;
+            }
+
+            if (view.defeatedText != null)
+            {
+                SetText(view.defeatedText, unit.defeated ? "退场" : string.Empty);
+                view.defeatedText.gameObject.SetActive(unit.defeated);
             }
         }
 
@@ -1061,7 +1327,7 @@ namespace Shouyou.UI
         private void SetBattleMessage(string message)
         {
             SetText(battleMessageText, message);
-            SetText(roundTipText, "\u7b2c " + roundIndex + " \u56de\u5408    \u6211\u65b9\u884c\u52a8    \u56de\u5408 PVE Demo");
+            SetText(roundTipText, "\u7b2c " + roundIndex + " \u56de\u5408    " + GetCurrentActorName() + " \u884c\u52a8    \u56de\u5408 PVE Demo");
         }
 
         private void SetText(Text text, string value)
@@ -1103,16 +1369,23 @@ namespace Shouyou.UI
             public readonly int maxHp;
             public readonly int attack;
             public readonly string portraitIconKey;
+            public readonly int actionValue;
             public int currentHp;
             public bool defeated;
 
             public BattleUnitState(string unitName, bool isAlly, int maxHp, int attack, string portraitIconKey)
+                : this(unitName, isAlly, maxHp, attack, portraitIconKey, isAlly ? 120 : 100)
+            {
+            }
+
+            public BattleUnitState(string unitName, bool isAlly, int maxHp, int attack, string portraitIconKey, int actionValue)
             {
                 this.unitName = unitName;
                 this.isAlly = isAlly;
                 this.maxHp = maxHp;
                 this.attack = attack;
                 this.portraitIconKey = portraitIconKey;
+                this.actionValue = Mathf.Max(1, actionValue);
                 currentHp = maxHp;
             }
         }

@@ -2373,3 +2373,107 @@ Suggested Claude tests:
 4. Confirm no DB deletion or raw all_aseet asset changes.
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo15-FE-R2-FIX
+parent_id: Todo15-FE-R1-CODE
+round: 2
+timestamp: 2026-07-30 22:10:35 Asia/Shanghai
+project_spec: AncientGame Unity Demo
+module: BattleSkillIcons
+flow_status: [CODE_FIXED]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement: make battle skill icons render reliably without replacing the shared button skin.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+1. [P1] Skill icons did not appear in Unity -> awaited icon download before the final button refresh, then separated icon and label layout.
+2. [P1] Icon and label could visually overlap -> placed icon above the label and kept the label on the top UI sibling layer.
+3. [P1] Backend returns broken static icon URLs -> logged a Claude backend handoff; frontend keeps text buttons usable until the route is fixed.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+
+Key methods:
+1. LoadBackendBattleConfig
+2. GetOrCreateSkillIconImage
+3. LayoutSkillButtonContent
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Skill asset download now completes before the battle UI performs its final refresh.
+2. Skill icons are enabled as child Images; labels are positioned below icons and remain clickable.
+3. No raw assets, database files, or backend code were changed.
+
+Asset changes: none.
+DB changes: none.
+Risk points: the current backend list endpoint returns URLs under /assets/icons, but the server serves files through /api/v1/assets?iconKey=. Claude must correct the backend response route before Unity can download icons.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. BattleDemoController.cs brace balance is 0 and all three icon layout methods exist.
+2. GET /api/v1/assets?category=battle_skill returns the four real icon keys.
+3. GET /assets/icons/skill_basic_attack.png and the other three returned 404, confirming the backend URL defect.
+4. git diff --check completed with no whitespace errors.
+
+Suggested Claude tests:
+1. Fix returned icon URLs, then verify each returned URL has HTTP 200 and an image content type.
+2. Unity Play Mode: enter battle and verify four distinct skill icons, readable labels, and clickable buttons.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo16-FE-R1-CODE
+parent_id: Todo15-FE-R2-FIX
+round: 1
+timestamp: 2026-07-30 23:20:00 Asia/Shanghai
+project_spec: AncientGame Unity Demo
+module: BattleCoreLoop
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement: implement the battle core loop with action-value turns, action-point and cooldown rules, automatic enemy turns, clearer feedback, settlement routing, and formation-compatible battle data.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+First implementation for this core-loop task. No Claude review response is pending for this task.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouApiModels.cs
+
+Key methods:
+1. BuildActionOrder
+2. MoveToNextAvailableActor
+3. TryGetBattleActionContext
+4. CompletePlayerAction
+5. RefreshBattleControls
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Added action-value turn order; only the current friendly actor can use battle actions.
+2. Added action-point costs and round-based cooldown tracking for the three active skills; button state and labels reflect availability.
+3. Added automatic enemy actions until a friendly actor becomes active again, with dead units skipped.
+4. Added active actor highlight, selected ally state, defeated label, existing float feedback reuse, and retreat state messaging.
+5. Battle unit DTO now supports optional actionValue; old backend responses remain compatible through deterministic frontend fallback values.
+6. Battle formation summary now prefers the active demo-config response, keeping slot 1/2 linked to backend formation data.
+
+Asset changes: none.
+DB changes: none.
+Risk points: Unity Play Mode is required to verify event order, button visual states, and settlement overlays; raw scene and backend server changes were not modified by Codex in this task.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. Verified BattleDemoController.cs brace balance is 0 and removed references to old ResolveEnemyCounterAttack and AdvanceRoundClock methods.
+2. Verified all new action-loop method references resolve inside BattleDemoController.cs through static symbol search.
+3. Ran scoped source inspection for BattleDemoController.cs and ShouyouApiModels.cs; no raw asset or database file was changed.
+
+Suggested Claude tests:
+1. Unity Play Mode: enter battle with backend 5188 online and confirm Li Qingzhao slot 1 plus Wanhe slot 2 are used from demo-config.
+2. Confirm the active actor has the green ring; clicking a non-active ally only shows status and cannot steal a turn.
+3. Confirm poetry, area, and heal consume action points, show CD, recover at a new round, and disabled buttons cannot be clicked.
+4. Confirm enemy turns execute automatically after the friendly queue is exhausted, skip defeated units, and reach victory, defeat, or retreat routing without exceptions.
+5. Confirm no database deletion and no raw all_aseet changes.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

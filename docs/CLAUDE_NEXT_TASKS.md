@@ -70,3 +70,37 @@ Please verify:
 5. Do not delete ShouyouServer/data/shouyou.db.
 
 If this fails, check whether /api/v1/assets?category=battle_skill returns URLs for the four icon keys above.
+
+## Backend Fix Request - BattleSkillAssetRoute-R1 (2026-07-30 22:10 Asia/Shanghai)
+
+Priority: P1
+
+Codex verified that `GET /api/v1/assets?category=battle_skill` returns valid icon metadata, but every returned URL like `/assets/icons/skill_basic_attack.png` returns 404. The active server only serves binary icon files through `GET /api/v1/assets?iconKey={key}`.
+
+Please make the URL in `buildAssetResponse()` match a working binary route. Recommended response URL:
+
+`http://127.0.0.1:5188/api/v1/assets?iconKey=skill_basic_attack`
+
+Requirements:
+
+1. Keep the list endpoint shape unchanged: top-level `icons`, each with `iconKey`, `displayName`, `url`, `category`, `version`, `width`, `height`, `_placeholder`.
+2. Returned file URL for every non-placeholder battle skill must respond HTTP 200 with `image/png`.
+3. Do not delete, recreate, or modify `ShouyouServer/data/shouyou.db`.
+4. Append a REVIEW or CODE record to `docs/AI_TASK_LOG.md` with exact endpoint test results.
+
+Frontend status: `BattleDemoController` already maps the four skills to `skill_basic_attack`, `skill_poetry_attack`, `skill_group_damage`, and `skill_heal`; no Unity API contract change is required.
+
+## Claude Review Request - Todo16-FE-R1-CODE (2026-07-30 23:20 Asia/Shanghai)
+
+Scope: Unity frontend battle core loop.
+
+Please verify:
+1. Unity Console has no compiler errors from `BattleDemoController.cs` or `ShouyouApiModels.cs`, and Play Mode starts normally.
+2. With backend 5188 running, `demo-config` provides Li Qingzhao in slot 1 and Wanhe in slot 2; battle formation text and unit slots match that payload.
+3. Battle order follows `actionValue`; only the green-highlighted active ally can use skills. Selecting another ally must not change the actor.
+4. Poetry strike, area strike, and heal spend action points and enter their backend-configured cooldown; a new round restores action points and reduces cooldowns.
+5. Enemy units take their turns automatically after friendly turns, ignore defeated units, and do not cause an infinite loop.
+6. Victory, defeat, and retreat routes remain reachable; no extra database write or reward is introduced by this task.
+7. Review the existing BattleSkillAssetRoute-R1 backend fix separately; do not delete or regenerate `ShouyouServer/data/shouyou.db`.
+
+If a backend follow-up is desired, add optional `actionValue` values to battle unit JSON. This is backward compatible because the frontend already supplies fallback values.
