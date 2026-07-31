@@ -97,6 +97,19 @@ namespace Shouyou.UI
         /// </summary>
         private bool battleResultActionLocked;
 
+        /// <summary>
+        /// 剧情阅读状态只服务于当前详情弹窗，关闭详情或切换关卡后会重置。
+        /// 已读记录由 LevelProgressManager 持久化，不依赖这里的临时字段。
+        /// </summary>
+        private bool storyReadingActive;
+        private int currentStoryLineIndex = -1;
+        private float storyReadingStartedAt;
+
+        /// <summary>
+        /// 进入剧情三秒后才允许跳过，保留开场的情绪铺垫。
+        /// </summary>
+        private const float StorySkipDelaySeconds = 3f;
+
         private void Awake()
         {
             EnsureRuntimeReferences();
@@ -132,6 +145,8 @@ namespace Shouyou.UI
 
             if (battleController != null)
             {
+                // 战斗页需要知道从哪一关进入，结算才能回写正确的主线进度。
+                battleController.ConfigureStageContext(currentMainlineStageId, currentMainlineStageName);
                 battleController.ResetDemoBattle();
             }
         }
@@ -298,6 +313,8 @@ namespace Shouyou.UI
 
         public void CloseStoryDetail()
         {
+            storyReadingActive = false;
+            currentStoryLineIndex = -1;
             SetActive(storyDetailPanel, false);
         }
 
@@ -309,17 +326,47 @@ namespace Shouyou.UI
                 return;
             }
 
-            SetStoryBody(currentMainlineStageName + "\n\n阅读入口已准备好。\n下一步会接入逐句文本、角色头像、自动播放、3 秒后出现跳过按钮和剧情日志。\n\n当前版本先完成章节详情展示。");
+            currentStoryLineIndex = 0;
+            storyReadingActive = true;
+            storyReadingStartedAt = Time.unscaledTime;
+            RenderCurrentStoryLine();
+            ConfigureStoryDetailForReading();
         }
 
         public void SkipStory()
         {
-            SetStoryBody("已跳过本段剧情。正式版本将在这里记录跳过状态，并发放已配置的剧情奖励。");
+            if (!currentMainlineStageUnlocked)
+            {
+                ShowLockedStageHint();
+                return;
+            }
+
+            if (!storyReadingActive)
+            {
+                StartStoryReading();
+                return;
+            }
+
+            float elapsed = Time.unscaledTime - storyReadingStartedAt;
+            if (elapsed < StorySkipDelaySeconds)
+            {
+                int remaining = Mathf.CeilToInt(StorySkipDelaySeconds - elapsed);
+                SetStoryBody("剧情正在展开。\n\n" + remaining + " 秒后可跳过；也可以点击“下一句”继续阅读。");
+                return;
+            }
+
+            CompleteStoryReading(true);
         }
 
         public void ReplayStory()
         {
-            SetStoryBody("剧情回看入口已打开。正式版本将在这里显示已解锁的章节和场景列表。");
+            if (!currentMainlineStageUnlocked)
+            {
+                ShowLockedStageHint();
+                return;
+            }
+
+            StartStoryReading();
         }
 
         // -------------------------
@@ -593,6 +640,7 @@ namespace Shouyou.UI
             ShouyouBackendBootstrap.CompleteMainlineStage(currentMainlineStageId);
             int nextStageId = LevelProgressManager.Instance.GetNextStageId(currentMainlineStageId);
             MainlineStageInfo nextStage = MainlineStageCatalog.Get(nextStageId);
+            MainlineStageInfo completedStage = MainlineStageCatalog.Get(currentMainlineStageId);
             string progressText = progressAdvanced
                 ? "主线进度已推进，下一关已解锁：" + nextStage.title
                 : "该关卡此前已通关，本次为重复挑战，不重复推进主线进度。";
@@ -607,7 +655,7 @@ namespace Shouyou.UI
                 "\n\n李清照发动词意：如梦令。\n队伍获得气韵增益，顺利完成本次 PVE 试炼。" +
                 "\n\n出战队伍：" + ShouyouBackendBootstrap.GetFormationSummary() +
                 "\n队伍战力：" + ShouyouBackendBootstrap.GetFormationPower() +
-                "\n\n结算奖励：\n铜钱 1200\n词意经验 80\n主线进度 +1" +
+                "\n\n结算预览：\n" + completedStage.rewardPreview + "\n主线进度 +1" +
                 "\n\n" + progressText +
                 "\n\n下一步你可以返回主线继续选关，也可以先去编队调整阵容。"
             );
@@ -634,32 +682,30 @@ namespace Shouyou.UI
         /// </summary>
         private void ConfigureStoryDetailForMainlineStage(bool unlocked, bool cleared)
         {
+            bool storyRead = unlocked && LevelProgressManager.Instance.IsStoryRead(currentMainlineStageId);
             UnityEngine.Events.UnityAction readAction = unlocked
                 ? new UnityEngine.Events.UnityAction(StartStoryReading)
                 : new UnityEngine.Events.UnityAction(ShowLockedStageHint);
-            UnityEngine.Events.UnityAction skipAction = cleared
-                ? new UnityEngine.Events.UnityAction(EnterBattlePrototype)
-                : new UnityEngine.Events.UnityAction(SkipStory);
 
             ConfigureDetailButton(
                 storyReadButton,
                 storyReadButtonLabel,
-                unlocked ? "开始阅读" : "未解锁",
+                unlocked ? (storyRead ? "重读剧情" : "开始阅读") : "未解锁",
                 true,
                 readAction);
 
             ConfigureDetailButton(
                 storySkipButton,
                 storySkipButtonLabel,
-                cleared ? "重复挑战" : "跳过剧情",
+                "跳过剧情",
                 unlocked,
-                skipAction);
+                SkipStory);
 
             ConfigureDetailButton(
                 storyReplayButton,
                 storyReplayButtonLabel,
-                cleared ? "回看剧情" : "剧情回看",
-                cleared,
+                "回看剧情",
+                storyRead,
                 ReplayStory);
 
             ConfigureDetailButton(
@@ -874,6 +920,9 @@ namespace Shouyou.UI
             currentMainlineStageName = stage.title;
             currentMainlineStageUnlocked = LevelProgressManager.Instance.IsStageUnlocked(stage.id);
             bool cleared = LevelProgressManager.Instance.IsStageCleared(stage.id);
+            bool storyRead = LevelProgressManager.Instance.IsStoryRead(stage.id);
+            storyReadingActive = false;
+            currentStoryLineIndex = -1;
 
             string actionHint = currentMainlineStageUnlocked
                 ? (cleared ? "可操作：回看剧情 / 重复挑战 / 再次战斗" : "可操作：开始阅读 / 进入战斗")
@@ -887,11 +936,93 @@ namespace Shouyou.UI
                 "\n\n体力消耗：6" +
                 "\n关卡类型：剧情 + PVE" +
                 "\n状态：" + LevelProgressManager.Instance.GetStageStateLabel(stage.id) +
+                "\n剧情记录：" + (storyRead ? "已阅读" : "未阅读") +
                 "\n通关记录：" + (cleared ? "已记录" : "未通关") +
                 "\n\n" + actionHint;
 
             ShowStoryDetail(stage.title, body);
             ConfigureStoryDetailForMainlineStage(currentMainlineStageUnlocked, cleared);
+        }
+
+        /// <summary>
+        /// 渲染当前剧情句子。剧情文本由 MainlineStoryCatalog 按关卡编号提供。
+        /// </summary>
+        private void RenderCurrentStoryLine()
+        {
+            MainlineStorySequence sequence = MainlineStoryCatalog.Get(currentMainlineStageId);
+            if (sequence.lines == null || sequence.lines.Length == 0)
+            {
+                CompleteStoryReading(false);
+                return;
+            }
+
+            currentStoryLineIndex = Mathf.Clamp(currentStoryLineIndex, 0, sequence.lines.Length - 1);
+            bool canSkip = Time.unscaledTime - storyReadingStartedAt >= StorySkipDelaySeconds;
+            string skipHint = canSkip ? "现在可跳过剧情。" : "3 秒后将开放跳过。";
+
+            SetStoryText(storyDetailTitle, currentMainlineStageName + " · " + sequence.title);
+            SetStoryBody(
+                sequence.lines[currentStoryLineIndex] +
+                "\n\n—— " + (currentStoryLineIndex + 1) + " / " + sequence.lines.Length + " ——" +
+                "\n" + skipHint
+            );
+        }
+
+        /// <summary>
+        /// 读取下一句；最后一句结束后写入“剧情已读”记录。
+        /// </summary>
+        private void AdvanceStoryReading()
+        {
+            if (!storyReadingActive)
+            {
+                StartStoryReading();
+                return;
+            }
+
+            MainlineStorySequence sequence = MainlineStoryCatalog.Get(currentMainlineStageId);
+            currentStoryLineIndex++;
+            if (sequence.lines == null || currentStoryLineIndex >= sequence.lines.Length)
+            {
+                CompleteStoryReading(false);
+                return;
+            }
+
+            RenderCurrentStoryLine();
+        }
+
+        /// <summary>
+        /// 完成或跳过当前剧情。只记录已读状态，不把“看剧情”等同于“通关战斗”。
+        /// </summary>
+        private void CompleteStoryReading(bool skipped)
+        {
+            storyReadingActive = false;
+            currentStoryLineIndex = -1;
+            LevelProgressManager.Instance.MarkStoryRead(currentMainlineStageId);
+
+            string result = skipped ? "已跳过本段剧情，仍可随时回看。" : "本段剧情阅读完成，已收入剧情记录。";
+            SetStoryText(storyDetailTitle, currentMainlineStageName);
+            SetStoryBody(
+                result +
+                "\n\n下一步可进入战斗，也可以回看本关剧情。\n" +
+                "提示：剧情已读与战斗通关是两条独立进度。"
+            );
+
+            ConfigureStoryDetailForMainlineStage(
+                currentMainlineStageUnlocked,
+                LevelProgressManager.Instance.IsStageCleared(currentMainlineStageId)
+            );
+        }
+
+        /// <summary>
+        /// 剧情阅读期间的按钮语义：阅读按钮变成下一句，跳过按钮保留延迟判定。
+        /// </summary>
+        private void ConfigureStoryDetailForReading()
+        {
+            ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "下一句", true, AdvanceStoryReading);
+            ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "跳过剧情", true, SkipStory);
+            ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "重新开始", true, ReplayStory);
+            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "进入战斗", true, EnterBattlePrototype);
+            ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "关闭详情", true, CloseStoryDetail);
         }
 
         private void SetStoryBody(string body)

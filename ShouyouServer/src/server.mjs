@@ -71,6 +71,17 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === "GET" && pathname === "/api/v1/health") {
+      sendJson(response, 200, {
+        ok: true,
+        service: "ShouyouServer",
+        version: "0.2.0",
+        time: new Date().toISOString(),
+        database: true,
+      });
+      return;
+    }
+
     if (request.method === "GET" && pathname === "/openapi.json") {
       sendJson(response, 200, createOpenApiDocument());
       return;
@@ -258,9 +269,33 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "GET" && pathname === "/api/v1/battle/demo-config") {
+      const stageId = url.searchParams.get("stageId") || "1-1";
       const config = JSON.parse(
         readFileSync(resolve(projectRoot, "src/assets/demo-config.json"), "utf8"),
       );
+
+      // 按关卡替换敌方阵容和剧情
+      const stageConfig = config.stages?.[stageId];
+      if (stageConfig) {
+        config.stageId = stageId;
+        config.stageTitle = stageConfig.title;
+        config.storySummary = stageConfig.storySummary;
+        config.storyPages = stageConfig.storyPages;
+        config.rewards = stageConfig.rewards;
+        // 按 enemyGroup 调整敌人 HP
+        const group = stageConfig.enemyGroup;
+        if (group && config.enemies) {
+          for (let i = 0; i < Math.min(group.length, config.enemies.length); i++) {
+            if (group[i] > 0) {
+              config.enemies[i].hp = group[i];
+            } else {
+              config.enemies[i] = null; // 空位无敌人
+            }
+          }
+          config.enemies = config.enemies.filter(e => e !== null);
+        }
+      }
+
       sendJson(response, 200, config);
       return;
     }
@@ -283,11 +318,12 @@ const server = createServer(async (request, response) => {
 
 function buildAssetResponse(iconKey, entry, registryVersion) {
   const fileExists = entry.file !== null;
-  const baseUrl = `http://${host}:${port}/assets`;
   return {
     iconKey,
     displayName: entry.displayName,
-    url: fileExists ? `${baseUrl}/${entry.file}` : null,
+    url: fileExists
+      ? `http://${host}:${port}/api/v1/assets?iconKey=${encodeURIComponent(iconKey)}`
+      : null,
     category: entry.category,
     version: registryVersion,
     width: entry.width ?? 0,

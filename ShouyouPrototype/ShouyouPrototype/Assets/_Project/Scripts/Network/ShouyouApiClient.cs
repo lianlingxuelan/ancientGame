@@ -21,11 +21,7 @@ namespace Shouyou.Network
 
         public IEnumerator GetHealth(Action<HealthResponse> onSuccess, Action<string> onError)
         {
-            // ???????? health ????? demo-config ?? Unity ???????
-            yield return Get("/api/v1/battle/demo-config", delegate(BattleDemoConfigResponse data)
-            {
-                onSuccess?.Invoke(new HealthResponse { ok = data != null, service = "ShouyouServer", time = string.Empty });
-            }, onError);
+            yield return Get("/api/v1/health", onSuccess, onError);
         }
 
         public IEnumerator GetBattleDemoConfig(Action<BattleDemoConfigResponse> onSuccess, Action<string> onError)

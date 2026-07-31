@@ -2477,3 +2477,428 @@ Suggested Claude tests:
 5. Confirm no database deletion and no raw all_aseet changes.
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo17-FE-R1-CODE
+parent_id: Todo16-FE-R1-CODE
+round: 1
+timestamp: 2026-07-31 09:20:00 Asia/Shanghai
+project_spec: AncientGame Unity Demo
+module: MainlineChapterOneLoop
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+Requirement: connect Chapter One stage selection, progressive story reading, battle stage context, settlement reward preview, and local progression into one configurable playable loop.
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+First implementation for this mainline-loop task. Claude review is requested after this record.
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+Changed files:
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStoryCatalog.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/LevelProgressManager.cs
+3. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+4. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+
+Key methods:
+1. MainlineStoryCatalog.Get
+2. LevelProgressManager.IsStoryRead / MarkStoryRead
+3. HomePageRouter.StartStoryReading / AdvanceStoryReading / CompleteStoryReading
+4. BattleDemoController.ConfigureStageContext
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+Changes:
+1. Added separate Chapter One story configurations for stages 1-1 through 1-6; UI now reads text by stage ID instead of button-specific placeholder strings.
+2. Added local story-read persistence. Reading or delayed skipping records story completion without being treated as battle completion.
+3. Added progressive story lines, next-line control, a three-second skip guard, replay, and stage-detail read status.
+4. Battle entry now passes the selected mainline stage ID and title into the battle controller; battle status shows the active stage context.
+5. Victory settlement now displays the selected stage reward preview from MainlineStageCatalog instead of a fixed reward string.
+6. Existing stage lock, formation gate, victory unlock, replay, and next-stage routing remain intact.
+
+Asset changes: one C# source file plus its Unity meta file only.
+DB changes: none.
+Backend changes: none.
+Risk points: this batch relies on the existing reusable detail modal and needs Unity Play Mode verification for button listener order and the three-second skip timing.
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex self-check:
+1. All four changed C# files decode as UTF-8 and have brace balance 0.
+2. Static symbol search confirms MainlineStoryCatalog, story read methods, reading controls, and battle stage-context call sites resolve in the expected scripts.
+3. git diff --check completed without whitespace errors.
+4. No raw source assets, backend server code, or database files were modified.
+
+Suggested Claude tests:
+1. Unity Play Mode: open 1-1 detail, choose start reading, advance all lines, then reopen the detail and confirm the state reads 已阅读 and 回看剧情 is visible.
+2. Start reading again and click 跳过剧情 before three seconds; it must show a wait hint. After three seconds, it must mark the story read without marking the stage cleared.
+3. Enter battle from a selected stage and verify the battle prompt displays that exact stage title and ID.
+4. Win a stage and confirm the settlement reward text matches MainlineStageCatalog.rewardPreview and only the next stage becomes newly unlocked.
+5. Confirm replay, return to chapter, formation, and next-stage settlement buttons do not cause duplicate progress writes or exceptions.
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo13-FE-R1-REV
+parent_id: Todo13-FE-R2-FIX
+round: 2
+timestamp: 2026-07-31 12:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗技能占位 + 技能按钮控件
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 2
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 0
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+Todo13 R1(技能占位)+R2(按钮修复)已在后续迭代中重构为行动值回合制，审查基于 BattleDemoController.cs 当前最终状态。
+
+逐项核验：
+1.【已落实】CastPoetryStrike/CastDreamAreaAttack/CastHealingVerse 三个主动技能 — 均接入 TryGetBattleActionContext 统一校验（AP/冷却/回合归属）
+2.【已落实】PerformAutoAttacks（原 ToggleAutoBattle） — 命名对齐行为，安全计数器防无限循环
+3.【已落实】SkillButton_1~4 绑定 — BindRuntimeReferences 正确绑定四个技能按钮，RefreshBattleControls 统一刷新标签/图标/可点击态
+4.【已落实】PressMainBattleButton — 战斗结束后变为重新开始
+5.【已落实】ConsumeSkill 扣 AP + 注册冷却与 TryGetBattleActionContext 前置校验形成闭环
+6.【已落实】SetSkillButton + FindSkill — 后端技能数据优先，缺数据用 fallback 中文标签
+
+Todo12 P2 遗留修复确认：GetUnitDisplayText 已移除旧 attack<=0 条件，仅判 defeated。✅
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：四技能占位(普攻/词意连击/如梦令/疗愈) + 按钮绑定刷新禁用态闭环
+- 状态：PASS，零缺陷
+- 遗留：无
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo13-FE-R1-PASS
+parent_id: Todo13-FE-R1-REV
+round: 2
+timestamp: 2026-07-31 12:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗技能占位 + 技能按钮控件
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 2
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 0
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：四技能占位（普攻/词意连击/如梦令/疗愈）、按钮绑定刷新禁用态、自动战斗安全计数器
+- 最终状态：通过
+- 遗留问题：无
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo14-FE-R1-REV
+parent_id: Todo14-FE-R2-FIX
+round: 2
+timestamp: 2026-07-31 12:15:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗后端配置集成 + 编译修复
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 2
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 0
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+Todo14 R1(API集成)+R2(编译修复)，对应 CLAUDE_NEXT_TASKS Frontend-Review-R1 五项要求：
+
+1.【已落实】ShouyouApiModels.cs DTO 匹配后端 — BattleDemoConfigResponse/BattleUnitDto/BattleSkillDto/BattleSkillAssetListResponse 字段与后端 JSON 一致
+2.【已落实】DecodeUtf8Body — 所有 GET/PUT 响应先经 Encoding.UTF8.GetString 再 JsonUtility.FromJson
+3.【已落实】LoadBackendBattleConfig 从 demo-config 初始化 allies/enemies/AP/skills — 成功后调 ResetDemoBattle 重置
+4.【已落实】婉禾 slot2 — FindBackendUnitBySlot 按 slot 字段匹配，demo-config.allies slot=2 Wanhe 由 CreateUnitFromDto 创建
+5.【已落实】技能按钮降级 — SetSkillButton 优先用后端 label，缺数据用 fallbackLabel；图标下载失败仅显示文本
+6.【已落实】Todo14-FE-R2-FIX 补齐 CalculateSkillDamage/CalculateAreaSkillDamage/CalculateHealAmount/SetSkillButton/FindSkill 五方法
+
+额外要点：
+- LoadBackendBattleConfig 双锁(battleConfigLoading+battleConfigLoaded)防重复请求
+- demo-config 作为 battle formation 权威源(line 418-420)，不受旧 DB 覆盖
+- GetHealth 临时用 demo-config 做存活检查，后端正 health endpoint 到位后替换
+- 不删 shouyou.db ✅
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：demo-config + skill assets API 对接、UTF-8 解码、编译补齐、婉禾 slot2 权威配置
+- 状态：PASS，零缺陷
+- 遗留：health endpoint 临时实现（已在 CLAUDE_NEXT_TASKS 登记）
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo14-FE-R1-PASS
+parent_id: Todo14-FE-R1-REV
+round: 2
+timestamp: 2026-07-31 12:15:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗后端配置集成 + 编译修复
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 2
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 0
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：/api/v1/battle/demo-config + /api/v1/assets?category=battle_skill 对接、UTF-8 响应解码、编译方法补齐
+- 最终状态：通过
+- 遗留问题：health endpoint 临时实现（非阻塞）
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo15-FE-R1-REV
+parent_id: Todo15-FE-R2-FIX
+round: 2
+timestamp: 2026-07-31 12:30:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 技能图标渲染
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 2
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 0
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+Todo15 R1(图标)+R2(布局修复)，对应 CLAUDE_NEXT_TASKS Todo15 审查要求：
+
+1.【已落实】四技能按钮显示独立图标 — GetOrCreateSkillIconImage 创建 SkillIcon 子节点，不覆盖按钮背景
+2.【已落实】图标映射 — ResolveSkillIconKey 按 skillId 映射: basic→skill_basic_attack / poetry_strike→skill_poetry_attack / dream_area→skill_group_damage / healing_verse→skill_heal；同时尊重后端直接返回的正确 iconKey
+3.【已落实】标签可见+可点击 — LayoutSkillButtonContent 标签下移到图标下方(-18f)，label.raycastTarget=false 确保点击穿透
+4.【已落实】下载时序 — LoadBackendBattleConfig 先等 DownloadSkillIcons 完成再刷新按钮
+5.【已落实】不删 shouyou.db ✅
+
+代码质量：
+- SkillIcon 居中 anchor, sizeDelta 46x46, preserveAspect=true
+- iconImage.raycastTarget=false 避免拦截点击
+- placeholder/url=null 跳过下载，不阻塞
+- skillIconCache 字典缓存已下载 Sprite
+- GetOrCreateSkillIconImage 幂等——已存在时复用并重置属性
+- 后端 URL 不以 "http" 开头时补全 BattleApiBaseUrl（兼容后端正修复中）
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：技能图标独立子节点渲染、iconKey 前端映射、图标/标签分离布局、异步下载+缓存
+- 状态：PASS，零缺陷
+- 遗留：后端图标 URL 路由修正（已登记在 CLAUDE_NEXT_TASKS BattleSkillAssetRoute-R1）
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo15-FE-R1-PASS
+parent_id: Todo15-FE-R1-REV
+round: 2
+timestamp: 2026-07-31 12:30:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 技能图标渲染
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 2
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 0
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：技能图标独立渲染（SkillIcon子节点）、前端iconKey映射、图标/标签分离布局、异步下载缓存
+- 最终状态：通过
+- 遗留问题：无
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo16-FE-R1-REV
+parent_id: Todo16-FE-R1-CODE
+round: 1
+timestamp: 2026-07-31 12:45:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗核心循环
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+对应 CLAUDE_NEXT_TASKS Todo16 八项要求：
+
+1.【已落实】Unity 编译零错误 — 所有方法引用可解析，brace balance=0
+2.【已落实】demo-config 李清照 slot1 + 婉禾 slot2 — FindBackendUnitBySlot 按 slot 字段匹配
+3.【已落实】actionValue 决定行动顺序 — BuildActionOrder 按 actionValue 降序，同值我方优先；只有绿色高亮(acting)当前行动者可操作；SelectAlly 非当前行动者仅查看状态
+4.【已落实】AP 消耗+冷却+新回合恢复 — ConsumeSkill 扣 AP+注册冷却；TryGetBattleActionContext 前置四条件校验；StartNewRound 恢复 AP+减冷却；CanUseSkill 综合判断
+5.【已落实】敌自动行动 — CompletePlayerAction while 循环处理所有应当行动的敌人；ResolveEnemyAction 攻击最低血量友方；safety=UnitCount*3 防无限循环；死单位被 MoveToNextAvailableActor 跳过
+6.【已落实】胜负撤退路由 — TryFinishBattle 敌方全灭→ResolveBattleVictory/我方全灭→ResolveBattleDefeat；RetreatBattle 直接返回主线
+7.【已落实】无额外 DB 写入 — 所有结算通过 HomePageRouter 现有方法
+8.【已落实】不删 shouyou.db ✅
+
+代码质量亮点：
+- BattleUnitState 新增 actionValue 字段，旧构造函数保持兼容(默认120/100)
+- CreateUnitFromDto actionValue=0 时使用按 index 递减的 fallback——向后兼容旧后端
+- RefreshView acting 绿色(104,255,204)与 selected 金色(255,226,145)区分清晰
+- resolvingEnemyTurn 标志防止 IsPlayerTurn 在敌回合误判
+- TryFinishBattle 双重检查（action 前后各一次）
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：actionValue 行动顺序、AP/冷却回合制、敌自动行动、行动者绿圈高亮、胜负撤退路由
+- 状态：PASS，1轮通过，零缺陷
+- 遗留：正式伤害公式为 Demo 限制，非阻塞
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo16-FE-R1-PASS
+parent_id: Todo16-FE-R1-REV
+round: 1
+timestamp: 2026-07-31 12:45:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗核心循环
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：actionValue 回合制行动顺序、行动点消耗+冷却+新回合恢复、敌方自动行动循环、行动者绿圈高亮、胜负撤退路由
+- 最终状态：通过（1轮）
+- 遗留问题：无
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo17-FE-R1-REV
+parent_id: Todo17-FE-R1-CODE
+round: 1
+timestamp: 2026-07-31 13:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 第一章主线可配置闭环
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+对应 CLAUDE_NEXT_TASKS Todo17 七项要求：
+
+1.【已落实】Unity 编译零错误 — MainlineStoryCatalog.cs / LevelProgressManager.cs / HomePageRouter.cs / BattleDemoController.cs 四个文件 brace balance=0，方法引用可解析
+2.【已落实】逐句阅读+完成仅记故事已读 — StartStoryReading→AdvanceStoryReading→CompleteStoryReading，最后调 MarkStoryRead（不调 CompleteStage）
+3.【已落实】3 秒跳过守卫 — SkipStory 检查 Time.unscaledTime - storyReadingStartedAt < StorySkipDelaySeconds(3s)，显示剩余秒数提示
+4.【已落实】重开详情显示"已阅读"+"回看剧情" — ShowMainlineStageDetail 读取 IsStoryRead，显示"已阅读"标签；ConfigureStoryDetailForMainlineStage storyRead=true 显示"重读剧情"+"回看剧情"
+5.【已落实】战斗页显示选中关卡标题+ID — BattleDemoController.ConfigureStageContext→ResetDemoBattle 开场消息显示 activeStageTitle + activeStageId
+6.【已落实】胜利结算显示对应奖励预览 — ShowBattleVictoryDetail 读取 completedStage.rewardPreview + nextStage.title，均来自 MainlineStageCatalog.Get
+7.【已落实】不碰后端/DB/raw assets ✅
+
+代码结构：
+- MainlineStoryCatalog：6关独立剧情配置，Get 按 stageId 线性查找（n=6无性能问题），非法ID回落 Sequences[0]
+- LevelProgressManager：IsStoryRead/MarkStoryRead 使用独立 PlayerPrefs key(StoryReadKeyPrefix)与通关进度(HighestClearedStageKey)完全分离
+- HomePageRouter.ShowMainlineStageDetail：统一入口，读 unlocked/cleared/storyRead 三态，动态拼接正文
+- CompleteStoryReading：storyReadingActive 复位、MarkStoryRead 写入、提示"剧情已读与战斗通关是两条独立进度"
+- BattleDemoController.ConfigureStageContext：clamp stageId>=1 + null/empty title 保护
+
+代码质量亮点：
+- storyReadingStartedAt 用 Time.unscaledTime（不受 timescale 影响），暂停时跳过计时仍准确
+- RenderCurrentStoryLine 动态显示"X/Y句"进度+跳过可用提示
+- AdvanceStoryReading 自动检测最后一句触发完成
+- 战斗入口 ShowBattle 先 ConfigureStageContext 再 ResetDemoBattle 顺序正确
+
+P2 建议（非阻塞）：MainlineStoryCatalog.Get 非法 stageId 回落时可加 Debug.LogWarning
+---BLOCK_REVIEW_PROBLEM_END---
+---BLOCK_SUMMARY_START---
+- 完成：第一章 1-1~1-6 独立剧情配置、逐句阅读+3秒跳过守卫、剧情已读/战斗通关分离、关卡上下文传入战斗页、按关卡奖励预览
+- 状态：PASS，1轮通过，零P1缺陷
+- 遗留：P2 建议 Get 非法 ID 加 Warning（非阻塞）
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo17-FE-R1-PASS
+parent_id: Todo17-FE-R1-REV
+round: 1
+timestamp: 2026-07-31 13:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 第一章主线可配置闭环
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+任务总结：
+- 完成内容：第一章6关独立剧情配置、逐句阅读+3秒跳过、剧情已读与战斗通关分离、关卡上下文传入战斗页、按关卡奖励预览
+- 最终状态：通过（1轮）
+- 遗留问题：P2 建议 Get 非法 ID 加 Warning（非阻塞）
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: BackendFix-R1
+parent_id: none
+round: 1
+timestamp: 2026-07-31 13:30:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 后端两个修复（health端点 + 图标URL路由）
+flow_status: [DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+1. 添加 /api/v1/health 端点，返回 JSON { ok: true, service: "ShouyouServer" }
+2. 修复 buildAssetResponse() 图标 URL 从 /assets/icons/xxx 改为 /api/v1/assets?iconKey=xxx（旧静态路由返回 404，API 路由可正常提供二进制文件）
+3. Unity ShouyouApiClient.GetHealth() 从 demo-config 占位改为调用真正的 /api/v1/health
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+ShouyouServer/src/server.mjs (buildAssetResponse + /api/v1/health)
+ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouApiClient.cs (GetHealth)
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. server.mjs buildAssetResponse(): url 字段从 ${baseUrl}/${entry.file} 改为 /api/v1/assets?iconKey=${encodeURIComponent(iconKey)}，URL 统一用 API 路由
+2. server.mjs 新增 GET /api/v1/health，返回 ok/service/version/time/database
+3. ShouyouApiClient.GetHealth(): 移除 demo-config 占位逻辑，直接 GET /api/v1/health
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+1. curl /api/v1/health → HTTP 200, { ok: true, service: "ShouyouServer" }
+2. curl /api/v1/assets?category=battle_skill → icons[].url 均为 /api/v1/assets?iconKey=xxx 格式
+3. 四个技能图标 (skill_basic_attack/poetry_attack/group_damage/heal) 各返回 HTTP 200 + image/png
+4. 未删除或重建 shouyou.db
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

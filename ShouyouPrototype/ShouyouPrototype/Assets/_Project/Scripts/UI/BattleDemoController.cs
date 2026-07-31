@@ -60,6 +60,13 @@ namespace Shouyou.UI
         private bool resolvingEnemyTurn;
         private bool referencesBound;
 
+        /// <summary>
+        /// 从主线详情页进入战斗时写入。战斗控制器不决定关卡进度，
+        /// 仅保存上下文供提示和结算路由使用。
+        /// </summary>
+        private int activeStageId = 1;
+        private string activeStageTitle = "1-1 明水入汴京";
+
         private void Awake()
         {
             BindRuntimeReferences();
@@ -72,6 +79,19 @@ namespace Shouyou.UI
             BindRuntimeReferences();
             ResetDemoBattle();
             StartCoroutine(LoadBackendBattleConfig());
+        }
+
+        /// <summary>
+        /// 设置本场战斗对应的主线关卡。
+        /// 由 HomePageRouter 在切入战斗页前调用，避免战斗页自行猜测关卡。
+        /// </summary>
+        public void ConfigureStageContext(int stageId, string stageTitle)
+        {
+            activeStageId = Mathf.Max(1, stageId);
+            if (!string.IsNullOrEmpty(stageTitle))
+            {
+                activeStageTitle = stageTitle;
+            }
         }
 
         /// <summary>
@@ -98,7 +118,8 @@ namespace Shouyou.UI
             MoveToNextAvailableActor(false);
 
             SetBattleMessage(
-                "第一回合：我方行动。选择敌方头像，或直接点击“开始战斗”。" +
+                "当前关卡：" + activeStageTitle + "（" + activeStageId + "）" +
+                "\n第一回合：我方行动。选择敌方头像，或直接点击“开始战斗”。" +
                 "\n当前阵容：" + GetFormationSummaryForBattle()
             );
             RefreshAllViews();

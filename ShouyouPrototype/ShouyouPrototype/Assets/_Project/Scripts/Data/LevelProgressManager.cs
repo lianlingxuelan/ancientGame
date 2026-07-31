@@ -30,6 +30,12 @@ namespace Shouyou.Data
         /// </summary>
         private const string HighestClearedStageKey = "Shouyou.Mainline.HighestClearedStageId";
 
+        /// <summary>
+        /// 剧情阅读记录的键前缀。阅读记录与通关记录分开保存：
+        /// 玩家可以先阅读剧情、再战斗，也可以跳过后回看。
+        /// </summary>
+        private const string StoryReadKeyPrefix = "Shouyou.Mainline.StoryRead.";
+
         private static LevelProgressManager instance;
 
         /// <summary>
@@ -147,6 +153,23 @@ namespace Shouyou.Data
             return highestClearedStageId;
         }
 
+        /// <summary>
+        /// 判断指定关卡的剧情是否已经阅读或跳过。
+        /// </summary>
+        public bool IsStoryRead(int stageId)
+        {
+            return PlayerPrefs.GetInt(BuildStoryReadKey(stageId), 0) == 1;
+        }
+
+        /// <summary>
+        /// 记录剧情已读。这个记录不推进关卡，也不直接发放奖励。
+        /// </summary>
+        public void MarkStoryRead(int stageId)
+        {
+            PlayerPrefs.SetInt(BuildStoryReadKey(stageId), 1);
+            PlayerPrefs.Save();
+        }
+
         private void Load()
         {
             highestClearedStageId = Mathf.Clamp(PlayerPrefs.GetInt(HighestClearedStageKey, 0), 0, MaxMainlineStageId);
@@ -161,6 +184,11 @@ namespace Shouyou.Data
         private static int NormalizeStageId(int stageId)
         {
             return Mathf.Clamp(stageId, 1, MaxMainlineStageId);
+        }
+
+        private static string BuildStoryReadKey(int stageId)
+        {
+            return StoryReadKeyPrefix + NormalizeStageId(stageId);
         }
     }
 }
