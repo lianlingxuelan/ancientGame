@@ -1092,6 +1092,32 @@ namespace Shouyou.UI
             return currentActor == null ? "\u65e0\u4eba" : currentActor.unitName;
         }
 
+        /// <summary>
+        /// 组合顶部回合提示。行动者仍只由行动值队列决定，
+        /// “目标”只表示玩家当前选择的敌方单位，不会抢占任何角色的行动权。
+        /// </summary>
+        private string BuildBattleRoundTip()
+        {
+            string targetName = GetSelectedEnemyName();
+            string targetTip = string.IsNullOrEmpty(targetName) ? "目标：无" : "目标：" + targetName;
+            return "第 " + roundIndex + " 回合    行动者：" + GetCurrentActorName() + "    " + targetTip + "    回合 PVE Demo";
+        }
+
+        /// <summary>
+        /// 获取当前选中的存活敌方名称。选中目标已经退场时返回空，
+        /// 由既有 GetSelectedOrFirstAliveEnemy() 在真正结算时回退到其他存活目标。
+        /// </summary>
+        private string GetSelectedEnemyName()
+        {
+            if (selectedEnemyIndex < 0 || selectedEnemyIndex >= UnitCount)
+            {
+                return string.Empty;
+            }
+
+            BattleUnitState selectedEnemy = enemyUnits[selectedEnemyIndex];
+            return selectedEnemy == null || selectedEnemy.defeated ? string.Empty : selectedEnemy.unitName;
+        }
+
         private string BuildTurnPrompt()
         {
             return IsPlayerTurn()
@@ -1467,19 +1493,19 @@ namespace Shouyou.UI
 
         private void RefreshAllViews()
         {
-            SetText(roundTipText, "第 " + roundIndex + " 回合    " + GetCurrentActorName() + " 行动    回合 PVE Demo");
+            SetText(roundTipText, BuildBattleRoundTip());
             SetText(actionPointText, "行动点 " + actionPoint + " / " + actionPointMax);
 
             for (int i = 0; i < UnitCount; i++)
             {
-                RefreshView(allyViews[i], allyUnits[i], i == selectedAllyIndex, allyUnits[i] == currentActor);
-                RefreshView(enemyViews[i], enemyUnits[i], i == selectedEnemyIndex, enemyUnits[i] == currentActor);
+                RefreshView(allyViews[i], allyUnits[i], i == selectedAllyIndex, allyUnits[i] == currentActor, false);
+                RefreshView(enemyViews[i], enemyUnits[i], i == selectedEnemyIndex, enemyUnits[i] == currentActor, true);
             }
 
             RefreshBattleControls();
         }
 
-        private void RefreshView(BattleUnitView view, BattleUnitState unit, bool selected, bool acting)
+        private void RefreshView(BattleUnitView view, BattleUnitState unit, bool selected, bool acting, bool isEnemy)
         {
             if (view == null || unit == null)
             {
@@ -1496,11 +1522,18 @@ namespace Shouyou.UI
 
             SetText(view.nameText, GetUnitDisplayText(unit));
 
+            if (view.slotImage != null)
+            {
+                view.slotImage.color = GetSlotBackgroundColor(unit, selected, acting, isEnemy);
+            }
+
             if (view.selectedRing != null)
             {
                 view.selectedRing.color = acting
                     ? new Color32(104, 255, 204, 220)
-                    : (selected ? new Color32(255, 226, 145, 180) : new Color32(255, 226, 145, 0));
+                    : (selected
+                        ? (isEnemy ? new Color32(255, 160, 132, 235) : new Color32(255, 226, 145, 190))
+                        : new Color32(255, 226, 145, 0));
             }
 
             Color portraitColor = unit.defeated ? new Color(0.45f, 0.45f, 0.45f, 0.55f) : Color.white;
@@ -1763,6 +1796,32 @@ namespace Shouyou.UI
                 this.buffIds = buffIds == null ? new string[0] : (string[])buffIds.Clone();
                 currentHp = maxHp;
             }
+        }
+
+        /// <summary>
+        /// 用卡片底色补强选择反馈：青绿表示正在行动、珊瑚色表示当前攻击目标、
+        /// 金色表示查看中的我方角色。它仅改变展示，不改变选择、行动值或伤害判定。
+        /// </summary>
+        private Color GetSlotBackgroundColor(BattleUnitState unit, bool selected, bool acting, bool isEnemy)
+        {
+            if (unit == null || unit.defeated)
+            {
+                return new Color32(90, 82, 98, 82);
+            }
+
+            if (acting)
+            {
+                return new Color32(126, 243, 205, 190);
+            }
+
+            if (selected)
+            {
+                return isEnemy
+                    ? new Color32(255, 178, 149, 190)
+                    : new Color32(255, 231, 169, 170);
+            }
+
+            return new Color32(255, 248, 236, 118);
         }
 
         /// <summary>

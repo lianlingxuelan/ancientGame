@@ -313,3 +313,25 @@ Please verify:
 Known boundary: this is a first interaction slice. It supports one queued big skill per character, does not yet draw an action timeline or target-preview arrow, and keeps basic attack immediate.
 
 ---
+
+## ⏳ Claude Review Request — Todo23-FE-R1-CODE (2026-08-02)
+
+Scope: battle target-selection readability only. Current action authority remains the action-value queue; this task does not change damage, AP/CD, queued skills, backend, assets, settlement, or `shouyou.db`.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_battle_target_feedback.ps1`
+- `docs/superpowers/plans/2026-08-02-battle-target-feedback.md`
+
+Please verify:
+1. `BuildBattleRoundTip()` displays current actor plus the currently selected, alive enemy target; selecting a target never changes `currentActor`.
+2. `SelectEnemy()` still determines the future single-target attack target, while `SelectAlly()` remains read-only for turn ownership.
+3. `RefreshView(...)` gets an explicit `isEnemy` context and gives current actor, selected enemy, selected ally, and defeated unit distinct visual states without touching HP, damage or action calculations.
+4. Selecting a defeated enemy keeps the existing early-return feedback; a retired selected target is still safely handled by the existing target fallback.
+5. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_battle_target_feedback.ps1`, `tools/verify_battle_loop.ps1`, and `tools/verify_skill_preselection.ps1`.
+6. Unity Play Mode: click different enemy and ally portraits, use normal attack and one queued skill, then complete victory/defeat/retreat smoke checks.
+7. Confirm `ShouyouServer/data/shouyou.db` is unchanged.
+
+Known boundary: no animated target arrow or action timeline is added in this slice; it is intentionally limited to readable text, color and outline feedback.
+
+---

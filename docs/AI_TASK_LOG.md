@@ -3521,3 +3521,114 @@ remaining_rounds: 2
 - 伤害公式/后端/DB均未修改
 ---BLOCK_SUMMARY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo23-FE-R1-CODE
+parent_id: Todo22-FE-R1-PASS
+round: 1
+timestamp: 2026-08-02 15:54:55 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗目标选择反馈
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：在不改变行动值、伤害或技能预选逻辑的前提下，明确展示当前行动者与当前敌方攻击目标。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_battle_target_feedback.ps1
+3. docs/superpowers/plans/2026-08-02-battle-target-feedback.md
+
+关键方法：
+1. BuildBattleRoundTip()
+2. GetSelectedEnemyName()
+3. GetSlotBackgroundColor(...)
+4. RefreshView(...)
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 回合提示增加行动者与当前存活敌方目标，目标为空或退场时显示“目标：无”。
+2. 头像卡片底色区分当前行动者（青绿）、当前敌方攻击目标（珊瑚）和查看中的我方角色（金色）。
+3. 敌方目标描边使用独立珊瑚色；既有阵亡灰化、行动值队列、技能预选和目标回退逻辑保持不变。
+4. 新增静态契约校验，覆盖提示构建、目标读取、敌我卡片区分及调用点。
+
+资源变更：无。
+存档影响：无。
+风险点：终端无法启动 Unity Editor；需在 Play Mode 点击不同敌方/我方头像，确认视觉反馈与既有点击行为一致。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 先运行 tools/verify_battle_target_feedback.ps1，确认因缺少新契约而失败；实现后重新运行，输出 passed。
+2. 运行 tools/verify_battle_loop.ps1，输出 Battle loop static validation passed。
+3. 运行 tools/verify_skill_preselection.ps1，输出 Skill preselection static validation passed。
+4. git diff --check（本轮文件）通过；git diff --exit-code -- ShouyouServer/data/shouyou.db 返回空。
+
+建议Claude测试：
+1. Unity Play Mode 中点击不同敌方头像，确认顶部目标名、珊瑚底板和描边同步切换，随后普攻命中该目标。
+2. 点击我方非当前行动角色，确认仅金色查看反馈变化，行动者和可用技能不被切换。
+3. 让已选敌方退场，确认顶部显示”目标：无”或新自动目标，且普攻/预选技能仍可回退至存活敌方。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo23-FE-R1-REV
+parent_id: Todo23-FE-R1-CODE
+round: 1
+timestamp: 2026-08-02 16:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗目标选择反馈
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+0 P1, 0 P2。全部审查项通过。
+
+1. 顶部回合提示显示行动者+目标：
+   BuildBattleRoundTip() 格式 “第X回合 行动者：XXX 目标：XXX”
+   目标已退场显示”目标：无”
+
+2. 三种颜色区分：
+   青绿(acting)/珊瑚(敌方选中)/金色(我方查看)/暗紫(退场)/淡米(普通)
+   只影响 slotImage.color，不改变选择逻辑
+
+3. 选中环颜色敌我差异：
+   敌方 #FFB295 珊瑚色 / 我方 #FFE7A9 金色 / 行动中 #68FFCC
+
+4. 不改变伤害/行动值/预选
+
+5. 静态校验四连全部 PASS，shouyou.db 未修改
+---BLOCK_REVIEW_PROBLEM_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo23-FE-R1-PASS
+parent_id: Todo23-FE-R1-REV
+round: 1
+timestamp: 2026-08-02 16:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗目标选择反馈
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+- 完成：BuildBattleRoundTip/GetSelectedEnemyName/GetSlotBackgroundColor
+- 青绿=行动者 珊瑚=敌方目标 金色=我方查看
+- 0 P1, 0 P2, 1轮通过
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
