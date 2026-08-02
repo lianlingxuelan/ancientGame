@@ -138,7 +138,35 @@ namespace Shouyou.Network
         public int attack;
         // 行动值越高越早行动；旧接口未返回时前端会使用 Demo 默认值。
         public int actionValue;
+        // 行动值相同时才作为第二排序依据；本轮不参与伤害计算。
+        public int speed;
+        // 以下战斗字段仅用于数据存储与后续接口兼容，本轮禁止参与伤害、命中或 Buff 结算。
+        public float critRate;
+        public float critDamage;
+        public float hitRate;
+        public float dodgeRate;
+        public string element;
+        public int starLevel;
+        public int breakLevel;
+        public string[] buffIds;
         public string portraitIconKey;
+    }
+
+    /// <summary>
+    /// 通用奖励数据。当前只为主线结算展示提供结构，不处理背包、过期或绑定逻辑。
+    /// </summary>
+    [Serializable]
+    public sealed class RewardItem
+    {
+        public string id;
+        public string category;
+        public string name;
+        public int amount;
+        public string iconPath;
+        public int quality = 1;
+        public bool isBound;
+        public string expireTime;
+        public string description;
     }
 
     [Serializable]

@@ -641,6 +641,9 @@ namespace Shouyou.UI
             int nextStageId = LevelProgressManager.Instance.GetNextStageId(currentMainlineStageId);
             MainlineStageInfo nextStage = MainlineStageCatalog.Get(nextStageId);
             MainlineStageInfo completedStage = MainlineStageCatalog.Get(currentMainlineStageId);
+            string rewardText = BuildBattleRewardText(
+                MainlineStageCatalog.GetRewards(completedStage.id),
+                completedStage.rewardPreview);
             string progressText = progressAdvanced
                 ? "主线进度已推进，下一关已解锁：" + nextStage.title
                 : "该关卡此前已通关，本次为重复挑战，不重复推进主线进度。";
@@ -655,11 +658,41 @@ namespace Shouyou.UI
                 "\n\n李清照发动词意：如梦令。\n队伍获得气韵增益，顺利完成本次 PVE 试炼。" +
                 "\n\n出战队伍：" + ShouyouBackendBootstrap.GetFormationSummary() +
                 "\n队伍战力：" + ShouyouBackendBootstrap.GetFormationPower() +
-                "\n\n结算预览：\n" + completedStage.rewardPreview + "\n主线进度 +1" +
+                "\n\n结算奖励：\n" + rewardText + "\n主线进度 +1" +
                 "\n\n" + progressText +
                 "\n\n下一步你可以返回主线继续选关，也可以先去编队调整阵容。"
             );
             ConfigureStoryDetailForBattleVictory();
+        }
+
+        /// <summary>
+        /// 奖励列表可用时逐条显示；缺失、为空或没有有效项时保留旧的 rewardPreview 兜底。
+        /// </summary>
+        private string BuildBattleRewardText(RewardItem[] rewards, string rewardPreview)
+        {
+            string renderedRewards = string.Empty;
+            if (rewards != null)
+            {
+                for (int i = 0; i < rewards.Length; i++)
+                {
+                    RewardItem reward = rewards[i];
+                    if (reward == null || string.IsNullOrEmpty(reward.name) || reward.amount <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(renderedRewards))
+                    {
+                        renderedRewards += "\n";
+                    }
+
+                    renderedRewards += reward.name + " ×" + reward.amount;
+                }
+            }
+
+            return string.IsNullOrEmpty(renderedRewards)
+                ? (string.IsNullOrEmpty(rewardPreview) ? "暂无奖励信息" : rewardPreview)
+                : renderedRewards;
         }
 
         /// <summary>

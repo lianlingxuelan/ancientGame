@@ -361,7 +361,127 @@ namespace Shouyou.Network
                 },
                 error => Debug.LogWarning("主线进度读取失败，将使用本地 Demo 进度：\n" + error));
 
+            ApplyMainlineStageConfig();
             LogLoadedSummary();
+        }
+
+        // 将当前后端第一章的基础字段覆盖到前端目录。
+        // 战力、剧情目标和奖励尚未由后台配置，因此继续沿用本地表，保证展示完整。
+        private void ApplyMainlineStageConfig()
+        {
+            if (chapters == null || chapters.chapters == null || chapters.chapters.Length == 0)
+            {
+                Debug.LogWarning("后端未返回章节配置，主线继续使用本地兜底表。");
+                return;
+            }
+
+            ChapterDto mainlineChapter = FindFirstChapter();
+            if (mainlineChapter == null || mainlineChapter.stages == null || mainlineChapter.stages.Length == 0)
+            {
+                Debug.LogWarning("后端第一章没有可用关卡，主线继续使用本地兜底表。");
+                return;
+            }
+
+            MainlineStageInfo[] remoteStages = new MainlineStageInfo[mainlineChapter.stages.Length];
+            for (int i = 0; i < mainlineChapter.stages.Length; i++)
+            {
+                StageDto remoteStage = mainlineChapter.stages[i];
+                int stageId = ParseStageNumber(remoteStage, i + 1);
+                MainlineStageInfo fallback = MainlineStageCatalog.GetLocalFallback(stageId);
+
+                bool unlocked = remoteStage.defaultUnlocked;
+                StageProgressDto progress = FindStageProgress(remoteStage.id);
+                if (progress != null)
+                {
+                    unlocked = progress.unlocked;
+                }
+
+                remoteStages[i] = new MainlineStageInfo(
+                    stageId,
+                    BuildStageDisplayTitle(remoteStage, fallback),
+                    Mathf.Max(1, remoteStage.recommendedLevel),
+                    fallback.recommendPower,
+                    fallback.objective,
+                    fallback.rewardPreview,
+                    unlocked);
+            }
+
+            MainlineStageCatalog.ApplyRemoteStages(remoteStages);
+            Debug.Log("主线关卡配置已套用后端章节数据：" + mainlineChapter.id + "，关卡数=" + remoteStages.Length);
+        }
+
+        // 当前 Demo 只读取排序最靠前的章节，后续多章节时可改成由主线入口传入章节 id。
+        private ChapterDto FindFirstChapter()
+        {
+            ChapterDto firstChapter = null;
+            for (int i = 0; i < chapters.chapters.Length; i++)
+            {
+                ChapterDto chapter = chapters.chapters[i];
+                if (chapter == null)
+                {
+                    continue;
+                }
+
+                if (firstChapter == null || chapter.sortOrder < firstChapter.sortOrder)
+                {
+                    firstChapter = chapter;
+                }
+            }
+
+            return firstChapter;
+        }
+
+        // 从“1-2”这类后端关卡 id 中读取关卡序号。
+        // 解析失败时退回列表顺序，避免脏数据阻断主线页面。
+        private static int ParseStageNumber(StageDto stage, int fallbackIndex)
+        {
+            if (stage != null && !string.IsNullOrEmpty(stage.id))
+            {
+                string[] parts = stage.id.Split('-');
+                int parsed;
+                if (parts.Length > 1 && int.TryParse(parts[parts.Length - 1], out parsed) && parsed > 0)
+                {
+                    return parsed;
+                }
+            }
+
+            return fallbackIndex;
+        }
+
+        // 后端 title 不带“1-1”前缀时，由前端统一补齐展示格式。
+        private static string BuildStageDisplayTitle(StageDto stage, MainlineStageInfo fallback)
+        {
+            if (stage == null || string.IsNullOrEmpty(stage.title))
+            {
+                return fallback.title;
+            }
+
+            if (!string.IsNullOrEmpty(stage.id) && !stage.title.StartsWith(stage.id))
+            {
+                return stage.id + " " + stage.title;
+            }
+
+            return stage.title;
+        }
+
+        // 进度接口晚于章节接口返回时，用它修正默认解锁状态。
+        private StageProgressDto FindStageProgress(string stageId)
+        {
+            if (stageProgress == null || stageProgress.stages == null || string.IsNullOrEmpty(stageId))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < stageProgress.stages.Length; i++)
+            {
+                StageProgressDto progress = stageProgress.stages[i];
+                if (progress != null && progress.id == stageId)
+                {
+                    return progress;
+                }
+            }
+
+            return null;
         }
 
         private IEnumerator SaveDemoFormation()
@@ -424,7 +544,8 @@ namespace Shouyou.Network
                 "，章节数=" + chapterCount +
                 "，编队槽位=" + slotCount +
                 "，当前关卡=" + currentStage +
-                "，最高通关=" + highestClearedStage);
+                "，最高通关=" + highestClearedStage +
+                "，主线配置=" + (MainlineStageCatalog.IsUsingRemoteConfig ? "后端" : "本地兜底"));
         }
 
         private static CharacterDto CreateFallbackCharacter(string id, string name, string wordIntent)
