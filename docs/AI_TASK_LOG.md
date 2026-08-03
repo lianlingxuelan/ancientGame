@@ -3632,3 +3632,161 @@ next_action: CLOSE
 - 0 P1, 0 P2, 1轮通过
 ---BLOCK_SUMMARY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo24-FE-R1-CODE
+parent_id: Todo23-FE-R1-PASS
+round: 1
+timestamp: 2026-08-02 18:22:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 编队-战斗入场联动
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+完成“选槽位 → 选角色/换位/清空 → 保存编队 → 战斗按已保存编队身份入场”的首章前端联动，不改后端、数据库、伤害公式或梦域模块。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+对审查问题的修复：
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/FormationDemoController.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+3. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouBackendBootstrap.cs
+4. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Editor/HomeUILayoutBuilder.cs
+5. tools/verify_formation_battle_linkage.ps1
+6. docs/superpowers/plans/2026-08-02-formation-to-battle-linkage.md
+
+关键方法：
+1. FormationDemoController.SelectSlot / SelectCandidateAt / AssignCandidateToSelectedSlot / SaveCurrentFormation
+2. BattleDemoController.CreateAllyUnit / CreateAllyUnitFromFormation
+3. ShouyouBackendBootstrap.GetBattleFormationSlotId
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 编队改为先选槽位再选角色；重复角色自动与目标槽位交换，支持明确清空当前槽位。
+2. 保存成功后重新读取启动器缓存；保存失败保留本地草稿，避免前后端状态分叉。
+3. 移除旧的前端自动补婉禾逻辑，空槽位由已保存编队真实决定。
+4. 战斗我方身份只读取已保存 formation 缓存，Demo 配置仅暂时提供敌方与数值/头像模板；战斗提示和结算摘要同步读取缓存。
+5. 新增两名候选角色与清空槽位的运行时 UI，并让“编辑阵容”按钮进入实际编辑引导。
+
+资源变更：无。
+存档影响：无；未修改 ShouyouServer/data/shouyou.db。
+风险点：需要在 Unity 通过 Shouyou > UI > Clean And Rebuild Prototype 重新生成候选区 UI；该操作只重建 UI 层，不应修改原始资产或数据库。当前终端无法启动 Unity，Play Mode 验证交由 Claude/人工执行。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_formation_battle_linkage.ps1 通过。
+2. 既有 battle-loop、skill-preselection、battle-target-feedback 三项静态验证均通过。
+3. git diff --check 通过；ShouyouServer/data/shouyou.db 差异为空。
+
+建议Claude测试：
+1. 后端 5188 运行时，依次测试选槽位、上阵李清照/婉禾、同角色换位、清空并保存、重新进入编队和战斗。
+2. 验证战斗我方名称与已保存编队一致，空位不能行动；敌方仍来自当前关卡 Demo 配置。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo25-FE-R1-CODE
+parent_id: Todo24-FE-R1-CODE
+round: 1
+timestamp: 2026-08-02 20:53:17 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗双模式技能输入
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+行动值队列继续唯一决定行动者。当前行动角色点击大招应立即结算；已选中但非当前行动的我方角色点击大招应只预选至其下次行动。按钮需直接显示立即、预选、已预选、CD 和行动点不足等状态。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+对审查问题的修复：
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_skill_preselection.ps1
+3. tools/verify_dual_mode_skill_input.ps1
+4. docs/superpowers/plans/2026-08-02-dual-mode-skill-input.md
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 三个大招统一进入 UseOrQueueSkill：当前行动者立即释放，非当前已选角色仅登记预选。
+2. 预选不消耗行动点、不进入冷却、不推进 actionCursor；当前行动仍需由当前行动者完成。
+3. 同一已预选技能再次点击会取消预选，不影响行动顺序。
+4. 技能按钮新增立即、预选·下回合、已预选·点击取消、已有预选、CD、行动点不足和等待行动的直观文案，并按状态更换底图颜色。
+5. 立即释放复用既有预选结算路径，未改动伤害、治疗、行动点、冷却或行动值公式。
+
+资源变更：无。
+存档影响：无；未修改 ShouyouServer/data/shouyou.db。
+已知边界：本轮不加入攻击动画队列；后续应将攻击者高亮、施法、受击、飘字与死亡提示拆分为可播放事件序列。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_dual_mode_skill_input.ps1 通过。
+2. powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_skill_preselection.ps1 通过。
+3. 既有 battle-loop、battle-target-feedback、formation-to-battle-linkage 三项静态验证均通过。
+4. git diff --check 通过；ShouyouServer/data/shouyou.db 差异为空。
+
+建议Claude测试：
+1. 当前行动角色被选中时，分别点击词意连击、如梦令、疗愈，验证立即产生数值结算并进入下一行动。
+2. 当前轮到李清照时，选中婉禾后点击任一大招，验证只显示已预选且当前仍轮到李清照；随后由李清照完成行动，验证婉禾下次行动自动施放。
+3. 已预选同一技能再次点击，验证取消预选且不扣行动点、不改变冷却或行动顺序。
+4. 验证 CD、行动点不足、已有预选、敌方行动中四种按钮状态的文案和不可点击状态。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo26-FE-R1-CODE
+parent_id: Todo25-FE-R1-CODE
+round: 1
+timestamp: 2026-08-03 21:56:32 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗表现事件队列
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+在不改动战斗数值、行动值、行动点、冷却、后端、数据库与结算规则的前提下，把攻击、受击/治疗飘字、阵亡提示改为可顺序播放的前端表现事件，并为后续头像施法动画保留接入点。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+对审查问题的修复：
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_battle_presentation_queue.ps1
+3. docs/superpowers/plans/2026-08-03-battle-presentation-event-queue.md
+
+关键方法：
+1. QueuePresentationEvent / PlayPresentationQueue / PlayPresentationEvent
+2. RequestPortraitAttackEffect / ShowDamageText / ShowHealText / ApplyDamage
+3. PerformPlayerAttackInternal / ClearPresentationQueue
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 新增 FIFO 表现事件队列，将攻击脉冲、头像攻击特效事件、伤害/治疗飘字、阵亡提示按事件顺序串行播放。
+2. 表现队列播放期间锁定开始战斗、普攻、大招与自动战斗输入；页面离开、重置或撤退时清空队列，避免残留表现。
+3. 头像攻击特效事件改在攻击表现事件播放时发出，后续 Animator、Timeline、Spine 或粒子层可订阅既有 PortraitAttackEffectRequested 接口。
+4. 自动战斗改用内部普攻入口连续生成事件，避免首个表现事件把原有自动连击流程截断。
+
+资源变更：无。
+存档影响：无；未修改 ShouyouServer/data/shouyou.db。
+风险点：本轮为表现层队列，数值状态仍由既有同步战斗逻辑先结算；需要 Unity Play Mode 验证多事件连播、页面中途退出与胜负结算时序。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_battle_presentation_queue.ps1 通过。
+2. 既有 verify_battle_loop、verify_skill_preselection、verify_dual_mode_skill_input 静态验证均通过。
+3. 本轮三个改动文件执行 git diff --check 通过；未执行提交、暂存或推送。
+
+建议Claude测试：
+1. Unity Play Mode：普通攻击、三种大招、敌方行动与自动战斗均应按攻击、飘字、阵亡、下一行动顺序展示；表现播放期间按钮不可重复触发。
+2. 让目标被击败后检查阵亡文案只在对应退场事件时出现；治疗技能应只播放治疗飘字，不触发攻击头像事件。
+3. 在表现播放中返回主线、退出战斗或重新开始，确认没有遗留飘字、缩放或高亮；再验证胜利、失败、撤退仍可正常进入原结算流程。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

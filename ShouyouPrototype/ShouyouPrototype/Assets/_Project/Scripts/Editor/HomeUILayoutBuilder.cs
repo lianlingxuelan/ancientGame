@@ -184,6 +184,9 @@ namespace Shouyou.EditorTools
                 BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_4", formationController, formationController.SelectSlotFour);
                 BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_5", formationController, formationController.SelectSlotFive);
                 BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_6", formationController, formationController.SelectSlotSix);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationCandidate_1", formationController, formationController.SelectCandidateOne);
+                BindButton(pageRoot.Find("Page_Formation"), "FormationCandidate_2", formationController, formationController.SelectCandidateTwo);
+                BindButton(pageRoot.Find("Page_Formation"), "ClearFormationSlotButton", formationController, formationController.ClearSelectedSlot);
                 BindButton(pageRoot.Find("Page_Formation"), "SaveFormationButton", formationController, formationController.SaveCurrentFormation);
             }
             else
@@ -196,7 +199,16 @@ namespace Shouyou.EditorTools
                 BindButton(pageRoot.Find("Page_Formation"), "FormationSlot_6", router, router.ShowFormationSlotSix);
                 BindButton(pageRoot.Find("Page_Formation"), "SaveFormationButton", router, router.SaveFormation);
             }
-            BindButton(pageRoot.Find("Page_Formation"), "EditFormationButton", router, router.EditFormation);
+            // 编队页存在控制器时，编辑按钮直接进入“选槽位 → 选角色”的实际操作流。
+            // 只有旧场景缺少控制器时，才保留原来的说明弹窗作为兜底。
+            if (formationController != null)
+            {
+                BindButton(pageRoot.Find("Page_Formation"), "EditFormationButton", formationController, formationController.BeginFormationEditing);
+            }
+            else
+            {
+                BindButton(pageRoot.Find("Page_Formation"), "EditFormationButton", router, router.EditFormation);
+            }
             BindButton(pageRoot.Find("Page_Formation"), "BondPreviewButton", router, router.PreviewBond);
 
             // 剧情页三张章节卡片的详情按钮。
@@ -681,6 +693,20 @@ namespace Shouyou.EditorTools
             AddPanelImage(hint, SoftPanelColor);
             hint.GetComponent<Image>().raycastTarget = false;
             SetupLabel(hint, "羁绊提示\n\n李清照：词意输出\n婉禾：辅助与协奏", 22, TextAnchor.MiddleCenter);
+
+            // 角色候选区保持简洁：第一章先给已配置的两位角色一个明确的上阵入口。
+            // 后续可直接替换为滚动角色列表，现有按钮事件仍可复用。
+            RectTransform candidatePanel = FindOrCreateRect(panel, "FormationCandidatePanel");
+            SetRect(candidatePanel, -610, -15, 230, 430);
+            AddPanelImage(candidatePanel, SoftPanelColor);
+            candidatePanel.GetComponent<Image>().raycastTarget = false;
+
+            RectTransform candidateTitle = FindOrCreateRect(candidatePanel, "Title");
+            SetRect(candidateTitle, 0, 165, 200, 44);
+            SetupLabel(candidateTitle, "选择角色", 24, TextAnchor.MiddleCenter);
+            BuildActionButton(candidatePanel, "FormationCandidate_1", "李清照\n如梦令 · 可上阵", 0, 85, 190, 82, 18);
+            BuildActionButton(candidatePanel, "FormationCandidate_2", "婉禾\n协奏 · 试用", 0, -25, 190, 82, 18);
+            BuildActionButton(candidatePanel, "ClearFormationSlotButton", "清空当前槽位", 0, -145, 190, 60, 18);
 
             BuildActionButton(panel, "EditFormationButton", "编辑阵容", -260, -325, 210, 70, 24);
             BuildActionButton(panel, "SaveFormationButton", "保存编队", 0, -325, 210, 70, 24);

@@ -12,13 +12,14 @@ $content = Get-Content -LiteralPath $ControllerPath -Raw -Encoding UTF8
 $requiredFragments = @(
     "private readonly Dictionary<BattleUnitState, QueuedSkillState> queuedSkills",
     "private void QueueSkill",
+    "private void UseOrQueueSkill",
     "private bool TryExecuteQueuedSkillForCurrentActor",
-    "private bool CanQueueSkill",
+    "private bool CanPreselectSkill",
     "queuedSkills.Clear();",
     "queuedSkills.Remove(target);",
-    'QueueSkill(PoetryStrikeCost, "poetry_strike"',
-    'QueueSkill(DreamAreaCost, "dream_area"',
-    'QueueSkill(HealingVerseCost, "healing_verse"',
+    'UseOrQueueSkill(PoetryStrikeCost, "poetry_strike"',
+    'UseOrQueueSkill(DreamAreaCost, "dream_area"',
+    'UseOrQueueSkill(HealingVerseCost, "healing_verse"',
     "TryExecuteQueuedSkillForCurrentActor(out queuedMessage)"
 )
 

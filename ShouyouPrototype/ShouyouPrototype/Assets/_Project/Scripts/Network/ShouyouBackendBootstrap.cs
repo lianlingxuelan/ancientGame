@@ -284,13 +284,17 @@ namespace Shouyou.Network
 
         public static string GetBattleFormationSlotName(int zeroBasedIndex)
         {
-            string[] ids = GetFormationCharacterIds();
-            if (zeroBasedIndex < 0 || zeroBasedIndex >= ids.Length)
-            {
-                return "空位";
-            }
+            return GetCharacterNameById(GetBattleFormationSlotId(zeroBasedIndex));
+        }
 
-            return GetCharacterNameById(ids[zeroBasedIndex]);
+        /// <summary>
+        /// 战斗页读取编队身份的唯一入口。
+        /// 返回值来自保存接口写回的 formation 缓存，不能再从战斗 Demo 配置反向覆盖。
+        /// </summary>
+        public static string GetBattleFormationSlotId(int zeroBasedIndex)
+        {
+            string[] ids = GetFormationCharacterIds();
+            return zeroBasedIndex < 0 || zeroBasedIndex >= ids.Length ? null : ids[zeroBasedIndex];
         }
 
         public static string GetDebugSummary()

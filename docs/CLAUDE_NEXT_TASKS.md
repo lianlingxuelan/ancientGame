@@ -335,3 +335,75 @@ Please verify:
 Known boundary: no animated target arrow or action timeline is added in this slice; it is intentionally limited to readable text, color and outline feedback.
 
 ---
+
+## ⏳ Claude Review Request — Todo24-FE-R1-CODE (2026-08-02)
+
+Scope: editable six-slot formation to saved backend cache to battle entrance identity linkage, frontend only. No backend, database, damage formula, AP/CD, Dream Domain, or settlement-schema change.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/FormationDemoController.cs`
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Network/ShouyouBackendBootstrap.cs`
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Editor/HomeUILayoutBuilder.cs`
+- `tools/verify_formation_battle_linkage.ps1`
+- `docs/superpowers/plans/2026-08-02-formation-to-battle-linkage.md`
+
+Please verify:
+1. Select a slot then a candidate places that candidate there; choosing a candidate without a selected slot only guides and does not mutate formation.
+2. Selecting a duplicate character swaps its old position with the selected slot; clearing then saving remains empty after reopening formation (no client-side auto-fill).
+3. Successful save reloads Bootstrap formation cache; failed save keeps the local draft. Run with backend 5188 available.
+4. Saved formation controls ally identity at battle entrance. Demo config is only the temporary stat/portrait template and remains enemy source; damage, action values, AP/CD and queued skills are unchanged.
+5. Empty formation slots become non-actionable empty ally units. Battle prompt and settlement formation summary both use the saved formation cache.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_formation_battle_linkage.ps1`, `tools/verify_battle_loop.ps1`, `tools/verify_skill_preselection.ps1`, and `tools/verify_battle_target_feedback.ps1`.
+7. Unity smoke flow: run `Shouyou > UI > Clean And Rebuild Prototype`; enter formation, assign 李清照/婉禾, save, enter battle, then move one character, save/reenter, clear a slot, save/reenter. Verify the battle names match each saved formation state.
+8. Confirm `ShouyouServer/data/shouyou.db` is unchanged.
+
+Known boundary: first chapter exposes two candidate buttons only; full roster scrolling, final per-character stat/portrait tables, and formation persistence redesign are intentionally outside this slice.
+
+---
+
+## Claude Review Request - Todo25-FE-R1-CODE (2026-08-02)
+
+Scope: action-value queue remains the only source of action authority. This slice only adds dual-mode input for the three big skills: current actor executes immediately, selected non-current ally preselects for their next action. No backend, database, damage formula, AP/CD rule, asset, stage settlement, or Dream Domain change.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_dual_mode_skill_input.ps1`
+- `tools/verify_skill_preselection.ps1`
+- `docs/superpowers/plans/2026-08-02-dual-mode-skill-input.md`
+
+Please verify:
+1. When the selected skill owner is `currentActor`, all three big skills execute immediately, consume AP/register cooldown through the existing resolution path, and then complete that player action.
+2. When the selected skill owner is a living ally other than `currentActor`, `QueueSkill` only records the instruction; it does not consume AP, change cooldown, call `CompletePlayerAction`, or advance `actionCursor`.
+3. A queued same skill is cancelable on a second click. A different queued skill for the same owner remains protected from accidental overwrite.
+4. `GetSelectedSkillOwner` never changes `currentActor`; clicking a portrait only chooses an immediate/next-turn skill owner.
+5. Button state is readable and consistent: immediate, preselect next turn, queued/cancel, existing queued instruction, CD, insufficient AP, and unavailable state.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_dual_mode_skill_input.ps1`, `tools/verify_skill_preselection.ps1`, `tools/verify_battle_loop.ps1`, `tools/verify_battle_target_feedback.ps1`, and `tools/verify_formation_battle_linkage.ps1`.
+7. Unity Play Mode smoke: current actor immediate cast; another selected ally preselect; current actor finishes normally; queued ally automatically casts next action; cancellation, cooldown/AP insufficient, victory, defeat and retreat.
+
+Known boundary: no action timeline, animated casting, hit sequencing, or portrait animation presenter is added here. Those belong to the next battle-presentation slice.
+
+---
+
+## Claude Review Request - Todo26-FE-R1-CODE (2026-08-03)
+
+Scope: front-end presentation sequencing only. Battle values, damage formulas, action value, action points, cooldowns, backend, database, settlement rules and assets are out of scope and must remain unchanged.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_battle_presentation_queue.ps1`
+- `docs/superpowers/plans/2026-08-03-battle-presentation-event-queue.md`
+
+Please verify:
+1. `BattlePresentationEvent` only carries presentation information and the FIFO queue is consumed by one coroutine; it must not calculate or mutate combat values.
+2. Basic attacks, enemy basic attacks, poetry strike, dream-area attack and healing all enqueue the correct visual sequence. Healing must not emit `PortraitAttackEffectRequested`.
+3. `PortraitAttackEffectRequested` fires when the queued Attack event is played, not before it. No listener must be safe.
+4. Queue playback locks player input, while `PerformAutoAttacks` keeps its existing multi-attack behavior by using the internal resolution entry point.
+5. `ResetDemoBattle`, `RetreatBattle` and `OnDisable` clear the queue; confirm no coroutine or old floating text/highlight leaks into the next battle/page.
+6. `CalculateDamage`, `CalculateSkillDamage`, `CalculateAreaSkillDamage`, `CalculateHealAmount`, action-value ordering, AP/CD, stage settlement, `ShouyouServer`, and `shouyou.db` are unchanged.
+7. Run: `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_battle_presentation_queue.ps1`, `tools/verify_battle_loop.ps1`, `tools/verify_skill_preselection.ps1`, and `tools/verify_dual_mode_skill_input.ps1`.
+8. Unity Play Mode smoke: basic attack, each big skill, enemy action, auto battle, victory, defeat, retreat and reset. Verify attack pulse -> floating text -> defeat label -> next actor is readable, and no input can double-fire while the sequence is playing.
+
+Known boundary: current battle values are still resolved by the existing synchronous battle flow. This slice serializes presentation only; a future battle timeline should move state commits to each visual event if frame-accurate HP transitions are required.
+
+---

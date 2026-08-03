@@ -16,8 +16,15 @@ namespace Shouyou.UI
         private readonly Text[] slotLabels = new Text[SlotCount];
         private readonly string[] selectedCharacterIds = new string[SlotCount];
 
+        // 当前正在编辑的槽位。-1 表示还没有选中槽位，候选角色按钮此时只给出引导。
+        private int selectedSlotIndex = -1;
         private Text qiYunText;
         private Text hintText;
+        private Text candidateOneLabel;
+        private Text candidateTwoLabel;
+        private Button candidateOneButton;
+        private Button candidateTwoButton;
+        private Button clearSlotButton;
         private bool referencesBound;
 
         private void Awake()
@@ -44,8 +51,8 @@ namespace Shouyou.UI
                 selectedCharacterIds[i] = ids != null && i < ids.Length ? ids[i] : null;
             }
 
-            EnsureDemoCompanionSlot();
-            RefreshView("已读取当前编队。点击槽位可切换角色，保存后写入本地后端。");
+            // 编队缓存是唯一的阵容来源：不在前端自动补位，避免玩家清空槽位后又被旧 Demo 逻辑写回角色。
+            RefreshView("已读取当前编队。先点击槽位，再选择角色；保存后写入本地后端。");
         }
 
         /// <summary>
@@ -59,46 +66,141 @@ namespace Shouyou.UI
                 selectedCharacterIds,
                 delegate(bool success, string message)
                 {
-                    RefreshView(success ? "保存成功：" + GetLocalFormationSummary() : "保存失败：" + message);
+                    if (success)
+                    {
+                        // 保存接口返回的数据已写入启动器缓存；重新读取一次，避免本地草稿和后端权威状态分叉。
+                        LoadFormationFromBackendCache();
+                        RefreshView("保存成功：" + GetLocalFormationSummary());
+                        return;
+                    }
+
+                    // 保存失败时保留当前草稿，方便玩家检查本地后端后再次保存。
+                    RefreshView("保存失败：" + message);
                 });
         }
 
-        public void SelectSlotOne() { CycleSlot(0); }
-        public void SelectSlotTwo() { CycleSlot(1); }
-        public void SelectSlotThree() { CycleSlot(2); }
-        public void SelectSlotFour() { CycleSlot(3); }
-        public void SelectSlotFive() { CycleSlot(4); }
-        public void SelectSlotSix() { CycleSlot(5); }
+        public void SelectSlotOne() { SelectSlot(0); }
+        public void SelectSlotTwo() { SelectSlot(1); }
+        public void SelectSlotThree() { SelectSlot(2); }
+        public void SelectSlotFour() { SelectSlot(3); }
+        public void SelectSlotFive() { SelectSlot(4); }
+        public void SelectSlotSix() { SelectSlot(5); }
 
-        private void CycleSlot(int slotIndex)
+        /// <summary>
+        /// 选择候选列表第一个角色。后续替换为滚动角色列表后，此入口仍可作为列表项回调模式。
+        /// </summary>
+        public void SelectCandidateOne()
         {
-            CharacterDto[] candidates = ShouyouBackendBootstrap.GetFormationCandidateCharacters();
-            if (candidates == null || candidates.Length == 0)
+            SelectCandidateAt(0);
+        }
+
+        /// <summary>
+        /// 选择候选列表第二个角色。
+        /// </summary>
+        public void SelectCandidateTwo()
+        {
+            SelectCandidateAt(1);
+        }
+
+        /// <summary>
+        /// 清空当前选中的槽位。空位会在保存时以 null 提交给后端。
+        /// </summary>
+        public void ClearSelectedSlot()
+        {
+            if (!HasSelectedSlot())
             {
-                selectedCharacterIds[slotIndex] = null;
-                RefreshView("当前没有已解锁角色，无法上阵。");
+                RefreshView("请先点击一个编队位置，再执行清空。");
                 return;
             }
 
-            string currentId = selectedCharacterIds[slotIndex];
-            int currentCandidateIndex = FindCandidateIndex(candidates, currentId);
+            selectedCharacterIds[selectedSlotIndex] = null;
+            RefreshView(GetPositionLabel(selectedSlotIndex) + " 已清空。点击保存编队后才会写入后端。");
+        }
 
-            // 从“当前角色的下一个”开始找，跳过其它槽位已经使用的角色。
-            // 如果一圈都找不到可用角色，就切回空位。
-            for (int step = 1; step <= candidates.Length; step++)
+        /// <summary>
+        /// “编辑阵容”按钮的入口。编辑不再弹出旧说明页，而是直接提示玩家按槽位与角色的顺序操作。
+        /// </summary>
+        public void BeginFormationEditing()
+        {
+            if (HasSelectedSlot())
             {
-                int nextIndex = (currentCandidateIndex + step) % candidates.Length;
-                string nextId = candidates[nextIndex].id;
-                if (!IsUsedByOtherSlot(nextId, slotIndex))
-                {
-                    selectedCharacterIds[slotIndex] = nextId;
-                    RefreshView("已将 " + GetSlotDisplayName(slotIndex) + " 放入 " + GetPositionLabel(slotIndex) + "。当前需要点击“保存编队”才会写入后端。");
-                    return;
-                }
+                RefreshView("正在编辑 " + GetPositionLabel(selectedSlotIndex) + "。请点击左侧角色，或清空当前槽位。");
+                return;
             }
 
-            selectedCharacterIds[slotIndex] = null;
-            RefreshView(GetPositionLabel(slotIndex) + " 已切换为空位。当前需要点击“保存编队”才会写入后端。");
+            RefreshView("编辑阵容：请先点击一个前排或后排槽位，再从左侧选择角色。");
+        }
+
+        private void SelectSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= SlotCount)
+            {
+                return;
+            }
+
+            selectedSlotIndex = slotIndex;
+            RefreshView("已选择 " + GetPositionLabel(slotIndex) + "。请在左侧选择角色，或清空当前槽位。");
+        }
+
+        private void SelectCandidateAt(int candidateIndex)
+        {
+            CharacterDto[] candidates = ShouyouBackendBootstrap.GetFormationCandidateCharacters();
+            if (candidates == null || candidateIndex < 0 || candidateIndex >= candidates.Length || candidates[candidateIndex] == null)
+            {
+                RefreshView("该候选角色暂不可用，请等待角色数据加载完成。");
+                return;
+            }
+
+            AssignCandidateToSelectedSlot(candidates[candidateIndex].id);
+        }
+
+        private void AssignCandidateToSelectedSlot(string characterId)
+        {
+            if (!HasSelectedSlot())
+            {
+                RefreshView("请先点击一个编队位置，再选择角色。");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(characterId))
+            {
+                RefreshView("该角色数据缺少编号，暂时无法上阵。");
+                return;
+            }
+
+            // 同一角色不能同时出现在两个槽位。若角色已在其它位置，自动与当前槽位交换，
+            // 这样玩家能直接调整前后排，而不会产生重复数据或额外的“先下阵”步骤。
+            if (TryMoveExistingCharacter(characterId, selectedSlotIndex))
+            {
+                RefreshView("已调整 " + GetSlotDisplayName(selectedSlotIndex) + " 至 " + GetPositionLabel(selectedSlotIndex) + "。点击保存编队后生效。");
+                return;
+            }
+
+            selectedCharacterIds[selectedSlotIndex] = characterId;
+            RefreshView("已将 " + GetSlotDisplayName(selectedSlotIndex) + " 放入 " + GetPositionLabel(selectedSlotIndex) + "。点击保存编队后生效。");
+        }
+
+        private bool TryMoveExistingCharacter(string characterId, int targetSlotIndex)
+        {
+            for (int i = 0; i < selectedCharacterIds.Length; i++)
+            {
+                if (i == targetSlotIndex || selectedCharacterIds[i] != characterId)
+                {
+                    continue;
+                }
+
+                string replacedCharacterId = selectedCharacterIds[targetSlotIndex];
+                selectedCharacterIds[i] = replacedCharacterId;
+                selectedCharacterIds[targetSlotIndex] = characterId;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool HasSelectedSlot()
+        {
+            return selectedSlotIndex >= 0 && selectedSlotIndex < SlotCount;
         }
 
         private void BindRuntimeReferences()
@@ -113,11 +215,19 @@ namespace Shouyou.UI
                 int index = i;
                 slotButtons[i] = FindButton("FormationSlot_" + (i + 1));
                 slotLabels[i] = FindLabel(slotButtons[i] == null ? null : slotButtons[i].transform);
-                BindButton(slotButtons[i], delegate { CycleSlot(index); });
+                BindButton(slotButtons[i], delegate { SelectSlot(index); });
             }
 
             qiYunText = FindLabel("CurrentQiYun");
             hintText = FindLabel("BondHint");
+            candidateOneButton = FindButton("FormationCandidate_1");
+            candidateTwoButton = FindButton("FormationCandidate_2");
+            clearSlotButton = FindButton("ClearFormationSlotButton");
+            candidateOneLabel = FindLabel(candidateOneButton == null ? null : candidateOneButton.transform);
+            candidateTwoLabel = FindLabel(candidateTwoButton == null ? null : candidateTwoButton.transform);
+            BindButton(candidateOneButton, SelectCandidateOne);
+            BindButton(candidateTwoButton, SelectCandidateTwo);
+            BindButton(clearSlotButton, ClearSelectedSlot);
             referencesBound = true;
         }
 
@@ -125,8 +235,11 @@ namespace Shouyou.UI
         {
             for (int i = 0; i < SlotCount; i++)
             {
-                SetText(slotLabels[i], GetPositionLabel(i) + "\n" + GetSlotDisplayName(i));
+                string selectedPrefix = i == selectedSlotIndex ? "【已选】" : string.Empty;
+                SetText(slotLabels[i], selectedPrefix + GetPositionLabel(i) + "\n" + GetSlotDisplayName(i));
             }
+
+            RefreshCandidateLabels();
 
             int filledCount = CountFilledSlots();
             SetText(
@@ -138,10 +251,34 @@ namespace Shouyou.UI
             SetText(
                 hintText,
                 "编队提示\n\n" +
-                "点击槽位：切换已解锁角色\n" +
+                "先点槽位，再点左侧角色\n" +
+                "重复角色会自动交换位置\n" +
                 "保存编队：写入本地后端\n\n" +
                 message
             );
+        }
+
+        private void RefreshCandidateLabels()
+        {
+            CharacterDto[] candidates = ShouyouBackendBootstrap.GetFormationCandidateCharacters();
+            SetText(candidateOneLabel, BuildCandidateLabel(candidates, 0));
+            SetText(candidateTwoLabel, BuildCandidateLabel(candidates, 1));
+
+            if (candidateOneButton != null) candidateOneButton.interactable = candidates != null && candidates.Length > 0 && candidates[0] != null;
+            if (candidateTwoButton != null) candidateTwoButton.interactable = candidates != null && candidates.Length > 1 && candidates[1] != null;
+            if (clearSlotButton != null) clearSlotButton.interactable = HasSelectedSlot();
+        }
+
+        private static string BuildCandidateLabel(CharacterDto[] candidates, int index)
+        {
+            if (candidates == null || index < 0 || index >= candidates.Length || candidates[index] == null)
+            {
+                return "角色位\n待解锁";
+            }
+
+            CharacterDto candidate = candidates[index];
+            string status = candidate.unlocked ? "可上阵" : "试用";
+            return candidate.name + "\n" + candidate.wordIntent + " · " + status;
         }
 
         private string GetSlotDisplayName(int slotIndex)
@@ -198,44 +335,6 @@ namespace Shouyou.UI
             return power;
         }
 
-        private void EnsureDemoCompanionSlot()
-        {
-            // 当前 Demo 需要至少两个角色参与编队测试。
-            // 后端为了测试“角色锁定”把婉禾标成 locked，但这里先把她作为试用角色补到 2 号位。
-            if (!string.IsNullOrEmpty(selectedCharacterIds[1]) || IsUsedByOtherSlot("wanhe", 1))
-            {
-                return;
-            }
-
-            CharacterDto[] candidates = ShouyouBackendBootstrap.GetFormationCandidateCharacters();
-            for (int i = 0; i < candidates.Length; i++)
-            {
-                if (candidates[i] != null && candidates[i].id == "wanhe")
-                {
-                    selectedCharacterIds[1] = "wanhe";
-                    return;
-                }
-            }
-        }
-
-        private bool IsUsedByOtherSlot(string characterId, int currentSlotIndex)
-        {
-            if (string.IsNullOrEmpty(characterId))
-            {
-                return false;
-            }
-
-            for (int i = 0; i < selectedCharacterIds.Length; i++)
-            {
-                if (i != currentSlotIndex && selectedCharacterIds[i] == characterId)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private CharacterDto FindCandidate(string characterId)
         {
             if (string.IsNullOrEmpty(characterId))
@@ -253,24 +352,6 @@ namespace Shouyou.UI
             }
 
             return null;
-        }
-
-        private static int FindCandidateIndex(CharacterDto[] candidates, string characterId)
-        {
-            if (string.IsNullOrEmpty(characterId))
-            {
-                return -1;
-            }
-
-            for (int i = 0; i < candidates.Length; i++)
-            {
-                if (candidates[i] != null && candidates[i].id == characterId)
-                {
-                    return i;
-                }
-            }
-
-            return -1;
         }
 
         private static string GetPositionLabel(int slotIndex)

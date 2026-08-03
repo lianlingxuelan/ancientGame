@@ -62,6 +62,9 @@ namespace Shouyou.UI
         private const string BattleApiBaseUrl = "http://127.0.0.1:5188";
         private const float HpBarMaxWidth = 86f;
         private const float DamageTextVisibleSeconds = 0.8f;
+        private const float AttackPresentationSeconds = 0.22f;
+        private const float HitPresentationSeconds = 0.42f;
+        private const float DefeatPresentationSeconds = 0.24f;
         private const int BasicSkillCost = 0;
         private const int PoetryStrikeCost = 1;
         private const int DreamAreaCost = 2;
@@ -76,6 +79,8 @@ namespace Shouyou.UI
         // 每个角色最多预选一个大招。预选不立即扣行动点或进入冷却，等该角色下次行动时才结算。
         private readonly Dictionary<BattleUnitState, QueuedSkillState> queuedSkills = new Dictionary<BattleUnitState, QueuedSkillState>();
         private readonly List<BattleUnitState> actionOrder = new List<BattleUnitState>();
+        // 表现队列只记录已经结算过的视觉事件，不参与伤害、行动值或胜负判定。
+        private readonly Queue<BattlePresentationEvent> presentationEvents = new Queue<BattlePresentationEvent>();
 
         private BattleDemoConfigResponse battleConfig;
         private BattleSkillDto[] backendSkills;
@@ -104,6 +109,8 @@ namespace Shouyou.UI
         private bool battleEnded;
         private bool resolvingEnemyTurn;
         private bool referencesBound;
+        private bool isPlayingPresentation;
+        private Coroutine presentationCoroutine;
 
         /// <summary>
         /// 从主线详情页进入战斗时写入。战斗控制器不决定关卡进度，
@@ -126,6 +133,12 @@ namespace Shouyou.UI
             StartCoroutine(LoadBackendBattleConfig());
         }
 
+        private void OnDisable()
+        {
+            // 页面离开后不再播放旧战斗的表现事件，避免回到战斗页时残留飘字或高亮。
+            ClearPresentationQueue();
+        }
+
         /// <summary>
         /// 设置本场战斗对应的主线关卡。
         /// 由 HomePageRouter 在切入战斗页前调用，避免战斗页自行猜测关卡。
@@ -145,6 +158,7 @@ namespace Shouyou.UI
         /// </summary>
         public void ResetDemoBattle()
         {
+            ClearPresentationQueue();
             selectedEnemyIndex = 0;
             selectedAllyIndex = 0;
             roundIndex = 1;
@@ -178,6 +192,11 @@ namespace Shouyou.UI
         {
             BindRuntimeReferences();
 
+            if (IsBattleInputLocked())
+            {
+                return;
+            }
+
             if (battleEnded)
             {
                 ResetDemoBattle();
@@ -194,6 +213,21 @@ namespace Shouyou.UI
 
         public void PerformPlayerAttack()
         {
+            if (IsBattleInputLocked())
+            {
+                return;
+            }
+
+            PerformPlayerAttackInternal();
+        }
+
+        /// <summary>
+        /// 普攻的实际结算入口。自动战斗会在同一段逻辑内连续生成多个表现事件，
+        /// 因此不能再次经过“表现队列是否锁定”的用户输入判断。
+        /// </summary>
+        private void PerformPlayerAttackInternal()
+        {
+
             BattleUnitState attacker;
             BattleUnitState target;
             if (!TryGetBattleActionContext(BasicSkillCost, "basic", out attacker, out target))
@@ -214,14 +248,12 @@ namespace Shouyou.UI
         /// </summary>
         public void CastPoetryStrike()
         {
-            BattleUnitState attacker;
-            BattleUnitState target;
-            if (!TryGetBattleActionContext(PoetryStrikeCost, "poetry_strike", out attacker, out target))
+            if (IsBattleInputLocked())
             {
                 return;
             }
 
-            QueueSkill(PoetryStrikeCost, "poetry_strike", target);
+            UseOrQueueSkill(PoetryStrikeCost, "poetry_strike", true);
         }
 
         /// <summary>
@@ -229,14 +261,12 @@ namespace Shouyou.UI
         /// </summary>
         public void CastDreamAreaAttack()
         {
-            BattleUnitState attacker;
-            BattleUnitState ignoredTarget;
-            if (!TryGetBattleActionContext(DreamAreaCost, "dream_area", out attacker, out ignoredTarget))
+            if (IsBattleInputLocked())
             {
                 return;
             }
 
-            QueueSkill(DreamAreaCost, "dream_area", attacker);
+            UseOrQueueSkill(DreamAreaCost, "dream_area", false);
         }
 
         /// <summary>
@@ -245,14 +275,12 @@ namespace Shouyou.UI
         /// </summary>
         public void CastHealingVerse()
         {
-            BattleUnitState healer;
-            BattleUnitState ignoredTarget;
-            if (!TryGetBattleActionContext(HealingVerseCost, "healing_verse", out healer, out ignoredTarget))
+            if (IsBattleInputLocked())
             {
                 return;
             }
 
-            QueueSkill(HealingVerseCost, "healing_verse", healer);
+            UseOrQueueSkill(HealingVerseCost, "healing_verse", false);
         }
 
         /// <summary>
@@ -261,6 +289,11 @@ namespace Shouyou.UI
         /// </summary>
         public void PerformAutoAttacks()
         {
+            if (IsBattleInputLocked())
+            {
+                return;
+            }
+
             if (!ValidateBattleStartup())
             {
                 return;
@@ -269,7 +302,7 @@ namespace Shouyou.UI
             int safety = UnitCount * 2;
             while (!battleEnded && IsPlayerTurn() && safety-- > 0)
             {
-                PerformPlayerAttack();
+                PerformPlayerAttackInternal();
             }
         }
 
@@ -285,6 +318,7 @@ namespace Shouyou.UI
             }
 
             battleEnded = true;
+            ClearPresentationQueue();
             SetBattleMessage("\u5df2\u64a4\u9000\u672c\u573a\u6218\u6597\uff0c\u672a\u83b7\u5f97\u5956\u52b1\u3002");
             if (router != null)
             {
@@ -348,7 +382,7 @@ namespace Shouyou.UI
             string message = selectedUnit.unitName + "：生命 " + selectedUnit.currentHp + " / " + selectedUnit.maxHp;
             if (selectedUnit != currentActor)
             {
-                message += "\n当前轮到 " + GetCurrentActorName() + " 行动，头像只用于查看状态。";
+                message += "\n当前轮到 " + GetCurrentActorName() + " 行动；可为 " + selectedUnit.unitName + " 预选下次行动的大招，不会抢走当前行动。";
             }
 
             SetBattleMessage(message);
@@ -377,29 +411,43 @@ namespace Shouyou.UI
 
         private BattleUnitState CreateAllyUnit(int index)
         {
+            // 编队缓存决定“谁上阵”；battle demo-config 仅提供当前关卡的数值模板。
+            // 这样保存编队后再进入战斗，角色身份不会被固定 Demo 队伍覆盖。
+            string formationCharacterId = ShouyouBackendBootstrap.GetBattleFormationSlotId(index);
             BattleUnitDto dto = FindBackendUnitBySlot(battleConfig == null ? null : battleConfig.allies, index);
-            if (dto != null)
+            if (string.IsNullOrEmpty(formationCharacterId))
             {
-                return CreateUnitFromDto(dto, true, index);
+                return CreateEmptyAllyUnit(index);
             }
 
-            string unitName = ShouyouBackendBootstrap.GetBattleFormationSlotName(index);
+            return CreateAllyUnitFromFormation(formationCharacterId, index, dto);
+        }
+
+        /// <summary>
+        /// 用已保存编队的角色身份创建我方单位。
+        /// 当前仅复用关卡接口提供的 HP、攻击、行动值和头像模板；
+        /// 角色专属成长与完整数值表会在养成系统接入后替换本方法的保守默认值。
+        /// </summary>
+        private BattleUnitState CreateAllyUnitFromFormation(string characterId, int index, BattleUnitDto template)
+        {
+            string unitName = ShouyouBackendBootstrap.GetCharacterNameById(characterId);
             if (string.IsNullOrEmpty(unitName) || unitName == "空位")
             {
                 return CreateEmptyAllyUnit(index);
             }
 
-            if (unitName == "李清照")
+            if (template != null)
+            {
+                return CreateUnitFromDto(template, true, index, unitName);
+            }
+
+            if (characterId == "li-qingzhao")
             {
                 return new BattleUnitState(unitName, true, 1200, 220, "char_liqingzhao");
             }
 
-            if (unitName == "婉禾")
-            {
-                return new BattleUnitState(unitName, true, 1100, 160, "char_wanhe");
-            }
-
-            return new BattleUnitState(unitName, true, 900, 165, string.Empty);
+            // 婉禾和未来非李清照角色在数值表接入前使用独立保守模板，避免所有人都套用主角数据。
+            return new BattleUnitState(unitName, true, 980, 145, "char_wanhe");
         }
 
         private BattleUnitState CreateEnemyUnit(int index)
@@ -519,7 +567,7 @@ namespace Shouyou.UI
             return null;
         }
 
-        private BattleUnitState CreateUnitFromDto(BattleUnitDto dto, bool isAlly, int index)
+        private BattleUnitState CreateUnitFromDto(BattleUnitDto dto, bool isAlly, int index, string displayName = null)
         {
             if (dto == null || string.IsNullOrEmpty(dto.name))
             {
@@ -539,7 +587,8 @@ namespace Shouyou.UI
             int starLevel = dto.starLevel > 0 ? dto.starLevel : 1;
             int breakLevel = Mathf.Max(0, dto.breakLevel);
             return new BattleUnitState(
-                dto.name, isAlly, hp, attack, dto.portraitIconKey, actionValue, speed,
+                string.IsNullOrEmpty(displayName) ? dto.name : displayName,
+                isAlly, hp, attack, dto.portraitIconKey, actionValue, speed,
                 critRate, critDamage, hitRate, dodgeRate, dto.element, starLevel, breakLevel, dto.buffIds);
         }
 
@@ -553,18 +602,7 @@ namespace Shouyou.UI
 
         private string GetFormationSummaryForBattle()
         {
-            if (battleConfig != null && battleConfig.allies != null)
-            {
-                string summary = string.Empty;
-                for (int i = 0; i < UnitCount; i++)
-                {
-                    BattleUnitDto dto = FindBackendUnitBySlot(battleConfig.allies, i);
-                    summary += (i == 0 ? string.Empty : " / ") + (dto == null || string.IsNullOrEmpty(dto.name) ? "空位" : dto.name);
-                }
-
-                return summary;
-            }
-
+            // 结算与战斗提示也必须与编队页使用同一份缓存，避免 UI 显示旧 Demo 队伍。
             return ShouyouBackendBootstrap.GetFormationSummary();
         }
 
@@ -714,34 +752,182 @@ namespace Shouyou.UI
 
         private bool CanUseSkill(string skillId, int actionCost)
         {
-            return !battleEnded && IsPlayerTurn() && actionPoint >= actionCost && GetSkillCooldown(skillId) <= 0;
+            return !IsBattleInputLocked() && !battleEnded && IsPlayerTurn() && actionPoint >= actionCost && GetSkillCooldown(skillId) <= 0;
         }
 
         /// <summary>
         /// 大招预选与即时普攻共用同一套 AP、冷却与行动者校验；
         /// 额外禁止同一角色重复预选，避免同一行动回合覆盖前一个指令。
         /// </summary>
-        private bool CanQueueSkill(string skillId, int actionCost)
+        /// <summary>
+        /// 返回玩家当前选中的技能归属角色。头像选择只决定“谁拥有这次技能指令”，
+        /// 绝不改变行动值队列中的 currentActor。
+        /// </summary>
+        private BattleUnitState GetSelectedSkillOwner()
         {
-            return CanUseSkill(skillId, actionCost) && currentActor != null && !queuedSkills.ContainsKey(currentActor);
+            if (selectedAllyIndex >= 0 && selectedAllyIndex < allyUnits.Length)
+            {
+                BattleUnitState selected = allyUnits[selectedAllyIndex];
+                if (selected != null && !selected.defeated)
+                {
+                    return selected;
+                }
+            }
+
+            return IsPlayerTurn() ? currentActor : null;
+        }
+
+        /// <summary>
+        /// 当前行动角色释放大招时，技能立即结算并结束本次行动。
+        /// </summary>
+        private bool CanExecuteSkillImmediately(BattleUnitState skillOwner, string skillId, int actionCost)
+        {
+            return skillOwner != null && skillOwner == currentActor && CanUseSkill(skillId, actionCost);
+        }
+
+        /// <summary>
+        /// 非当前行动角色只允许登记下一次行动的大招。预选不推进 actionCursor，
+        /// 因而不能用点头像的方式抢占行动权。
+        /// </summary>
+        private bool CanPreselectSkill(BattleUnitState skillOwner, string skillId, int actionCost)
+        {
+            return skillOwner != null &&
+                   skillOwner != currentActor &&
+                   IsPlayerTurn() &&
+                   !battleEnded &&
+                   actionPoint >= actionCost &&
+                   GetSkillCooldown(skillId) <= 0 &&
+                   !queuedSkills.ContainsKey(skillOwner);
+        }
+
+        private SkillInputState GetSkillInputState(BattleUnitState skillOwner, string skillId, int actionCost)
+        {
+            if (skillOwner == null || skillOwner.defeated || battleEnded)
+            {
+                return SkillInputState.Unavailable;
+            }
+
+            QueuedSkillState queuedSkill;
+            if (queuedSkills.TryGetValue(skillOwner, out queuedSkill))
+            {
+                return queuedSkill.skillId == skillId ? SkillInputState.Queued : SkillInputState.ReservedOtherSkill;
+            }
+
+            if (CanExecuteSkillImmediately(skillOwner, skillId, actionCost))
+            {
+                return SkillInputState.Immediate;
+            }
+
+            return CanPreselectSkill(skillOwner, skillId, actionCost)
+                ? SkillInputState.Preselect
+                : SkillInputState.Unavailable;
         }
 
         /// <summary>
         /// 只登记本角色下一次行动要释放的大招。此处不触发伤害、飘字、冷却或行动点扣除。
         /// 单体大招保存目标槽位，若目标退场，结算时自动回退到其他存活敌人。
         /// </summary>
-        private void QueueSkill(int actionCost, string skillId, BattleUnitState target)
+        private void UseOrQueueSkill(int actionCost, string skillId, bool needsEnemyTarget)
         {
-            if (!CanQueueSkill(skillId, actionCost) || currentActor == null)
+            BattleUnitState skillOwner = GetSelectedSkillOwner();
+            BattleUnitState target = needsEnemyTarget ? GetSelectedOrFirstAliveEnemy() : skillOwner;
+            SkillInputState inputState = GetSkillInputState(skillOwner, skillId, actionCost);
+
+            if (inputState == SkillInputState.Queued)
             {
-                SetBattleMessage("当前角色无法预选该技能，请检查行动点、冷却或已预选状态。");
+                queuedSkills.Remove(skillOwner);
+                SetBattleMessage(skillOwner.unitName + " 已取消预选“" + GetSkillDisplayName(skillId) + "”，本次行动顺序不变。");
+                RefreshAllViews();
+                return;
+            }
+
+            if (inputState == SkillInputState.Immediate)
+            {
+                ExecuteSkillNow(skillOwner, skillId, actionCost, target);
+                return;
+            }
+
+            if (inputState == SkillInputState.Preselect)
+            {
+                QueueSkill(skillOwner, actionCost, skillId, target);
+                return;
+            }
+
+            SetBattleMessage(BuildSkillUnavailableMessage(skillOwner, skillId, actionCost));
+            RefreshAllViews();
+        }
+
+        /// <summary>
+        /// 只登记未来行动的技能，不扣行动点、不进入冷却，也不结束当前行动。
+        /// 当前行动角色仍必须用普攻或“立即”大招完成自己的回合。
+        /// </summary>
+        private void QueueSkill(BattleUnitState skillOwner, int actionCost, string skillId, BattleUnitState target)
+        {
+            if (!CanPreselectSkill(skillOwner, skillId, actionCost))
+            {
+                SetBattleMessage(BuildSkillUnavailableMessage(skillOwner, skillId, actionCost));
                 RefreshAllViews();
                 return;
             }
 
             int targetSlotIndex = target == null ? -1 : GetUnitSlotIndex(target);
-            queuedSkills[currentActor] = new QueuedSkillState(skillId, actionCost, targetSlotIndex);
-            CompletePlayerAction(currentActor.unitName + " 已预选“" + GetSkillDisplayName(skillId) + "”，将在下次行动开始时释放。");
+            queuedSkills[skillOwner] = new QueuedSkillState(skillId, actionCost, targetSlotIndex);
+            SetBattleMessage(skillOwner.unitName + " 已预选“" + GetSkillDisplayName(skillId) + "”，将在其下次行动时释放；当前仍轮到 " + GetCurrentActorName() + " 行动。");
+            RefreshAllViews();
+        }
+
+        /// <summary>
+        /// 立即施放复用既有的技能结算路径，确保它与预选施放使用完全相同的伤害、治疗、
+        /// 行动点和冷却规则；临时登记会在同一调用内被取出并清除。
+        /// </summary>
+        private void ExecuteSkillNow(BattleUnitState skillOwner, string skillId, int actionCost, BattleUnitState target)
+        {
+            if (!CanExecuteSkillImmediately(skillOwner, skillId, actionCost))
+            {
+                SetBattleMessage(BuildSkillUnavailableMessage(skillOwner, skillId, actionCost));
+                RefreshAllViews();
+                return;
+            }
+
+            queuedSkills[skillOwner] = new QueuedSkillState(skillId, actionCost, target == null ? -1 : GetUnitSlotIndex(target));
+            string actionMessage;
+            if (!TryExecuteQueuedSkillForCurrentActor(out actionMessage))
+            {
+                SetBattleMessage("立即施放失败，请重新选择技能或目标。");
+                RefreshAllViews();
+                return;
+            }
+
+            // 既有结算方法的文案以“预选”为默认语境；立即分支只替换展示文字，数值规则不变。
+            CompletePlayerAction(actionMessage.Replace("预选", "立即"));
+        }
+
+        private string BuildSkillUnavailableMessage(BattleUnitState skillOwner, string skillId, int actionCost)
+        {
+            if (skillOwner == null || skillOwner.defeated)
+            {
+                return "请先选择一名仍可行动的我方角色。";
+            }
+
+            if (GetSkillCooldown(skillId) > 0)
+            {
+                return GetSkillDisplayName(skillId) + "仍在 CD " + GetSkillCooldown(skillId) + "。";
+            }
+
+            if (actionPoint < actionCost)
+            {
+                return "行动点不足，" + GetSkillDisplayName(skillId) + "需要 " + actionCost + " 点行动点。";
+            }
+
+            QueuedSkillState queuedSkill;
+            if (queuedSkills.TryGetValue(skillOwner, out queuedSkill))
+            {
+                return skillOwner.unitName + " 已预选“" + GetSkillDisplayName(queuedSkill.skillId) + "”，请先取消或等待其行动。";
+            }
+
+            return IsPlayerTurn()
+                ? "当前轮到 " + GetCurrentActorName() + " 行动；请选择当前角色立即施放，或为其他角色预选下次行动。"
+                : "正在处理敌方行动，请等待下一次我方行动。";
         }
 
         /// <summary>
@@ -1200,18 +1386,16 @@ namespace Shouyou.UI
         {
             BattleSkillDto skill = FindSkill(skillId);
             string label = skill != null && !string.IsNullOrEmpty(skill.label) ? skill.label : fallbackLabel;
-            if (currentActor != null && queuedSkills.ContainsKey(currentActor) && queuedSkills[currentActor].skillId == skillId)
-            {
-                label += "\n预选中";
-            }
+            int actionCost = GetSkillActionCost(skillId);
+            BattleUnitState skillOwner = GetSelectedSkillOwner();
+            SkillInputState inputState = skillId == "basic"
+                ? (CanUseSkill("basic", BasicSkillCost) ? SkillInputState.Immediate : SkillInputState.Unavailable)
+                : GetSkillInputState(skillOwner, skillId, actionCost);
 
-            int cooldown = GetSkillCooldown(skillId);
-            if (cooldown > 0)
-            {
-                label += " CD " + cooldown;
-            }
+            label += "\n" + GetSkillInputLabel(skillId, inputState, actionCost);
             SetButtonLabel(button, label);
             LayoutSkillButtonContent(button);
+            SetSkillButtonVisualState(button, inputState);
 
             if (button == null || skill == null || string.IsNullOrEmpty(skill.iconKey))
             {
@@ -1231,6 +1415,84 @@ namespace Shouyou.UI
                     iconImage.preserveAspect = true;
                 }
             }
+        }
+
+        private int GetSkillActionCost(string skillId)
+        {
+            if (skillId == "poetry_strike")
+            {
+                return PoetryStrikeCost;
+            }
+
+            if (skillId == "dream_area")
+            {
+                return DreamAreaCost;
+            }
+
+            return skillId == "healing_verse" ? HealingVerseCost : BasicSkillCost;
+        }
+
+        private string GetSkillInputLabel(string skillId, SkillInputState inputState, int actionCost)
+        {
+            if (GetSkillCooldown(skillId) > 0)
+            {
+                return "CD " + GetSkillCooldown(skillId);
+            }
+
+            if (actionPoint < actionCost)
+            {
+                return "行动点不足";
+            }
+
+            if (inputState == SkillInputState.Immediate)
+            {
+                return "立即";
+            }
+
+            if (inputState == SkillInputState.Preselect)
+            {
+                return "预选·下回合";
+            }
+
+            if (inputState == SkillInputState.Queued)
+            {
+                return "已预选·点击取消";
+            }
+
+            if (inputState == SkillInputState.ReservedOtherSkill)
+            {
+                return "已有预选";
+            }
+
+            return IsPlayerTurn() ? "等待行动" : "敌方行动中";
+        }
+
+        /// <summary>
+        /// 技能按钮用颜色直接表达行为：金色立即、紫色预选、蓝紫色已预选、灰色不可用。
+        /// 只改按钮底图，不遮挡后端加载的技能图标。
+        /// </summary>
+        private void SetSkillButtonVisualState(Button button, SkillInputState inputState)
+        {
+            if (button == null || button.targetGraphic == null)
+            {
+                return;
+            }
+
+            Color color = new Color32(220, 216, 210, 150);
+            if (inputState == SkillInputState.Immediate)
+            {
+                color = new Color32(255, 224, 156, 255);
+            }
+            else if (inputState == SkillInputState.Preselect)
+            {
+                color = new Color32(214, 190, 255, 255);
+            }
+            else if (inputState == SkillInputState.Queued)
+            {
+                color = new Color32(168, 208, 255, 255);
+            }
+
+            button.targetGraphic.color = color;
         }
 
         /// <summary>
@@ -1372,8 +1634,14 @@ namespace Shouyou.UI
                 selectedEnemyIndex = nextTarget == null ? selectedEnemyIndex : System.Array.IndexOf(enemyUnits, nextTarget);
             }
 
-            // ?? true ????????????????????????
-            return wasAlive && target.defeated;
+            bool targetDefeated = wasAlive && target.defeated;
+            if (targetDefeated)
+            {
+                // 逻辑上的退场已完成；标签显示由队列延后，确保它排在受击飘字之后。
+                QueuePresentationEvent(BattlePresentationEvent.CreateDefeat(target));
+            }
+
+            return targetDefeated;
         }
 
         /// <summary>
@@ -1382,14 +1650,14 @@ namespace Shouyou.UI
         /// </summary>
         private void RequestPortraitAttackEffect(BattleUnitState attacker, BattleUnitState target, string skillId, bool hitsAllTargets)
         {
-            if (attacker == null || PortraitAttackEffectRequested == null)
+            if (attacker == null)
             {
                 return;
             }
 
             int attackerSlotIndex = GetUnitSlotIndex(attacker);
             int targetSlotIndex = GetUnitSlotIndex(target);
-            PortraitAttackEffectRequested.Invoke(new BattlePortraitEffectRequest(
+            BattlePortraitEffectRequest request = new BattlePortraitEffectRequest(
                 attackerSlotIndex,
                 attacker.isAlly,
                 attacker.unitName,
@@ -1397,7 +1665,10 @@ namespace Shouyou.UI
                 targetSlotIndex,
                 target != null && target.isAlly,
                 target == null ? string.Empty : target.unitName,
-                hitsAllTargets));
+                hitsAllTargets);
+
+            // 外部头像特效也随此队列播放，避免未来接入 Animator 后多位角色同时施法。
+            QueuePresentationEvent(BattlePresentationEvent.CreateAttack(attacker, target, request));
         }
 
         /// <summary>
@@ -1426,43 +1697,189 @@ namespace Shouyou.UI
 
         private void ShowDamageText(BattleUnitState target, int damage)
         {
-            ShowFloatingText(target, "-" + damage, target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255));
+            QueuePresentationEvent(BattlePresentationEvent.CreateDamage(target, damage, target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255)));
         }
 
         private void ShowHealText(BattleUnitState target, int healAmount)
         {
-            ShowFloatingText(target, "+" + healAmount, new Color32(110, 255, 160, 255));
+            QueuePresentationEvent(BattlePresentationEvent.CreateHeal(target, healAmount, new Color32(110, 255, 160, 255)));
         }
 
-        private void ShowFloatingText(BattleUnitState target, string content, Color32 color)
+        /// <summary>
+        /// 将一个已经得出结果的表现事件放进 FIFO 队列。这里不修改任何战斗数值，
+        /// 因而可以在未来替换为 Animator、Timeline 或 Spine 而不影响结算。
+        /// </summary>
+        private void QueuePresentationEvent(BattlePresentationEvent presentationEvent)
         {
-            BattleUnitView view = GetViewForUnit(target);
+            if (presentationEvent == null)
+            {
+                return;
+            }
+
+            presentationEvents.Enqueue(presentationEvent);
+            if (presentationCoroutine == null && isActiveAndEnabled)
+            {
+                presentationCoroutine = StartCoroutine(PlayPresentationQueue());
+            }
+        }
+
+        /// <summary>
+        /// 统一顺序播放攻击、受击/治疗和退场。战斗逻辑已经在调用方完成，
+        /// 协程只负责让玩家按正确顺序看见这些结果。
+        /// </summary>
+        private IEnumerator PlayPresentationQueue()
+        {
+            isPlayingPresentation = true;
+            RefreshBattleControls();
+
+            // 让本帧的整段战斗解析先完成，再开始播放已收集的完整事件序列。
+            yield return null;
+            while (presentationEvents.Count > 0)
+            {
+                BattlePresentationEvent presentationEvent = presentationEvents.Dequeue();
+                yield return PlayPresentationEvent(presentationEvent);
+            }
+
+            isPlayingPresentation = false;
+            presentationCoroutine = null;
+            RefreshAllViews();
+        }
+
+        private IEnumerator PlayPresentationEvent(BattlePresentationEvent presentationEvent)
+        {
+            if (presentationEvent == null)
+            {
+                yield break;
+            }
+
+            if (presentationEvent.type == PresentationEventType.Attack)
+            {
+                if (PortraitAttackEffectRequested != null && presentationEvent.attackEffectRequest != null)
+                {
+                    PortraitAttackEffectRequested.Invoke(presentationEvent.attackEffectRequest);
+                }
+
+                yield return PlayUnitPulse(GetViewForUnit(presentationEvent.source), new Color32(112, 255, 214, 230), AttackPresentationSeconds);
+                yield break;
+            }
+
+            if (presentationEvent.type == PresentationEventType.Damage || presentationEvent.type == PresentationEventType.Heal)
+            {
+                BattleUnitView targetView = GetViewForUnit(presentationEvent.target);
+                ShowFloatingTextImmediately(targetView, presentationEvent.text, presentationEvent.textColor);
+                Color32 impactColor = presentationEvent.type == PresentationEventType.Heal
+                    ? new Color32(114, 255, 176, 225)
+                    : new Color32(255, 164, 144, 235);
+                yield return PlayUnitPulse(targetView, impactColor, HitPresentationSeconds);
+                HideFloatingText(targetView);
+                yield break;
+            }
+
+            if (presentationEvent.type == PresentationEventType.Defeat)
+            {
+                BattleUnitView targetView = GetViewForUnit(presentationEvent.target);
+                if (targetView != null)
+                {
+                    targetView.defeatLabelVisible = true;
+                    if (targetView.defeatedText != null)
+                    {
+                        targetView.defeatedText.gameObject.SetActive(true);
+                    }
+                }
+
+                yield return PlayUnitPulse(targetView, new Color32(128, 100, 145, 235), DefeatPresentationSeconds);
+            }
+        }
+
+        private IEnumerator PlayUnitPulse(BattleUnitView view, Color32 tint, float duration)
+        {
+            if (view == null)
+            {
+                yield break;
+            }
+
+            Image slotImage = view.slotImage;
+            Image portrait = view.portrait;
+            Color slotColor = slotImage == null ? Color.white : slotImage.color;
+            Color portraitColor = portrait == null ? Color.white : portrait.color;
+            Vector3 portraitScale = portrait == null ? Vector3.one : portrait.rectTransform.localScale;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float rate = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+                float pulse = Mathf.Sin(rate * Mathf.PI);
+                if (slotImage != null)
+                {
+                    slotImage.color = Color.Lerp(slotColor, tint, pulse);
+                }
+
+                if (portrait != null)
+                {
+                    portrait.color = Color.Lerp(portraitColor, Color.white, pulse * 0.5f);
+                    portrait.rectTransform.localScale = portraitScale * (1f + pulse * 0.08f);
+                }
+
+                yield return null;
+            }
+
+            if (slotImage != null)
+            {
+                slotImage.color = slotColor;
+            }
+
+            if (portrait != null)
+            {
+                portrait.color = portraitColor;
+                portrait.rectTransform.localScale = portraitScale;
+            }
+        }
+
+        private void ShowFloatingTextImmediately(BattleUnitView view, string content, Color32 color)
+        {
             if (view == null || view.damageText == null)
             {
                 return;
             }
 
-            view.damageSerial++;
-            int serial = view.damageSerial;
             view.damageText.text = content;
             view.damageText.color = color;
             view.damageText.gameObject.SetActive(true);
-            StartCoroutine(HideDamageTextLater(view, serial));
         }
 
-        private IEnumerator HideDamageTextLater(BattleUnitView view, int serial)
+        private void HideFloatingText(BattleUnitView view)
         {
-            yield return new WaitForSeconds(DamageTextVisibleSeconds);
-
-            if (view != null && view.damageText != null && view.damageSerial == serial)
+            if (view != null && view.damageText != null)
             {
                 view.damageText.text = string.Empty;
                 view.damageText.gameObject.SetActive(false);
             }
         }
 
+        private bool IsBattleInputLocked()
+        {
+            return isPlayingPresentation || presentationEvents.Count > 0;
+        }
+
+        private void ClearPresentationQueue()
+        {
+            presentationEvents.Clear();
+            isPlayingPresentation = false;
+            if (presentationCoroutine != null)
+            {
+                StopCoroutine(presentationCoroutine);
+                presentationCoroutine = null;
+            }
+        }
+
         private BattleUnitView GetViewForUnit(BattleUnitState unit)
         {
+            if (unit == null)
+            {
+                return null;
+            }
+
             BattleUnitState[] states = unit.isAlly ? allyUnits : enemyUnits;
             BattleUnitView[] views = unit.isAlly ? allyViews : enemyViews;
             int index = System.Array.IndexOf(states, unit);
@@ -1476,7 +1893,7 @@ namespace Shouyou.UI
 
         private void RefreshBattleControls()
         {
-            bool canContinueBattle = !battleEnded && string.IsNullOrEmpty(GetBattleUnavailableReason());
+            bool canContinueBattle = !IsBattleInputLocked() && !battleEnded && string.IsNullOrEmpty(GetBattleUnavailableReason());
             SetButtonLabel(startBattleButton, battleEnded ? "\u91cd\u65b0\u5f00\u59cb" : "\u5f00\u59cb\u6218\u6597");
             SetSkillButton(basicSkillButton, "basic", "\u666e\u653b");
             SetSkillButton(poetryStrikeButton, "poetry_strike", "\u8bcd\u610f\u8fde\u51fb");
@@ -1486,9 +1903,18 @@ namespace Shouyou.UI
             SetButtonInteractable(startBattleButton, battleEnded || (canContinueBattle && IsPlayerTurn()));
             SetButtonInteractable(autoBattleButton, canContinueBattle && IsPlayerTurn());
             SetButtonInteractable(basicSkillButton, canContinueBattle && CanUseSkill("basic", BasicSkillCost));
-            SetButtonInteractable(poetryStrikeButton, canContinueBattle && CanQueueSkill("poetry_strike", PoetryStrikeCost));
-            SetButtonInteractable(dreamAreaButton, canContinueBattle && CanQueueSkill("dream_area", DreamAreaCost));
-            SetButtonInteractable(healSkillButton, canContinueBattle && CanQueueSkill("healing_verse", HealingVerseCost));
+            BattleUnitState skillOwner = GetSelectedSkillOwner();
+            SetButtonInteractable(poetryStrikeButton, canContinueBattle && CanClickSkill(skillOwner, "poetry_strike", PoetryStrikeCost));
+            SetButtonInteractable(dreamAreaButton, canContinueBattle && CanClickSkill(skillOwner, "dream_area", DreamAreaCost));
+            SetButtonInteractable(healSkillButton, canContinueBattle && CanClickSkill(skillOwner, "healing_verse", HealingVerseCost));
+        }
+
+        private bool CanClickSkill(BattleUnitState skillOwner, string skillId, int actionCost)
+        {
+            SkillInputState state = GetSkillInputState(skillOwner, skillId, actionCost);
+            return state == SkillInputState.Immediate ||
+                   state == SkillInputState.Preselect ||
+                   state == SkillInputState.Queued;
         }
 
         private void RefreshAllViews()
@@ -1545,7 +1971,7 @@ namespace Shouyou.UI
             if (view.defeatedText != null)
             {
                 SetText(view.defeatedText, unit.defeated ? "退场" : string.Empty);
-                view.defeatedText.gameObject.SetActive(unit.defeated);
+                view.defeatedText.gameObject.SetActive(unit.defeated && view.defeatLabelVisible);
             }
         }
 
@@ -1827,6 +2253,76 @@ namespace Shouyou.UI
         /// <summary>
         /// 预选指令只记录执行所需的最小数据，避免把 UI 状态写入战斗单位或后端存档。
         /// </summary>
+        private enum SkillInputState
+        {
+            Unavailable,
+            Immediate,
+            Preselect,
+            Queued,
+            ReservedOtherSkill
+        }
+
+        /// <summary>
+        /// 仅用于排列视觉播放顺序。枚举不会参与伤害、治疗、行动值或胜负结算。
+        /// </summary>
+        private enum PresentationEventType
+        {
+            Attack,
+            Damage,
+            Heal,
+            Defeat
+        }
+
+        /// <summary>
+        /// 已完成逻辑结算后的最小视觉事件数据。source 用于攻击者高亮，
+        /// target 用于受击、治疗和退场表现。
+        /// </summary>
+        private sealed class BattlePresentationEvent
+        {
+            public readonly PresentationEventType type;
+            public readonly BattleUnitState source;
+            public readonly BattleUnitState target;
+            public readonly string text;
+            public readonly Color32 textColor;
+            public readonly BattlePortraitEffectRequest attackEffectRequest;
+
+            private BattlePresentationEvent(
+                PresentationEventType type,
+                BattleUnitState source,
+                BattleUnitState target,
+                string text,
+                Color32 textColor,
+                BattlePortraitEffectRequest attackEffectRequest)
+            {
+                this.type = type;
+                this.source = source;
+                this.target = target;
+                this.text = text;
+                this.textColor = textColor;
+                this.attackEffectRequest = attackEffectRequest;
+            }
+
+            public static BattlePresentationEvent CreateAttack(BattleUnitState source, BattleUnitState target, BattlePortraitEffectRequest request)
+            {
+                return new BattlePresentationEvent(PresentationEventType.Attack, source, target, string.Empty, Color.white, request);
+            }
+
+            public static BattlePresentationEvent CreateDamage(BattleUnitState target, int damage, Color32 color)
+            {
+                return new BattlePresentationEvent(PresentationEventType.Damage, null, target, "-" + damage, color, null);
+            }
+
+            public static BattlePresentationEvent CreateHeal(BattleUnitState target, int healAmount, Color32 color)
+            {
+                return new BattlePresentationEvent(PresentationEventType.Heal, null, target, "+" + healAmount, color, null);
+            }
+
+            public static BattlePresentationEvent CreateDefeat(BattleUnitState target)
+            {
+                return new BattlePresentationEvent(PresentationEventType.Defeat, null, target, string.Empty, Color.white, null);
+            }
+        }
+
         private sealed class QueuedSkillState
         {
             public readonly string skillId;
@@ -1851,7 +2347,7 @@ namespace Shouyou.UI
             public Text nameText;
             public Text damageText;
             public Text defeatedText;
-            public int damageSerial;
+            public bool defeatLabelVisible;
         }
     }
 }
