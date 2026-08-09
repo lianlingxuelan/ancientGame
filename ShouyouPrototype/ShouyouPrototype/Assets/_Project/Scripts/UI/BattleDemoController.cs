@@ -61,10 +61,18 @@ namespace Shouyou.UI
         private const int FallbackActionPointMax = 3;
         private const string BattleApiBaseUrl = "http://127.0.0.1:5188";
         private const float HpBarMaxWidth = 86f;
+        // 飘字总可见时长；受击表现（白闪 + 颜色脉冲）与飘字上浮段之和应等于该值。
         private const float DamageTextVisibleSeconds = 0.8f;
+        // 攻击者施法高亮总时长（上抬 + 回落）。
         private const float AttackPresentationSeconds = 0.22f;
-        private const float HitPresentationSeconds = 0.42f;
-        private const float DefeatPresentationSeconds = 0.24f;
+        // 受击瞬间白闪时长。
+        private const float ImpactWhiteFlashSeconds = 0.08f;
+        // 受击颜色脉冲时长（与白闪合计 0.42s 受击总时长）。
+        private const float HitColorPulseSeconds = 0.34f;
+        // 飘字上浮 + 淡出时长（0.08 + 0.34 + 0.38 = 0.8 = DamageTextVisibleSeconds）。
+        private const float FloatingTextRiseSeconds = 0.38f;
+        // 阵亡淡出时长。
+        private const float DefeatFadeSeconds = 0.45f;
         private const int BasicSkillCost = 0;
         private const int PoetryStrikeCost = 1;
         private const int DreamAreaCost = 2;
@@ -186,7 +194,7 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// ???????????????????????????
+        /// 主战斗按钮：战斗未结束时用于发动普攻；战斗结束后点击重新开始本场战斗。
         /// </summary>
         public void PressMainBattleButton()
         {
@@ -243,8 +251,8 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// ?????????????????????????
-        /// ??????????????????????????
+        /// 词意连击（单体高伤大招）：当前行动角色立即结算；
+        /// 非当前角色仅登记预选，轮到该角色下次行动时自动释放。
         /// </summary>
         public void CastPoetryStrike()
         {
@@ -257,7 +265,8 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// ?????????????????????? Demo ???????????????
+        /// 如梦令（群体大招）：当前行动角色立即结算；
+        /// 非当前角色仅登记预选，轮到该角色下次行动时自动释放。
         /// </summary>
         public void CastDreamAreaAttack()
         {
@@ -270,8 +279,8 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// ?????????????????????
-        /// ?????????????????????????????
+        /// 疗愈（治疗大招）：当前行动角色立即结算；
+        /// 非当前角色仅登记预选，轮到该角色下次行动时自动释放。
         /// </summary>
         public void CastHealingVerse()
         {
@@ -1759,7 +1768,8 @@ namespace Shouyou.UI
                     PortraitAttackEffectRequested.Invoke(presentationEvent.attackEffectRequest);
                 }
 
-                yield return PlayUnitPulse(GetViewForUnit(presentationEvent.source), new Color32(112, 255, 214, 230), AttackPresentationSeconds);
+                // 攻击者施法高亮：上抬 + 放大 + 冷色亮起，再回落还原。
+                yield return PlayAttackerCast(GetViewForUnit(presentationEvent.source));
                 yield break;
             }
 
@@ -1770,7 +1780,11 @@ namespace Shouyou.UI
                 Color32 impactColor = presentationEvent.type == PresentationEventType.Heal
                     ? new Color32(114, 255, 176, 225)
                     : new Color32(255, 164, 144, 235);
-                yield return PlayUnitPulse(targetView, impactColor, HitPresentationSeconds);
+
+                // 受击三段表现：白闪（命中一帧）→ 颜色脉冲 → 飘字上浮淡出。
+                yield return PlayImpactWhiteFlash(targetView, ImpactWhiteFlashSeconds);
+                yield return PlayUnitPulse(targetView, impactColor, HitColorPulseSeconds);
+                yield return PlayFloatingTextRise(targetView, FloatingTextRiseSeconds);
                 HideFloatingText(targetView);
                 yield break;
             }
@@ -1787,7 +1801,8 @@ namespace Shouyou.UI
                     }
                 }
 
-                yield return PlayUnitPulse(targetView, new Color32(128, 100, 145, 235), DefeatPresentationSeconds);
+                // 阵亡淡出：头像与槽位一起压向退场灰，模拟角色退场。
+                yield return PlayDefeatFade(targetView);
             }
         }
 
@@ -1833,6 +1848,175 @@ namespace Shouyou.UI
             {
                 portrait.color = portraitColor;
                 portrait.rectTransform.localScale = portraitScale;
+            }
+        }
+
+        /// <summary>
+        /// 攻击者施法高亮：头像上抬 + 轻微放大 + 冷色亮起，再回落还原，模拟"起手施法"。
+        /// 只做表现，不改变任何战斗数值；结束后还原位置、缩放与颜色。
+        /// </summary>
+        private IEnumerator PlayAttackerCast(BattleUnitView view)
+        {
+            if (view == null)
+            {
+                yield break;
+            }
+
+            Image slotImage = view.slotImage;
+            Image portrait = view.portrait;
+            Color slotColor = slotImage == null ? Color.white : slotImage.color;
+            Color portraitColor = portrait == null ? Color.white : portrait.color;
+            Vector3 portraitScale = portrait == null ? Vector3.one : portrait.rectTransform.localScale;
+            Vector3 portraitPos = portrait == null ? Vector3.zero : portrait.rectTransform.localPosition;
+            Color32 castTint = new Color32(112, 255, 214, 235);
+            float elapsed = 0f;
+
+            while (elapsed < AttackPresentationSeconds)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float rate = AttackPresentationSeconds <= 0f ? 1f : Mathf.Clamp01(elapsed / AttackPresentationSeconds);
+                // sin 波形保证前半程抬升、后半程回落，峰值出现在中点。
+                float lift = Mathf.Sin(rate * Mathf.PI);
+                if (portrait != null)
+                {
+                    portrait.rectTransform.localPosition = portraitPos + new Vector3(0f, lift * 8f, 0f);
+                    portrait.rectTransform.localScale = portraitScale * (1f + lift * 0.10f);
+                    portrait.color = Color.Lerp(portraitColor, castTint, lift * 0.6f);
+                }
+
+                if (slotImage != null)
+                {
+                    slotImage.color = Color.Lerp(slotColor, castTint, lift * 0.35f);
+                }
+
+                yield return null;
+            }
+
+            if (portrait != null)
+            {
+                portrait.rectTransform.localPosition = portraitPos;
+                portrait.rectTransform.localScale = portraitScale;
+                portrait.color = portraitColor;
+            }
+
+            if (slotImage != null)
+            {
+                slotImage.color = slotColor;
+            }
+        }
+
+        /// <summary>
+        /// 受击瞬间白闪：头像闪白 + 轻微放大，再快速还原，突出"命中"的一帧。
+        /// </summary>
+        private IEnumerator PlayImpactWhiteFlash(BattleUnitView view, float duration)
+        {
+            if (view == null)
+            {
+                yield break;
+            }
+
+            Image portrait = view.portrait;
+            Color portraitColor = portrait == null ? Color.white : portrait.color;
+            Vector3 portraitScale = portrait == null ? Vector3.one : portrait.rectTransform.localScale;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float rate = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+                // 从全白衰减回原色，前段保持放大制造"顿一下"的冲击感。
+                float flash = 1f - rate;
+                if (portrait != null)
+                {
+                    portrait.color = Color.Lerp(Color.white, portraitColor, rate);
+                    portrait.rectTransform.localScale = portraitScale * (1f + flash * 0.14f);
+                }
+
+                yield return null;
+            }
+
+            if (portrait != null)
+            {
+                portrait.color = portraitColor;
+                portrait.rectTransform.localScale = portraitScale;
+            }
+        }
+
+        /// <summary>
+        /// 飘字上浮 + 淡出。在受击脉冲之后调用，让飘字独立停留一段时间保证可读。
+        /// 结束后还原位置与颜色，避免影响下一次飘字。
+        /// </summary>
+        private IEnumerator PlayFloatingTextRise(BattleUnitView view, float duration)
+        {
+            if (view == null || view.damageText == null)
+            {
+                yield break;
+            }
+
+            RectTransform textRect = view.damageText.rectTransform;
+            Vector2 origin = textRect.anchoredPosition;
+            Color originalColor = view.damageText.color;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float rate = duration <= 0f ? 1f : Mathf.Clamp01(elapsed / duration);
+                textRect.anchoredPosition = origin + new Vector2(0f, rate * 22f);
+                Color c = originalColor;
+                c.a = Mathf.Lerp(originalColor.a, 0f, rate);
+                view.damageText.color = c;
+                yield return null;
+            }
+
+            textRect.anchoredPosition = origin;
+            view.damageText.color = originalColor;
+        }
+
+        /// <summary>
+        /// 阵亡淡出：头像亮度与槽位一起压向退场灰，模拟角色退场。
+        /// 结束后的最终颜色与 RefreshView 的退场灰一致，RefreshAllViews 会覆盖为统一状态。
+        /// </summary>
+        private IEnumerator PlayDefeatFade(BattleUnitView view)
+        {
+            if (view == null)
+            {
+                yield break;
+            }
+
+            Image portrait = view.portrait;
+            Image slotImage = view.slotImage;
+            Color portraitColor = portrait == null ? Color.white : portrait.color;
+            Color slotColor = slotImage == null ? Color.white : slotImage.color;
+            Color targetPortrait = new Color(0.45f, 0.45f, 0.45f, 0.55f);
+            Color targetSlot = new Color(slotColor.r * 0.55f, slotColor.g * 0.55f, slotColor.b * 0.55f, slotColor.a);
+            float elapsed = 0f;
+
+            while (elapsed < DefeatFadeSeconds)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float rate = DefeatFadeSeconds <= 0f ? 1f : Mathf.Clamp01(elapsed / DefeatFadeSeconds);
+                if (portrait != null)
+                {
+                    portrait.color = Color.Lerp(portraitColor, targetPortrait, rate);
+                }
+
+                if (slotImage != null)
+                {
+                    slotImage.color = Color.Lerp(slotColor, targetSlot, rate);
+                }
+
+                yield return null;
+            }
+
+            if (portrait != null)
+            {
+                portrait.color = targetPortrait;
+            }
+
+            if (slotImage != null)
+            {
+                slotImage.color = targetSlot;
             }
         }
 
@@ -1900,7 +2084,8 @@ namespace Shouyou.UI
             SetSkillButton(dreamAreaButton, "dream_area", "\u5982\u68a6\u4ee4");
             SetSkillButton(healSkillButton, "healing_verse", "\u7597\u6108");
 
-            SetButtonInteractable(startBattleButton, battleEnded || (canContinueBattle && IsPlayerTurn()));
+            // 表现队列播放期间开始/重新开始按钮同样变灰，避免"可点但被输入锁静默忽略"。
+            SetButtonInteractable(startBattleButton, !IsBattleInputLocked() && (battleEnded || (canContinueBattle && IsPlayerTurn())));
             SetButtonInteractable(autoBattleButton, canContinueBattle && IsPlayerTurn());
             SetButtonInteractable(basicSkillButton, canContinueBattle && CanUseSkill("basic", BasicSkillCost));
             BattleUnitState skillOwner = GetSelectedSkillOwner();

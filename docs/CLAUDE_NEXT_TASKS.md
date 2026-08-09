@@ -1,6 +1,6 @@
 # Claude Code Next Tasks
 
-Updated: 2026-08-09 11:40 Asia/Shanghai
+Updated: 2026-08-09 12:00 Asia/Shanghai
 
 This file is a handoff board, not the execution log. Please write review results to `docs/AI_TASK_LOG.md`.
 
@@ -21,8 +21,25 @@ P2 观察点（供"战斗表现完善"阶段参考）：
 2. 胜利结算后"重新开始"按钮在表现播放期可点但被锁静默忽略（约 1 秒），建议按钮同步变灰。
 3. 历史遗留 `???` 乱码注释（a2032421，非本轮引入），建议后续统一清理。
 
-**下一优先级：战斗表现完善（先）→ 第一章主流程闭环（后）。**
-仍待人工：Unity Play Mode 验证 Todo26 多事件连播/退出残留/胜负结算时序。
+**下一优先级：第一章主流程闭环（战斗表现完善已交付）。**
+仍待人工：Unity Play Mode 验证 Todo26 多事件连播/退出残留/胜负结算时序 + Todo27 新表现（施法高亮/受击三段时序/阵亡淡出/飘字时长）。
+
+---
+
+## ✅ DONE — Todo27-FE-R1-CODE 战斗表现完善 (2026-08-09)
+
+Scope: 在 Todo26 表现事件队列之上完善表现层。未改伤害公式/行动值/AP/冷却/后端/数据库。
+See `docs/AI_TASK_LOG.md` → Todo27-FE-R1-CODE.
+
+- 攻击者头像施法高亮（sin 上抬 + 放大 + 青色渐变）✓
+- 受击白闪 → 颜色脉冲 → 飘字上浮淡出三段时序，飘字可见时长恢复 0.8s ✓
+- 阵亡淡出置灰（与 defeated 灰态一致）✓
+- startBattleButton 表现锁定时同步变灰（修复 Todo26 P2-2）✓
+- 清理 4 处历史遗留 `???` 乱码注释（修复 Todo26 P2-3）✓
+- 新增 verify_battle_presentation_polish.ps1；含新增在内 5 项静态校验全部 PASS ✓
+
+**下一优先级：第一章主流程闭环（关卡选择 → 战斗 → 结算奖励 → 解锁下一关 → 剧情节点）。**
+仍待人工：Unity Play Mode 验证 Todo27 新表现（多事件连播无残留、施法/受击/阵亡手感、播放中退出重置）。
 
 ---
 

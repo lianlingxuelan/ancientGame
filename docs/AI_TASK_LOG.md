@@ -3903,3 +3903,65 @@ remaining_rounds: 2
 - 遗留：Play Mode 多事件连播、退出残留、胜负结算时序需人工在 Unity 中验证
 ---BLOCK_SUMMARY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo27-FE-R1-CODE
+parent_id: Todo26-FE-R1-PASS
+round: 1
+timestamp: 2026-08-09 12:00:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗表现完善
+flow_status: [CODE_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+在 Todo26 表现事件队列之上完善战斗表现：攻击者头像高亮+施法上抬、受击白闪+颜色脉冲、阵亡淡出置灰、伤害飘字上浮淡出且可见时长恢复 0.8s。不改伤害公式、行动值、行动点、冷却、后端与数据库。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_battle_presentation_polish.ps1（新增静态校验脚本，纯 ASCII）
+
+关键方法：
+1. PlayAttackerCast —— 攻击者施法高亮（正弦波上抬 + 放大 + 青色渐变），结束后恢复原位。
+2. PlayImpactWhiteFlash —— 受击瞬间白闪 + 轻微放大，结束后恢复原色。
+3. PlayFloatingTextRise —— 伤害/治疗飘字上浮 + 淡出，结束后恢复飘字原点位与颜色。
+4. PlayDefeatFade —— 阵亡淡出置灰（与 RefreshView 的 defeated 灰态一致），结束后停在灰态。
+5. PlayPresentationEvent —— Attack/Damage/Heal/Defeat 四分支分别调用上述协程。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 常量区调整：删除旧 HitPresentationSeconds / DefeatPresentationSeconds；新增 AttackPresentationSeconds(0.22s)/
+   ImpactWhiteFlashSeconds(0.08s)/HitColorPulseSeconds(0.34s)/FloatingTextRiseSeconds(0.38s)/
+   DefeatFadeSeconds(0.45s)；DamageTextVisibleSeconds 恢复 0.8s 并重新参与受击表现链（0.08+0.34+0.38=0.8）。
+2. PlayPresentationEvent 三分支重写：Attack → PlayAttackerCast；Damage/Heal → 白闪 + 颜色脉冲 + 飘字上浮淡出；
+   Defeat → PlayDefeatFade。Attack 分支保留 PortraitAttackEffectRequested 扩展点（:1757-1760）。
+3. 新增 PlayAttackerCast：头像按 sin 曲线上抬（峰 8px）+ 放大(×1.10) + 颜色向 青色 Color32(112,255,214,235)
+   渐变 + 槽位颜色×0.35，结束后恢复所有属性。
+4. 新增 PlayImpactWhiteFlash：头像从白闪（放大 ×1.14）lerp 回原色，结束后恢复。
+5. 新增 PlayFloatingTextRise：飘字上浮（22px/s）+ alpha 淡出到 0，结束后恢复飘字原点位与颜色。
+6. 新增 PlayDefeatFade：头像 lerp 到 Color(0.45,0.45,0.45,0.55) 灰态、槽位×0.55，与 RefreshView 的 defeated 表现一致。
+7. 修复 P2-2：startBattleButton 在表现队列锁定时同步变灰，不再"可点但被静默忽略"。
+8. 清理 P2-3：修复 4 处历史遗留 `???` 乱码注释（PressMainBattleButton/CastPoetryStrike/CastDreamAreaAttack/
+   CastHealingVerse 上方），还原为准确中文。
+
+资源变更：无。
+存档影响：无。
+风险点：本终端无法启动 Unity Editor；表现均为协程 lerp，退出/重置已有 ClearPresentationQueue 兜底，
+需在 Play Mode 确认多事件连播无残留、飘字时长手感、阵亡淡出后再次开战恢复正常。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Claude自测：
+1. tools/verify_battle_presentation_polish.ps1 PASS（8 个新符号存在、2 个旧常量移除、乱码注释清零、按钮锁修复命中）。
+2. 回归 4 项：verify_battle_presentation_queue.ps1 / verify_battle_loop.ps1 / verify_skill_preselection.ps1 /
+   verify_dual_mode_skill_input.ps1 全部 PASS。
+3. C# 大括号配平 OK；git diff --check（本轮 C# 文件）无 trailing whitespace。
+4. git diff --exit-code -- ShouyouServer/data/shouyou.db 无输出，数据库未修改。
+
+建议Unity Play Mode测试：
+1. 普攻/三个大招/敌方攻击：确认攻击者头像上抬高亮、受击白闪→颜色脉冲→飘字上浮淡出的三段时序清晰可读。
+2. 治疗：确认只播绿色飘字，不触发攻击者施法高亮。
+3. 击杀最后一员：确认阵亡淡出置灰后再播下一条表现/下一行动者；下局开战头像恢复正常。
+4. 表现播放期间连点技能/开始/重新开始：确认输入锁定且重新开始按钮同步变灰。
+5. 播放中退出战斗/重置：确认无飘字或头像状态残留。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
