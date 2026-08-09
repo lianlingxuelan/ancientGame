@@ -1,8 +1,30 @@
 # Claude Code Next Tasks
 
-Updated: 2026-07-31 13:30 Asia/Shanghai
+Updated: 2026-08-09 11:40 Asia/Shanghai
 
 This file is a handoff board, not the execution log. Please write review results to `docs/AI_TASK_LOG.md`.
+
+## ✅ DONE — Claude Review: Todo26-FE-R1 战斗表现事件队列 (2026-08-09)
+
+Scope: 攻击/受击/治疗飘字/阵亡改为可顺序播放的前端表现事件队列，保留头像施法动画接入点。
+Reviewed and passed (1 round, 0 P1, 3 个 P2 非阻塞观察点)。See `docs/AI_TASK_LOG.md` → Todo26-FE-R1-REV + Todo26-FE-R1-PASS.
+
+- FIFO 表现队列 + 协程顺序播放 ✓
+- 播放期输入锁（六入口 + 按钮变灰）✓
+- OnDisable/Reset/Retreat 清理无残留 ✓
+- PortraitAttackEffectRequested 扩展点保留 ✓
+- 伤害/行动值/AP/CD/后端/DB 均未修改 ✓
+- 4 项静态校验 PASS ✓
+
+P2 观察点（供"战斗表现完善"阶段参考）：
+1. 飘字时长从 0.8s 缩至约 0.42s（与受击脉冲绑定），可读性略降。
+2. 胜利结算后"重新开始"按钮在表现播放期可点但被锁静默忽略（约 1 秒），建议按钮同步变灰。
+3. 历史遗留 `???` 乱码注释（a2032421，非本轮引入），建议后续统一清理。
+
+**下一优先级：战斗表现完善（先）→ 第一章主流程闭环（后）。**
+仍待人工：Unity Play Mode 验证 Todo26 多事件连播/退出残留/胜负结算时序。
+
+---
 
 ## ✅ DONE — BackendFix-R1 (2026-07-31)
 

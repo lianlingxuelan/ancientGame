@@ -3790,3 +3790,116 @@ Codex自测：
 3. 在表现播放中返回主线、退出战斗或重新开始，确认没有遗留飘字、缩放或高亮；再验证胜利、失败、撤退仍可正常进入原结算流程。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo26-FE-R1-REV
+parent_id: Todo26-FE-R1-CODE
+round: 1
+timestamp: 2026-08-09 11:40:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗表现事件队列
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_REVIEW_PROBLEM_START---
+本次审查 0 P1 缺陷，0 P2 阻塞建议。全部 9 项审查通过；附 3 个 P2 非阻塞观察点。
+
+审查清单逐条核验：
+
+1.【已落实】FIFO 表现事件队列 —
+   presentationEvents = Queue<BattlePresentationEvent>（BattleDemoController.cs:83）。
+   QueuePresentationEvent()（:1712）入队，协程为空时启动 PlayPresentationQueue()。
+   PlayPresentationQueue()（:1730）先 yield return null 等本帧整段战斗解析完成，再 while 逐个 Dequeue 顺序播放。
+   PlayPresentationEvent()（:1748）：Attack → Invoke PortraitAttackEffectRequested + 攻击者脉冲；
+   Damage/Heal → 飘字 + 受击脉冲 + 隐藏；Defeat → 退场标签 + 脉冲。
+   BattlePresentationEvent 只承载最小视觉数据（type/source/target/text/color/request），
+   不引用任何结算状态。PresentationEventType 枚举（Attack/Damage/Heal/Defeat）仅用于排列视觉顺序（:2268）。
+
+2.【已落实】数值规则不变 —
+   CalculateDamage/ApplyDamage/CalculateSkillDamage/CalculateAreaSkillDamage/CalculateHealAmount 均未修改。
+   事件在逻辑结算完成后才生成，队列不参与伤害、治疗、AP、CD、行动值或胜负判定。
+   CreateDefeat 仅在 ApplyDamage 中 wasAlive→defeated 状态跃迁时入队（:1637-1641），同一目标不会重复入队。
+
+3.【已落实】播放期间锁定输入 —
+   IsBattleInputLocked() = isPlayingPresentation || presentationEvents.Count > 0（:1860）。
+   六个玩家入口全部加守卫：PressMainBattleButton/PerformPlayerAttack/CastPoetryStrike/
+   CastDreamAreaAttack/CastHealingVerse/PerformAutoAttacks。
+   RefreshBattleControls 的 canContinueBattle 同步检查锁（:1896），播放中技能/开始/自动按钮 interactable=false。
+   CanUseSkill 也加 !IsBattleInputLocked（:755），与 GetSkillInputState 共用一套锁定。
+
+4.【已落实】自动战斗不截断 —
+   PerformAutoAttacks 改用 PerformPlayerAttackInternal()（内部结算入口，绕过输入锁）连续生成事件，
+   由队列统一顺序播放。注释明确说明"不能再次经过表现队列是否锁定的用户输入判断"（:224-228）。
+
+5.【已落实】清理无残留 —
+   OnDisable → ClearPresentationQueue（:139）；ResetDemoBattle → Clear（:161）；RetreatBattle → Clear（:321）。
+   ClearPresentationQueue 同时 Clear 队列 + 置 isPlayingPresentation=false + StopCoroutine（:1865）。
+
+6.【已落实】头像施法动画扩展点保留 —
+   Attack 事件携带 BattlePortraitEffectRequest，播放时 Invoke PortraitAttackEffectRequested（:1757-1760）。
+   普攻/词意连击/如梦令/敌方普攻全部经 RequestPortraitAttackEffect → 入队 Attack 事件，统一顺序，
+   后续 Animator/Timeline/Spine/粒子层可直接订阅现有事件而无需改动战斗逻辑。
+
+7.【已落实】治疗只播治疗飘字 —
+   ShowHealText 创建 Heal 事件（:1703），PlayPresentationEvent 对 Heal 使用绿色 impactColor（:1770-1771），
+   不触发攻击头像事件；只有 RequestPortraitAttackEffect 会生成 Attack 事件。
+
+8.【已落实】静态校验四连 —
+   verify_battle_presentation_queue.ps1 PASS
+   verify_battle_loop.ps1 PASS
+   verify_skill_preselection.ps1 PASS
+   verify_dual_mode_skill_input.ps1 PASS
+   git diff --check：仅 Scene_Boot.unity 的 Unity YAML 固有 trailing whitespace（非本任务引入，Todo20 已确认）。
+
+9.【已落实】shouyou.db 未修改 —
+   git diff 5198f61..28987a5 --stat 不含任何 ShouyouServer 文件。
+
+P2 非阻塞观察点（供后续"战斗表现完善"阶段参考，不阻塞本轮）：
+
+- P2-1 飘字时长缩短：原独立飘字协程用 DamageTextVisibleSeconds=0.8s，现改为队列内
+   ShowFloatingTextImmediately → PlayUnitPulse(HitPresentationSeconds=0.42s) → HideFloatingText，
+   飘字可见时长缩至约 0.42s，可读性略降；常量 DamageTextVisibleSeconds 保留但已无引用。
+- P2-2 胜利结算后"重新开始"按钮外观：RefreshBattleControls 中 startBattleButton.interactable =
+   battleEnded || (...)，胜利时按钮可点，但点击被 IsBattleInputLocked 静默忽略（表现队列约 1 秒播完）。
+   锁定生效符合需求，但按钮未变灰，轻微 UX 瑕疵。
+- P2-3 历史遗留乱码注释：BattleDemoController 中数处 `???` 中文注释来自 2026-07-28 提交 a2032421
+   （Todo15 时期），非本轮引入；git blame 已确认，建议后续统一清理。
+
+Play Mode 人工验证仍按 Codex 建议清单执行：多事件连播顺序、表现中锁定重复点击、
+治疗不触发攻击头像事件、播放中退出无残留、胜负结算时序。
+---BLOCK_REVIEW_PROBLEM_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo26-FE-R1-PASS
+parent_id: Todo26-FE-R1-REV
+round: 1
+timestamp: 2026-08-09 11:40:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 战斗表现事件队列
+flow_status: [REVIEW_PASS]
+agent: claude
+---BLOCK_VERDICT_START---
+verdict: PASS
+round: 1
+critical_count: 0
+warning_count: 0
+next_action: CLOSE
+remaining_rounds: 2
+---BLOCK_VERDICT_END---
+---BLOCK_SUMMARY_START---
+- 完成内容：BattlePresentationEvent 事件类型 + FIFO 表现队列 + 协程顺序播放 +
+  播放期输入锁 + OnDisable/Reset/Retreat 清理 + 飘字/退场/攻击脉冲表现 +
+  PortraitAttackEffectRequested 头像动画扩展点
+- 最终状态：通过（1 轮），0 P1，3 个 P2 观察点（不阻塞）
+- 未修改：伤害公式/行动值/行动点/冷却/后端/数据库
+- 遗留：Play Mode 多事件连播、退出残留、胜负结算时序需人工在 Unity 中验证
+---BLOCK_SUMMARY_END---
+===TASK_RECORD_END===
