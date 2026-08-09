@@ -3965,3 +3965,61 @@ Claude自测：
 5. 播放中退出战斗/重置：确认无飘字或头像状态残留。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo28-FE-R1-CODE
+parent_id: Todo27-FE-R1-CODE
+round: 1
+timestamp: 2026-08-09 12:30:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 第一章主流程闭环
+flow_status: [CODE_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+第一章主流程闭环：通关结算的奖励从"只展示文字"改为"真实入账"到最小本地资源钱包，让 选关→战斗→结算拿奖励→解锁下一关→剧情 的循环对玩家真正成立。不改伤害/行动值/AP/CD/后端/数据库。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/PlayerResourceManager.cs（新增）
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+3. tools/verify_mainline_reward_grant.ps1（新增静态校验脚本，纯 ASCII）
+4. docs/superpowers/plans/2026-08-09-chapter-one-mainline-loop-closure.md（新增方案文档）
+
+关键方法：
+1. PlayerResourceManager.GetCount —— 读持有数量。
+2. PlayerResourceManager.GrantRewards —— 按 RewardItem.id 累计入账并 Save。
+3. HomePageRouter.ShowBattleVictoryDetail —— 结算时先实际入账再渲染。
+4. HomePageRouter.BuildResourceBalanceText —— 按 id 去重拼"当前持有"文本。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 新增 PlayerResourceManager（Shouyou.Data，非 MonoBehaviour 单例，PlayerPrefs 持久化）：
+   键前缀 Shouyou.Player.Resource.{id}；GrantRewards 跳过 id 为空或 amount<=0 的条目，入账后立即 Save。
+2. ShowBattleVictoryDetail：结算时调用 PlayerResourceManager.Instance.GrantRewards(stageRewards)，
+   把 MainlineStageCatalog.GetRewards 的奖励真实入账；再渲染奖励列表 + 当前持有余额。
+3. 新增 BuildResourceBalanceText：按奖励 id 去重，逐条读 GetCount，拼"当前持有：名称 ×数量"；
+   奖励为空时返回空串，由 rewardSection 决定是否拼接，避免空行。
+4. 清理 HomePageRouter 三处历史遗留 `???` 乱码注释（ResolveBattleDefeat 旁、ConfigureStoryDetailForBattleDefeat、
+   ReturnToMainlineAfterBattle 上方），还原为准确中文。
+5. 补 using System.Collections.Generic（BuildResourceBalanceText 使用 List/HashSet）。
+
+资源变更：无。
+存档影响：新增 PlayerPrefs 键 Shouyou.Player.Resource.*；不删不改旧键。
+风险点：本终端无法启动 Unity Editor；PlayerResourceManager 为纯静态 + PlayerPrefs，
+  需在 Play Mode 验证通关后余额累加、重复挑战只加资源不推进度、重启后资源保留。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Claude自测：
+1. tools/verify_mainline_reward_grant.ps1 PASS（PlayerResourceManager 契约 8 项 + HomePageRouter 接入 4 项 + 乱码清零）。
+2. 回归 8 项：verify_battle_presentation_polish / verify_battle_presentation_queue / verify_battle_loop /
+   verify_skill_preselection / verify_dual_mode_skill_input / verify_battle_target_feedback /
+   verify_formation_battle_linkage / verify_portrait_attack_effect_hook 全部 PASS。
+3. HomePageRouter/PlayerResourceManager/BattleDemoController 大括号配平 OK；git diff --check 无 trailing whitespace。
+4. git diff --exit-code -- ShouyouServer/data/shouyou.db 无输出，数据库未修改。
+
+建议Unity Play Mode测试：
+1. 通关 1-1：结算弹窗出现"当前持有：铜钱 1200"；再打一次 1-1，余额累加为 2400，主线进度不重复推进。
+2. 通关 1-6：确认玉 60 入账，其余材料/收集品数量正确。
+3. 返回主线/重战/下一关按钮不受影响；重启游戏后资源余额保留。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

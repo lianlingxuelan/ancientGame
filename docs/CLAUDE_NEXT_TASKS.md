@@ -1,8 +1,23 @@
 # Claude Code Next Tasks
 
-Updated: 2026-08-09 12:00 Asia/Shanghai
+Updated: 2026-08-09 12:30 Asia/Shanghai
 
 This file is a handoff board, not the execution log. Please write review results to `docs/AI_TASK_LOG.md`.
+
+## ✅ DONE — Todo28-FE-R1-CODE 第一章主流程闭环 (2026-08-09)
+
+Scope: 通关结算奖励真实入账到最小本地资源钱包（PlayerPrefs 持久化），让 选关→战斗→结算拿奖励→解锁下一关→剧情 的循环对玩家真正成立。未改伤害/行动值/AP/CD/后端/数据库。
+See `docs/AI_TASK_LOG.md` → Todo28-FE-R1-CODE.
+
+- 新增 PlayerResourceManager（GetCount / GrantRewards，键前缀 Shouyou.Player.Resource.*）✓
+- ShowBattleVictoryDetail 结算时实际入账 + "当前持有"余额展示 ✓
+- 清理 HomePageRouter 三处历史 `???` 乱码注释 ✓
+- 新增 verify_mainline_reward_grant.ps1；含新增在内 9 项静态校验全部 PASS ✓
+
+**下一优先级（候选）：资源/背包系统扩展（结算→养成消费闭环，含体力系统）。**
+仍待人工：Unity Play Mode 验证 Todo27 新表现 + Todo28 结算入账/余额累加/重启保留。
+
+---
 
 ## ✅ DONE — Claude Review: Todo26-FE-R1 战斗表现事件队列 (2026-08-09)
 
@@ -38,7 +53,7 @@ See `docs/AI_TASK_LOG.md` → Todo27-FE-R1-CODE.
 - 清理 4 处历史遗留 `???` 乱码注释（修复 Todo26 P2-3）✓
 - 新增 verify_battle_presentation_polish.ps1；含新增在内 5 项静态校验全部 PASS ✓
 
-**下一优先级：第一章主流程闭环（关卡选择 → 战斗 → 结算奖励 → 解锁下一关 → 剧情节点）。**
+**下一优先级：第一章主流程闭环（已交付 Todo28，见上方区块）。**
 仍待人工：Unity Play Mode 验证 Todo27 新表现（多事件连播无残留、施法/受击/阵亡手感、播放中退出重置）。
 
 ---

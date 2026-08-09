@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UI;
 using Shouyou.Data;
 using Shouyou.Network;
@@ -515,7 +516,7 @@ namespace Shouyou.UI
         }
 
         // -------------------------
-        // ????
+        // 第三章场景剧情快速预览入口（仅演示用）
         // -------------------------
 
         public void ShowScene31() { SetStoryBody("3-1 清晨赴会·街巷同行\n李清照与婉禾第一次走入汴京文坛社交场。"); }
@@ -641,9 +642,14 @@ namespace Shouyou.UI
             int nextStageId = LevelProgressManager.Instance.GetNextStageId(currentMainlineStageId);
             MainlineStageInfo nextStage = MainlineStageCatalog.Get(nextStageId);
             MainlineStageInfo completedStage = MainlineStageCatalog.Get(currentMainlineStageId);
-            string rewardText = BuildBattleRewardText(
-                MainlineStageCatalog.GetRewards(completedStage.id),
-                completedStage.rewardPreview);
+            RewardItem[] stageRewards = MainlineStageCatalog.GetRewards(completedStage.id);
+            // 结算奖励实际入账：通关后立即写入本地资源钱包，不再只是展示文字。
+            PlayerResourceManager.Instance.GrantRewards(stageRewards);
+            string rewardText = BuildBattleRewardText(stageRewards, completedStage.rewardPreview);
+            string balanceText = BuildResourceBalanceText(stageRewards);
+            string rewardSection = string.IsNullOrEmpty(balanceText)
+                ? rewardText
+                : rewardText + "\n" + balanceText;
             string progressText = progressAdvanced
                 ? "主线进度已推进，下一关已解锁：" + nextStage.title
                 : "该关卡此前已通关，本次为重复挑战，不重复推进主线进度。";
@@ -658,7 +664,7 @@ namespace Shouyou.UI
                 "\n\n李清照发动词意：如梦令。\n队伍获得气韵增益，顺利完成本次 PVE 试炼。" +
                 "\n\n出战队伍：" + ShouyouBackendBootstrap.GetFormationSummary() +
                 "\n队伍战力：" + ShouyouBackendBootstrap.GetFormationPower() +
-                "\n\n结算奖励：\n" + rewardText + "\n主线进度 +1" +
+                "\n\n结算奖励：\n" + rewardSection + "\n主线进度 +1" +
                 "\n\n" + progressText +
                 "\n\n下一步你可以返回主线继续选关，也可以先去编队调整阵容。"
             );
@@ -693,6 +699,40 @@ namespace Shouyou.UI
             return string.IsNullOrEmpty(renderedRewards)
                 ? (string.IsNullOrEmpty(rewardPreview) ? "暂无奖励信息" : rewardPreview)
                 : renderedRewards;
+        }
+
+        /// <summary>
+        /// 生成结算后各类资源的当前持有数量文本。
+        ///
+        /// 按奖励的 id 去重，逐条读取 PlayerResourceManager 的入账后余额。
+        /// 奖励列表为空或全部无效时返回空字符串，由调用方决定是否拼接。
+        /// </summary>
+        private string BuildResourceBalanceText(RewardItem[] rewards)
+        {
+            if (rewards == null)
+            {
+                return string.Empty;
+            }
+
+            var seenIds = new HashSet<string>();
+            var balanceLines = new List<string>();
+            for (int i = 0; i < rewards.Length; i++)
+            {
+                RewardItem reward = rewards[i];
+                if (reward == null || string.IsNullOrEmpty(reward.id) || reward.amount <= 0)
+                {
+                    continue;
+                }
+
+                if (!seenIds.Add(reward.id))
+                {
+                    continue;
+                }
+
+                balanceLines.Add("当前持有：" + reward.name + " ×" + PlayerResourceManager.Instance.GetCount(reward.id));
+            }
+
+            return balanceLines.Count == 0 ? string.Empty : string.Join("\n", balanceLines);
         }
 
         /// <summary>
@@ -764,8 +804,8 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// ??????????????
-        /// ?????????????????????????????????
+        /// 战斗失败结算弹窗按钮配置。
+        /// 失败不推进主线进度，只保留返回/编队/重战/收起入口。
         /// </summary>
         private void ConfigureStoryDetailForBattleDefeat()
         {
@@ -777,7 +817,7 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// ??????????
+        /// 战斗结算后返回主线章节页。
         /// </summary>
         private void ReturnToMainlineAfterBattle()
         {
