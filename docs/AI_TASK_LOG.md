@@ -4045,3 +4045,45 @@ agent: claude
 4. 提交 840e2f1 已推送 origin/master。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+===TASK_RECORD_START===
+task_id: Todo28-FE-R2-CODE
+parent_id: Todo28-FE-R1-REVIEW
+round: 2
+timestamp: 2026-08-09 14:27:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 第一章主流程闭环-战斗平衡修复(编队补人 + 按关卡限敌)
+flow_status: [CODE_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+反馈(2026-08-09 玩家): 2 人打 6 人,根本打不过。
+根因: enemyGroup 每关数据前端从未引用,前端固定生成全部 6 敌;编队仅李清照 + 婉禾 2 人 → 恒为 2v6,数学上必败(约 3 回合团灭)。
+用户接受两种修法: 补满我方 4 个 NPC 位置,或限制敌人数/对齐双方人数。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_LOG_START---
+后端:
+1. database.mjs: seedInitialData 新增 4 个 NPC 角色(npc-qiu 砚秋 / npc-mo 墨童 / npc-zheng 筝娘 / npc-yun 云袖)并解锁到 demo-player;
+   老存档用 UPDATE ... WHERE character_id IS NULL 只补 3-6 空槽,不覆盖玩家手动编队。
+2. demo-config.json v4: 新增 enemyCountPerStage=[2,3,4,5,6,6](按 1-6 关限制出怪数);
+   allies 数组补 4 个 NPC 模板(槽位 3-6)。
+前端:
+3. ShouyouApiModels.cs: BattleDemoConfigResponse 新增 enemyCountPerStage(int[],缺省保持旧行为全部上场)。
+4. BattleDemoController.cs: CreateAllyUnitFromFormation 增加 npc-qiu/mo/zheng/yun 4 个 NPC 单位模板;
+   CreateEnemyUnit 按 enemyCountPerStage[activeStageId-1] 截断出怪,越界/空配置回退全部敌人;
+   新增 CreateEmptyEnemyUnit(defeated=true 占位,行动顺序与寻敌均跳过败者)。
+5. ShouyouBackendBootstrap.cs: GetFormationCharacterIds / GetUnlockedCharacters / GetFormationCandidateCharacters /
+   GetFormationSummary / GetFormationPower 的离线 fallback 全部补齐 6 人(李清照 / 婉禾 / 砚秋 / 墨童 / 筝娘 / 云袖)。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Claude 自测:
+1. 重启服务器后 curl 验证: characters 返回 6 人(4 NPC unlocked=true); formations 返回 6 槽全部填充;
+   demo-config 含 enemyCountPerStage=[2,3,4,5,6,6] 与 6 个 allies。
+2. node --check database.mjs + server.mjs 通过; npm run check 通过。
+3. 三个 .cs 均为 UTF-8 BOM; git diff --cached --check 无 trailing whitespace。
+4. 战斗数值核对: 1-1 为 6 友(938 伤/回合、6380 HP)vs 2 敌(约 264 伤/回合) → 稳胜;
+   最难的 1-6 为 6v6(4170 HP / 792 伤/回合) → 约 5 回合可胜,不再必败。
+建议 Unity Play Mode 测试:
+1. 编队界面显示 6 个位置且可选 NPC; 出战为 6 人。
+2. 1-1 只出 2 敌且可无伤/低损通关; 1-6 满 6 敌仍可通关。
+3. 重复挑战、奖励结算、重启保留不受影响(沿用 Todo28-FE-R1 验证点)。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
