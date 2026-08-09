@@ -145,6 +145,39 @@ function seedInitialData() {
     "李清照的好友，以协奏和羁绊增益支援队伍。",
   );
 
+  insertCharacter.run(
+    "npc-qiu",
+    "砚秋",
+    "R",
+    "词意输出",
+    "点墨成剑",
+    "汴京街市的研墨小匠，词意化形后能凝墨成刃。",
+  );
+  insertCharacter.run(
+    "npc-mo",
+    "墨童",
+    "R",
+    "辅助 / 协奏",
+    "研墨相助",
+    "雅集上跑腿的书童，乐于为同伴递笔研墨。",
+  );
+  insertCharacter.run(
+    "npc-zheng",
+    "筝娘",
+    "R",
+    "治疗 / 乐舞",
+    "曲水流觞",
+    "以古筝入词的乐师，弦音可抚平同伴的伤痛。",
+  );
+  insertCharacter.run(
+    "npc-yun",
+    "云袖",
+    "SR",
+    "词意输出",
+    "袖中藏锋",
+    "来自江南的舞姬，舞姿与词锋一样利落。",
+  );
+
   const insertPlayerCharacter = database.prepare(`
     INSERT OR IGNORE INTO player_characters
     (player_id, character_id, level, bond_level, unlocked)
@@ -152,6 +185,10 @@ function seedInitialData() {
   `);
   insertPlayerCharacter.run("demo-player", "li-qingzhao", 1, 1, 1);
   insertPlayerCharacter.run("demo-player", "wanhe", 1, 0, 0);
+  insertPlayerCharacter.run("demo-player", "npc-qiu", 1, 0, 1);
+  insertPlayerCharacter.run("demo-player", "npc-mo", 1, 0, 1);
+  insertPlayerCharacter.run("demo-player", "npc-zheng", 1, 0, 1);
+  insertPlayerCharacter.run("demo-player", "npc-yun", 1, 0, 1);
 
   database
     .prepare(`
@@ -189,6 +226,22 @@ function seedInitialData() {
     else if (slot === 2) characterId = "wanhe";
     insertFormation.run("demo-player", slot, characterId, now);
   }
+
+  // 老存档（INSERT OR IGNORE 已存在 3-6 空槽）只补空位，不覆盖玩家手动调整的编队。
+  const fillFormationSlot = database.prepare(`
+    UPDATE formations
+    SET character_id = ?, updated_at = ?
+    WHERE player_id = ? AND slot_index = ? AND character_id IS NULL
+  `);
+  const npcSlots = [
+    ["npc-qiu", 3],
+    ["npc-mo", 4],
+    ["npc-zheng", 5],
+    ["npc-yun", 6],
+  ];
+  npcSlots.forEach(([characterId, slot]) => {
+    fillFormationSlot.run(characterId, now, "demo-player", slot);
+  });
 
   database
     .prepare(`

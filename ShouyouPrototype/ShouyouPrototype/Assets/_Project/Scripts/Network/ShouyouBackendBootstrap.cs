@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using UnityEngine;
 using Shouyou.Data;
@@ -147,7 +147,7 @@ namespace Shouyou.Network
             FormationResponse currentFormation = Instance != null ? Instance.formation : null;
             if (currentFormation == null || currentFormation.slots == null)
             {
-                return "李清照 / 空位 / 空位 / 空位 / 空位 / 空位（本地默认队伍）";
+                return "李清照 / 婉禾 / 砚秋 / 墨童 / 筝娘 / 云袖（本地默认队伍）";
             }
 
             string[] labels = new string[6];
@@ -173,7 +173,7 @@ namespace Shouyou.Network
             FormationResponse currentFormation = Instance != null ? Instance.formation : null;
             if (currentFormation == null || currentFormation.slots == null)
             {
-                return 1200;
+                return 1200 + 900 * 5;
             }
 
             int power = 0;
@@ -197,7 +197,11 @@ namespace Shouyou.Network
                 return new[]
                 {
                     CreateFallbackCharacter("li-qingzhao", "李清照", "如梦令"),
-                    CreateFallbackCharacter("wanhe", "婉禾", "协奏")
+                    CreateFallbackCharacter("wanhe", "婉禾", "协奏"),
+                    CreateFallbackCharacter("npc-qiu", "砚秋", "点墨成剑"),
+                    CreateFallbackCharacter("npc-mo", "墨童", "研墨相助"),
+                    CreateFallbackCharacter("npc-zheng", "筝娘", "曲水流觞"),
+                    CreateFallbackCharacter("npc-yun", "云袖", "袖中藏锋")
                 };
             }
 
@@ -234,7 +238,11 @@ namespace Shouyou.Network
                 return new[]
                 {
                     CreateFallbackCharacter("li-qingzhao", "李清照", "如梦令"),
-                    CreateFallbackCharacter("wanhe", "婉禾", "协奏")
+                    CreateFallbackCharacter("wanhe", "婉禾", "协奏"),
+                    CreateFallbackCharacter("npc-qiu", "砚秋", "点墨成剑"),
+                    CreateFallbackCharacter("npc-mo", "墨童", "研墨相助"),
+                    CreateFallbackCharacter("npc-zheng", "筝娘", "曲水流觞"),
+                    CreateFallbackCharacter("npc-yun", "云袖", "袖中藏锋")
                 };
             }
 
@@ -251,6 +259,11 @@ namespace Shouyou.Network
             if (currentFormation == null || currentFormation.slots == null)
             {
                 ids[0] = "li-qingzhao";
+                ids[1] = "wanhe";
+                ids[2] = "npc-qiu";
+                ids[3] = "npc-mo";
+                ids[4] = "npc-zheng";
+                ids[5] = "npc-yun";
                 return ids;
             }
 

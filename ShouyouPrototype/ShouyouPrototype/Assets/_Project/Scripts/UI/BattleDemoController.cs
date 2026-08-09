@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -455,12 +455,41 @@ namespace Shouyou.UI
                 return new BattleUnitState(unitName, true, 1200, 220, "char_liqingzhao");
             }
 
+            if (characterId == "npc-qiu")
+            {
+                return new BattleUnitState(unitName, true, 1080, 170, "char_difang");
+            }
+
+            if (characterId == "npc-mo")
+            {
+                return new BattleUnitState(unitName, true, 1000, 155, "char_wanhe");
+            }
+
+            if (characterId == "npc-zheng")
+            {
+                return new BattleUnitState(unitName, true, 950, 145, "char_difang2");
+            }
+
+            if (characterId == "npc-yun")
+            {
+                return new BattleUnitState(unitName, true, 1050, 160, "char_wanhe");
+            }
+
             // 婉禾和未来非李清照角色在数值表接入前使用独立保守模板，避免所有人都套用主角数据。
             return new BattleUnitState(unitName, true, 980, 145, "char_wanhe");
         }
 
         private BattleUnitState CreateEnemyUnit(int index)
         {
+            // 按关卡限制出场敌人数量：enemyCountPerStage 为空或关卡号越界时保持旧行为（全部敌人上场）。
+            if (battleConfig != null && battleConfig.enemyCountPerStage != null && battleConfig.enemyCountPerStage.Length > 0)
+            {
+                int stageLimit = battleConfig.enemyCountPerStage[Mathf.Clamp(activeStageId - 1, 0, battleConfig.enemyCountPerStage.Length - 1)];
+                if (index >= stageLimit)
+                {
+                    return CreateEmptyEnemyUnit(index);
+                }
+            }
             BattleUnitDto dto = FindBackendUnitBySlot(battleConfig == null ? null : battleConfig.enemies, index);
             if (dto != null)
             {
@@ -604,6 +633,14 @@ namespace Shouyou.UI
         private BattleUnitState CreateEmptyAllyUnit(int index)
         {
             BattleUnitState emptyUnit = new BattleUnitState("空位 " + (index + 1), true, 1, 0, string.Empty);
+            emptyUnit.currentHp = 0;
+            emptyUnit.defeated = true;
+            return emptyUnit;
+        }
+
+        private BattleUnitState CreateEmptyEnemyUnit(int index)
+        {
+            BattleUnitState emptyUnit = new BattleUnitState("空位 " + (index + 1), false, 1, 0, string.Empty);
             emptyUnit.currentHp = 0;
             emptyUnit.defeated = true;
             return emptyUnit;

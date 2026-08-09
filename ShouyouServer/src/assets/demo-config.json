@@ -1,7 +1,8 @@
 {
-  "_comment": "Battle demo config v3. Query: GET /api/v1/battle/demo-config?stageId=1-1",
+  "_comment": "Battle demo config v4. enemyCountPerStage 按关卡序号（1-6）限制本关出怪数量。Query: GET /api/v1/battle/demo-config?stageId=1-1",
   "stageId": "1-1",
   "maxActionPoint": 3,
+  "enemyCountPerStage": [2, 3, 4, 5, 6, 6],
   "stages": {
     "1-1": {
       "title": "明水入汴京",
@@ -72,7 +73,11 @@
   },
   "allies": [
     {"id": "li-qingzhao", "name": "李清照", "slot": 1, "hp": 1200, "attack": 220, "portraitIconKey": "char_liqingzhao"},
-    {"id": "wanhe", "name": "婉禾", "slot": 2, "hp": 1100, "attack": 160, "portraitIconKey": "char_wanhe"}
+    {"id": "wanhe", "name": "婉禾", "slot": 2, "hp": 1100, "attack": 160, "portraitIconKey": "char_wanhe"},
+    {"id": "npc-qiu", "name": "砚秋", "slot": 3, "hp": 1080, "attack": 170, "portraitIconKey": "char_difang"},
+    {"id": "npc-mo", "name": "墨童", "slot": 4, "hp": 1000, "attack": 155, "portraitIconKey": "char_wanhe"},
+    {"id": "npc-zheng", "name": "筝娘", "slot": 5, "hp": 950, "attack": 145, "portraitIconKey": "char_difang2"},
+    {"id": "npc-yun", "name": "云袖", "slot": 6, "hp": 1050, "attack": 160, "portraitIconKey": "char_wanhe"}
   ],
   "enemies": [
     {"id": "enemy_1", "name": "敌一", "slot": 1, "hp": 520, "attack": 105, "portraitIconKey": "enemy_shadow"},

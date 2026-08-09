@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Shouyou.Network
 {
@@ -123,6 +123,8 @@ namespace Shouyou.Network
         public string stageId;
         public string title;
         public int maxActionPoint;
+        // 每关可出场的敌人数量（按关卡序号 1-6 索引）；未返回时保持旧行为（全部敌人上场）。
+        public int[] enemyCountPerStage;
         public BattleUnitDto[] allies;
         public BattleUnitDto[] enemies;
         public BattleSkillDto[] skills;
