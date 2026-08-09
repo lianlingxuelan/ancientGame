@@ -4023,3 +4023,25 @@ Claude自测：
 3. 返回主线/重战/下一关按钮不受影响；重启游戏后资源余额保留。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo28-FE-R1-REVIEW
+parent_id: Todo28-FE-R1-CODE
+round: 1
+timestamp: 2026-08-09 13:15:00 Asia/Shanghai
+project_spec: 极简速查版
+module: 第一章主流程闭环-评审补丁
+flow_status: [CODE_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+评审反馈（2026-08-09）：
+1. PlayerResourceManager.cs.meta 未跟踪，应随脚本入库，避免重生成 GUID。
+2. PlayerResourceManager.cs 中文注释按 GBK 默认码页读取时乱码，应统一 UTF-8。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+1. .meta 已提交并清理行尾空白，git show --check 通过。
+2. .cs 以 UTF-8 with BOM 无损重存，中文注释内容本身即正确 UTF-8。
+3. verify_mainline_reward_grant.ps1 PASS。
+4. 提交 840e2f1 已推送 origin/master。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
