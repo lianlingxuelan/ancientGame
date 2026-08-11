@@ -1,4 +1,4 @@
-# Claude Code Next Tasks
+﻿# Claude Code Next Tasks
 
 Updated: 2026-08-09 12:30 Asia/Shanghai
 
@@ -16,6 +16,48 @@ See `docs/AI_TASK_LOG.md` → Todo28-FE-R1-CODE.
 
 **下一优先级（候选）：资源/背包系统扩展（结算→养成消费闭环，含体力系统）。**
 仍待人工：Unity Play Mode 验证 Todo27 新表现 + Todo28 结算入账/余额累加/重启保留。
+
+---
+
+## DONE - Claude Review: Todo31-FE-R1-CODE action-order preview PASS (2026-08-10)
+
+Scope: add read-only action-order preview to the battle top hint. Do not change action-value sorting, speed calculation, damage, AP/CD, backend, database, assets, Scene_Boot, or battle settlement.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_battle_action_preview.ps1`
+
+Please verify:
+1. `BuildActionOrderPreview()` is read-only: it must not assign `actionCursor`, `currentActor`, or sort/mutate `actionOrder`.
+2. Preview starts at the existing action cursor, skips null/defeated units, and caps at four upcoming units.
+3. The unit label clearly distinguishes ally and enemy without changing who acts.
+4. `BuildBattleRoundTip()` retains current actor and selected target context, then adds the order preview on a second line.
+5. `SetBattleMessage()` cannot overwrite the richer round-tip display with an old one-line string.
+6. Run `tools/verify_battle_action_preview.ps1`, `tools/verify_immediate_defeat_removal.ps1`, `tools/verify_battle_presentation_polish.ps1`, `tools/verify_battle_presentation_queue.ps1`, `tools/verify_battle_loop.ps1`, `tools/verify_skill_preselection.ps1`, `tools/verify_dual_mode_skill_input.ps1`, `tools/verify_battle_target_feedback.ps1`, and `tools/verify_formation_battle_linkage.ps1`.
+7. Unity smoke: select portraits, perform a normal action, preselect a skill and allow enemy actions. Preview should refresh with the actual action queue but never alter the actor.
+
+Known boundary: this is a text preview, not a visual action timeline. No animation or turn-authority redesign is introduced.
+
+---
+
+## DONE - Claude Review: Todo30-FE-R1-CODE no implicit revive PASS (2026-08-10)
+
+Scope: fix only the implicit reappearance of retired battle units. No damage formula, action-value, AP/CD, backend, database, assets, or Scene_Boot change.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_immediate_defeat_removal.ps1`
+
+Please verify:
+1. `LoadBackendBattleConfig()` never calls `ResetDemoBattle()` after an asynchronous config/icon request completes.
+2. `ResetAllUnitViewRemovalState()` is called only from the explicit new-battle entry (`ResetDemoBattle`); `RefreshView` does not set `view.isRemoved = false`.
+3. A retired unit remains excluded from target/action logic and keeps its hidden slot while the same battle continues.
+4. Starting or retrying a new battle still restores all slots normally.
+5. No resurrection feature is introduced accidentally: a future revive must be a dedicated skill/resolution path, never an async-load or render-refresh side effect.
+6. Run `tools/verify_immediate_defeat_removal.ps1`, `tools/verify_battle_presentation_polish.ps1`, `tools/verify_battle_presentation_queue.ps1`, `tools/verify_battle_loop.ps1`, `tools/verify_skill_preselection.ps1`, `tools/verify_dual_mode_skill_input.ps1`, `tools/verify_battle_target_feedback.ps1`, and `tools/verify_formation_battle_linkage.ps1`.
+7. Unity smoke: defeat a unit, wait for backend configuration/icon completion and advance later actions; it must not return, be selected, or receive damage. Retry/new battle is the only current restoration route.
+
+Known boundary: no revive skill or revive UI is implemented in this slice.
 
 ---
 
@@ -459,5 +501,97 @@ Please verify:
 8. Unity Play Mode smoke: basic attack, each big skill, enemy action, auto battle, victory, defeat, retreat and reset. Verify attack pulse -> floating text -> defeat label -> next actor is readable, and no input can double-fire while the sequence is playing.
 
 Known boundary: current battle values are still resolved by the existing synchronous battle flow. This slice serializes presentation only; a future battle timeline should move state commits to each visual event if frame-accurate HP transitions are required.
+
+---
+
+## DONE - Claude Review: Todo29-FE-R1-CODE immediate defeat removal PASS (2026-08-10)
+
+Scope: frontend defeated-unit presentation only. Preserve the final damage float, then immediately hide the defeated unit slot. No damage formula, action-value, AP/CD, backend, database, asset, or Scene_Boot change.
+
+Files:
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_immediate_defeat_removal.ps1`
+- `tools/verify_battle_presentation_polish.ps1`
+
+Please verify:
+1. `ApplyDamage(..., out damageApplied)` exits for null or defeated targets, and every caller queues presentation only when `damageApplied` is true.
+2. The four direct damage paths queue damage before defeat: basic attack, queued poetry strike, area strike, and enemy action.
+3. `canPlayWhenTargetIsDefeated` preserves only the final damage float; stale damage events must not target a defeated unit.
+4. `HideDefeatedUnitView` clears float/defeat text and deactivates the unit slot. `BattleUnitView.isRemoved` must reset when a later battle starts.
+5. The old `PlayDefeatFade` and `DefeatFadeSeconds` paths are absent; no gray/fade/retreat label remains in this flow.
+6. Run `tools/verify_immediate_defeat_removal.ps1`, `tools/verify_battle_presentation_polish.ps1`, `tools/verify_battle_presentation_queue.ps1`, `tools/verify_battle_loop.ps1`, `tools/verify_skill_preselection.ps1`, `tools/verify_dual_mode_skill_input.ps1`, `tools/verify_battle_target_feedback.ps1`, and `tools/verify_formation_battle_linkage.ps1`.
+7. Unity smoke: defeat any unit. Expected order is final damage float, immediate slot disappearance, no later damage/float against that unit, and a full unit reset on a new battle.
+8. Confirm `ShouyouServer/data/shouyou.db` and `Scene_Boot.unity` are unchanged.
+
+Known boundary: battle values still resolve synchronously. This slice only corrects visual retirement and stale-target presentation.
+
+---
+
+## DONE - Claude Review: Todo32-FE-R1-CODE resource wallet PASS (2026-08-11)
+
+Scope: resource-wallet data layer only. Add safe affordability and spending APIs on top of the existing PlayerPrefs-backed reward wallet. No page/UI creation, backend, database, battle formula, AP/CD, asset, or Scene_Boot change.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/PlayerResourceManager.cs`
+- `tools/verify_player_resource_spending.ps1`
+
+Please verify:
+
+1. `CanAfford(id, amount)` returns false for empty id, non-positive amount, or insufficient balance; it performs no write.
+2. `TrySpend(id, amount)` rejects all invalid/insufficient cases without calling `SetInt` or `Save`.
+3. A successful `TrySpend` reduces only the requested resource by exactly `amount`, never below zero, then persists once.
+4. `GrantRewards` keeps its original reward-grant behavior and existing PlayerPrefs key format.
+5. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_player_resource_spending.ps1` and `tools/verify_mainline_reward_grant.ps1`.
+6. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, battle scripts, or asset directories.
+
+Known boundary: no current screen consumes resources yet. The next main-flow slice can bind this existing API to a concrete stamina or character-development action after product values are defined.
+
+---
+
+## DONE - Claude Review: Todo33-FE-R1-CODE atomic batch spend PASS (2026-08-11)
+
+Scope: resource-wallet data layer only. Add an atomic multi-resource spending overload for future development costs. No page/UI creation, backend, database, battle formula, AP/CD, asset, or Scene_Boot change.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/PlayerResourceManager.cs`
+- `tools/verify_player_resource_batch_spending.ps1`
+
+Please verify:
+
+1. `TrySpend(RewardItem[] costs)` rejects null/empty arrays and every invalid item before any PlayerPrefs write.
+2. Duplicate resource ids are aggregated before the affordability pass, so an account cannot overspend by splitting one cost over several entries.
+3. All `CanAfford` checks complete before the first `PlayerPrefs.SetInt`; any insufficient resource leaves every balance unchanged.
+4. Success subtracts exactly the aggregated amount of each requested resource, never below zero, and calls `PlayerPrefs.Save()` once.
+5. Existing `TrySpend(string, int)` and `GrantRewards` semantics remain unchanged.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_player_resource_batch_spending.ps1`, `tools/verify_player_resource_spending.ps1`, and `tools/verify_mainline_reward_grant.ps1`.
+7. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, battle scripts, or asset directories.
+
+Known boundary: no UI or product cost table invokes this API yet. The next product decision must define one real consumer (for example a character upgrade or stamina recovery) rather than inventing temporary costs.
+
+---
+
+## DONE - Claude Review: Todo34-FE-R1-CODE training balance display PASS (2026-08-11)
+
+Scope: read-only training-resource display only. No product costs, spending action, stat growth, backend, database, battle, asset, Scene_Boot, or commercial entry change.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStageCatalog.cs`
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_training_resource_balance.ps1`
+
+Please verify:
+
+1. `GetKnownRewardTypes()` traverses `DefaultStages` in stable order, deduplicates by reward id, skips invalid entries, and returns copied `RewardItem` objects.
+2. `ShowTrainingInfo()` appends current balances through `BuildTrainingResourceBalanceText()` without defining costs or calling `TrySpend`.
+3. Each displayed material balance comes from `PlayerResourceManager.Instance.GetCount(reward.id)` and opening the entry produces no `PlayerPrefs.SetInt` or `PlayerPrefs.Save` call.
+4. `CloneRewards()` remains behaviorally compatible after reusing `CloneReward()`.
+5. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_training_resource_balance.ps1`, `tools/verify_player_resource_batch_spending.ps1`, `tools/verify_player_resource_spending.ps1`, and `tools/verify_mainline_reward_grant.ps1`.
+6. Unity Play Mode smoke: obtain at least one mainline reward, open 角色 -> 养成, confirm the shown count matches the reward wallet; reopen without spending and confirm balances remain unchanged.
+7. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, battle scripts, resource directories, or payment/recharge code.
+
+Known boundary: this remains a compact text-based entry over the generic detail panel. A dedicated character-development screen, level costs and actual material spending should be a later, separately reviewed gameplay slice.
 
 ---

@@ -18,17 +18,18 @@ $requiredFragments = @(
     "PlayAttackerCast",
     "PlayImpactWhiteFlash",
     "PlayFloatingTextRise",
-    "PlayDefeatFade",
+    "HideDefeatedUnitView",
     "ImpactWhiteFlashSeconds",
     "HitColorPulseSeconds",
-    "FloatingTextRiseSeconds",
-    "DefeatFadeSeconds"
+    "FloatingTextRiseSeconds"
 )
 
 # Old presentation constants that must be fully removed.
 $removedFragments = @(
     "DefeatPresentationSeconds",
-    "HitPresentationSeconds"
+    "HitPresentationSeconds",
+    "PlayDefeatFade",
+    "DefeatFadeSeconds"
 )
 
 # Garbled comments (/// ???) must be gone.

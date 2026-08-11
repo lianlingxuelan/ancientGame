@@ -125,6 +125,44 @@ namespace Shouyou.Data
             return CloneRewards(rewards);
         }
 
+        /// <summary>
+        /// 返回当前主线中出现过的奖励种类，用于养成页面展示玩家已有材料。
+        /// 按默认关卡顺序去重，避免字典遍历导致展示顺序不稳定；返回副本，调用方不能修改本地目录数据。
+        /// </summary>
+        public static RewardItem[] GetKnownRewardTypes()
+        {
+            Dictionary<string, RewardItem> knownRewards = new Dictionary<string, RewardItem>();
+            for (int i = 0; i < DefaultStages.Length; i++)
+            {
+                RewardItem[] rewards;
+                if (!DefaultRewardsByStageId.TryGetValue(DefaultStages[i].id, out rewards))
+                {
+                    continue;
+                }
+
+                for (int rewardIndex = 0; rewardIndex < rewards.Length; rewardIndex++)
+                {
+                    RewardItem item = rewards[rewardIndex];
+                    if (item == null || string.IsNullOrEmpty(item.id) || knownRewards.ContainsKey(item.id))
+                    {
+                        continue;
+                    }
+
+                    knownRewards.Add(item.id, CloneReward(item));
+                }
+            }
+
+            RewardItem[] result = new RewardItem[knownRewards.Count];
+            int resultIndex = 0;
+            foreach (KeyValuePair<string, RewardItem> pair in knownRewards)
+            {
+                result[resultIndex] = pair.Value;
+                resultIndex++;
+            }
+
+            return result;
+        }
+
         private static RewardItem CreateReward(string id, string category, string name, int amount, int quality)
         {
             return new RewardItem
@@ -142,22 +180,29 @@ namespace Shouyou.Data
             RewardItem[] copy = new RewardItem[source.Length];
             for (int i = 0; i < source.Length; i++)
             {
-                RewardItem item = source[i];
-                copy[i] = new RewardItem
-                {
-                    id = item.id,
-                    category = item.category,
-                    name = item.name,
-                    amount = item.amount,
-                    iconPath = item.iconPath,
-                    quality = item.quality,
-                    isBound = item.isBound,
-                    expireTime = item.expireTime,
-                    description = item.description
-                };
+                copy[i] = CloneReward(source[i]);
             }
 
             return copy;
+        }
+
+        /// <summary>
+        /// 复制单条奖励配置，防止页面层误改静态目录中的默认数据。
+        /// </summary>
+        private static RewardItem CloneReward(RewardItem item)
+        {
+            return new RewardItem
+            {
+                id = item.id,
+                category = item.category,
+                name = item.name,
+                amount = item.amount,
+                iconPath = item.iconPath,
+                quality = item.quality,
+                isBound = item.isBound,
+                expireTime = item.expireTime,
+                description = item.description
+            };
         }
 
         private static MainlineStageInfo Find(MainlineStageInfo[] stages, int id)

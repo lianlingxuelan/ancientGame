@@ -58,6 +58,8 @@ namespace Shouyou.UI
         public event System.Action<BattlePortraitEffectRequest> PortraitAttackEffectRequested;
 
         private const int UnitCount = 6;
+        // 顶部仅预览当前回合中尚未行动的前四位，不创建真正的行动条或改变行动权。
+        private const int ActionPreviewCount = 4;
         private const int FallbackActionPointMax = 3;
         private const string BattleApiBaseUrl = "http://127.0.0.1:5188";
         private const float HpBarMaxWidth = 86f;
@@ -72,7 +74,6 @@ namespace Shouyou.UI
         // 飘字上浮 + 淡出时长（0.08 + 0.34 + 0.38 = 0.8 = DamageTextVisibleSeconds）。
         private const float FloatingTextRiseSeconds = 0.38f;
         // 阵亡淡出时长。
-        private const float DefeatFadeSeconds = 0.45f;
         private const int BasicSkillCost = 0;
         private const int PoetryStrikeCost = 1;
         private const int DreamAreaCost = 2;
@@ -167,6 +168,7 @@ namespace Shouyou.UI
         public void ResetDemoBattle()
         {
             ClearPresentationQueue();
+            ResetAllUnitViewRemovalState();
             selectedEnemyIndex = 0;
             selectedAllyIndex = 0;
             roundIndex = 1;
@@ -245,8 +247,13 @@ namespace Shouyou.UI
 
             RequestPortraitAttackEffect(attacker, target, "basic", false);
             int damage = CalculateDamage(attacker, target);
-            bool targetDefeated = ApplyDamage(target, damage);
-            ShowDamageText(target, damage);
+            bool damageApplied;
+            bool targetDefeated = ApplyDamage(target, damage, out damageApplied);
+            if (damageApplied)
+            {
+                ShowDamageText(target, damage, targetDefeated);
+                QueueDefeatPresentation(target, targetDefeated);
+            }
             CompletePlayerAction(BuildAttackMessage(attacker, target, damage, targetDefeated));
         }
 
@@ -540,11 +547,8 @@ namespace Shouyou.UI
 
             backendBattleConfigLoading = false;
 
-            if (backendBattleConfigLoaded)
-            {
-                // ?????????????????? DB ???? demo-config ?????
-                ResetDemoBattle();
-            }
+            // 异步配置只会在下一次进入战斗时由 ResetDemoBattle 使用。
+            // 禁止在战斗过程中重置单位状态，否则阵亡单位会被无技能地重新创建。
         }
 
         private IEnumerator DownloadSkillIcons(BattleSkillAssetDto[] assets)
@@ -1011,8 +1015,13 @@ namespace Shouyou.UI
 
                 RequestPortraitAttackEffect(currentActor, target, "poetry_strike", false);
                 int damage = CalculateSkillDamage(currentActor, target, "poetry_strike", 1.8f, 220);
-                bool targetDefeated = ApplyDamage(target, damage);
-                ShowDamageText(target, damage);
+                bool damageApplied;
+                bool targetDefeated = ApplyDamage(target, damage, out damageApplied);
+                if (damageApplied)
+                {
+                    ShowDamageText(target, damage, targetDefeated);
+                    QueueDefeatPresentation(target, targetDefeated);
+                }
                 ConsumeSkill("poetry_strike", PoetryStrikeCost);
                 actionMessage = currentActor.unitName + " 的预选词意连击生效，对 " + target.unitName + " 造成 " + damage + " 点伤害。" + (targetDefeated ? " " + target.unitName + " 已退场。" : string.Empty);
                 return true;
@@ -1034,12 +1043,18 @@ namespace Shouyou.UI
                     }
 
                     aliveTargets++;
-                    if (ApplyDamage(enemy, damage))
+                    bool damageApplied;
+                    bool targetDefeated = ApplyDamage(enemy, damage, out damageApplied);
+                    if (targetDefeated)
                     {
                         defeatedTargets++;
                     }
 
-                    ShowDamageText(enemy, damage);
+                    if (damageApplied)
+                    {
+                        ShowDamageText(enemy, damage, targetDefeated);
+                        QueueDefeatPresentation(enemy, targetDefeated);
+                    }
                 }
 
                 ConsumeSkill("dream_area", DreamAreaCost);
@@ -1167,8 +1182,13 @@ namespace Shouyou.UI
 
             RequestPortraitAttackEffect(enemyAttacker, allyTarget, "enemy_basic", false);
             int enemyDamage = CalculateDamage(enemyAttacker, allyTarget);
-            bool enemyKilledTarget = ApplyDamage(allyTarget, enemyDamage);
-            ShowDamageText(allyTarget, enemyDamage);
+            bool damageApplied;
+            bool enemyKilledTarget = ApplyDamage(allyTarget, enemyDamage, out damageApplied);
+            if (damageApplied)
+            {
+                ShowDamageText(allyTarget, enemyDamage, enemyKilledTarget);
+                QueueDefeatPresentation(allyTarget, enemyKilledTarget);
+            }
             return BuildAttackMessage(enemyAttacker, allyTarget, enemyDamage, enemyKilledTarget);
         }
 
@@ -1332,7 +1352,48 @@ namespace Shouyou.UI
         {
             string targetName = GetSelectedEnemyName();
             string targetTip = string.IsNullOrEmpty(targetName) ? "目标：无" : "目标：" + targetName;
-            return "第 " + roundIndex + " 回合    行动者：" + GetCurrentActorName() + "    " + targetTip + "    回合 PVE Demo";
+            return "第 " + roundIndex + " 回合    行动者：" + GetCurrentActorName() + "    " + targetTip +
+                   "\n行动顺序：" + BuildActionOrderPreview();
+        }
+
+        /// <summary>
+        /// 基于既有行动值队列给玩家展示当前回合接下来会行动的角色。
+        /// 这里只读取 actionOrder/actionCursor；绝不推进游标、重排队列或改变当前行动者。
+        /// </summary>
+        private string BuildActionOrderPreview()
+        {
+            if (battleEnded || actionOrder.Count == 0)
+            {
+                return "本场已结束";
+            }
+
+            List<string> labels = new List<string>();
+            int scanIndex = Mathf.Max(0, actionCursor);
+            while (scanIndex < actionOrder.Count && labels.Count < ActionPreviewCount)
+            {
+                BattleUnitState unit = actionOrder[scanIndex];
+                if (unit != null && !unit.defeated)
+                {
+                    labels.Add(GetActionPreviewUnitName(unit));
+                }
+
+                scanIndex++;
+            }
+
+            return labels.Count > 0 ? string.Join(" → ", labels.ToArray()) : "本回合结算中";
+        }
+
+        /// <summary>
+        /// 用“我/敌”前缀降低同名或肖像相近时的识别成本。
+        /// </summary>
+        private string GetActionPreviewUnitName(BattleUnitState unit)
+        {
+            if (unit == null)
+            {
+                return string.Empty;
+            }
+
+            return (unit.isAlly ? "我·" : "敌·") + unit.unitName;
         }
 
         /// <summary>
@@ -1662,11 +1723,19 @@ namespace Shouyou.UI
             return Mathf.Max(60, attacker.attack - defenseOffset);
         }
 
-        private bool ApplyDamage(BattleUnitState target, int damage)
+        private bool ApplyDamage(BattleUnitState target, int damage, out bool damageApplied)
         {
+            damageApplied = false;
+            // 已退场的单位不能再次承受伤害，也不能生成新的受击表现。
+            if (target == null || target.defeated)
+            {
+                return false;
+            }
+
             bool wasAlive = !target.defeated;
             target.currentHp = Mathf.Max(0, target.currentHp - damage);
             target.defeated = target.currentHp <= 0;
+            damageApplied = true;
 
             // 角色退场后不应保留其未来行动的预选大招。
             if (target.defeated)
@@ -1680,14 +1749,7 @@ namespace Shouyou.UI
                 selectedEnemyIndex = nextTarget == null ? selectedEnemyIndex : System.Array.IndexOf(enemyUnits, nextTarget);
             }
 
-            bool targetDefeated = wasAlive && target.defeated;
-            if (targetDefeated)
-            {
-                // 逻辑上的退场已完成；标签显示由队列延后，确保它排在受击飘字之后。
-                QueuePresentationEvent(BattlePresentationEvent.CreateDefeat(target));
-            }
-
-            return targetDefeated;
+            return wasAlive && target.defeated;
         }
 
         /// <summary>
@@ -1741,9 +1803,20 @@ namespace Shouyou.UI
             return message;
         }
 
-        private void ShowDamageText(BattleUnitState target, int damage)
+        private void ShowDamageText(BattleUnitState target, int damage, bool canPlayWhenTargetIsDefeated)
         {
-            QueuePresentationEvent(BattlePresentationEvent.CreateDamage(target, damage, target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255)));
+            QueuePresentationEvent(BattlePresentationEvent.CreateDamage(target, damage, target.isAlly ? new Color32(255, 92, 92, 255) : new Color32(255, 232, 128, 255), canPlayWhenTargetIsDefeated));
+        }
+
+        /// <summary>
+        /// 将逻辑上的阵亡排在本次伤害飘字之后，避免先置灰/隐藏再出现伤害的错觉。
+        /// </summary>
+        private void QueueDefeatPresentation(BattleUnitState target, bool targetDefeated)
+        {
+            if (targetDefeated)
+            {
+                QueuePresentationEvent(BattlePresentationEvent.CreateDefeat(target));
+            }
         }
 
         private void ShowHealText(BattleUnitState target, int healAmount)
@@ -1812,6 +1885,15 @@ namespace Shouyou.UI
 
             if (presentationEvent.type == PresentationEventType.Damage || presentationEvent.type == PresentationEventType.Heal)
             {
+                // 最后一击允许先播放一次飘字；其他已经退场目标的历史事件直接跳过。
+                if (presentationEvent.type == PresentationEventType.Damage &&
+                    presentationEvent.target != null &&
+                    presentationEvent.target.defeated &&
+                    !presentationEvent.canPlayWhenTargetIsDefeated)
+                {
+                    yield break;
+                }
+
                 BattleUnitView targetView = GetViewForUnit(presentationEvent.target);
                 ShowFloatingTextImmediately(targetView, presentationEvent.text, presentationEvent.textColor);
                 Color32 impactColor = presentationEvent.type == PresentationEventType.Heal
@@ -1829,17 +1911,7 @@ namespace Shouyou.UI
             if (presentationEvent.type == PresentationEventType.Defeat)
             {
                 BattleUnitView targetView = GetViewForUnit(presentationEvent.target);
-                if (targetView != null)
-                {
-                    targetView.defeatLabelVisible = true;
-                    if (targetView.defeatedText != null)
-                    {
-                        targetView.defeatedText.gameObject.SetActive(true);
-                    }
-                }
-
-                // 阵亡淡出：头像与槽位一起压向退场灰，模拟角色退场。
-                yield return PlayDefeatFade(targetView);
+                HideDefeatedUnitView(targetView);
             }
         }
 
@@ -2011,49 +2083,44 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// 阵亡淡出：头像亮度与槽位一起压向退场灰，模拟角色退场。
-        /// 结束后的最终颜色与 RefreshView 的退场灰一致，RefreshAllViews 会覆盖为统一状态。
+        /// 最后一击飘字播放完毕后，立即移除阵亡单位的整个槽位。
+        /// 不保留置灰、退场标签或淡出动画，避免让玩家误以为单位仍可被攻击。
         /// </summary>
-        private IEnumerator PlayDefeatFade(BattleUnitView view)
+        private void HideDefeatedUnitView(BattleUnitView view)
         {
-            if (view == null)
+            if (view == null || view.button == null)
             {
-                yield break;
+                return;
             }
 
-            Image portrait = view.portrait;
-            Image slotImage = view.slotImage;
-            Color portraitColor = portrait == null ? Color.white : portrait.color;
-            Color slotColor = slotImage == null ? Color.white : slotImage.color;
-            Color targetPortrait = new Color(0.45f, 0.45f, 0.45f, 0.55f);
-            Color targetSlot = new Color(slotColor.r * 0.55f, slotColor.g * 0.55f, slotColor.b * 0.55f, slotColor.a);
-            float elapsed = 0f;
-
-            while (elapsed < DefeatFadeSeconds)
+            view.isRemoved = true;
+            view.defeatLabelVisible = false;
+            HideFloatingText(view);
+            if (view.defeatedText != null)
             {
-                elapsed += Time.unscaledDeltaTime;
-                float rate = DefeatFadeSeconds <= 0f ? 1f : Mathf.Clamp01(elapsed / DefeatFadeSeconds);
-                if (portrait != null)
+                view.defeatedText.gameObject.SetActive(false);
+            }
+
+            view.button.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// 仅在明确开始一场新战斗时恢复所有槽位的可见状态。
+        /// 战斗中的界面刷新不得修改 isRemoved；未来复活技能需要经过独立结算入口。
+        /// </summary>
+        private void ResetAllUnitViewRemovalState()
+        {
+            for (int i = 0; i < UnitCount; i++)
+            {
+                if (allyViews[i] != null)
                 {
-                    portrait.color = Color.Lerp(portraitColor, targetPortrait, rate);
+                    allyViews[i].isRemoved = false;
                 }
 
-                if (slotImage != null)
+                if (enemyViews[i] != null)
                 {
-                    slotImage.color = Color.Lerp(slotColor, targetSlot, rate);
+                    enemyViews[i].isRemoved = false;
                 }
-
-                yield return null;
-            }
-
-            if (portrait != null)
-            {
-                portrait.color = targetPortrait;
-            }
-
-            if (slotImage != null)
-            {
-                slotImage.color = targetSlot;
             }
         }
 
@@ -2160,6 +2227,18 @@ namespace Shouyou.UI
                 return;
             }
 
+            bool shouldShowSlot = !unit.defeated || !view.isRemoved;
+            if (view.button != null && view.button.gameObject.activeSelf != shouldShowSlot)
+            {
+                view.button.gameObject.SetActive(shouldShowSlot);
+            }
+
+            // 最后一次飘字结束后已被移除的单位不再参与任何界面刷新。
+            if (!shouldShowSlot)
+            {
+                return;
+            }
+
             float hpRate = unit.maxHp <= 0 ? 0f : (float)unit.currentHp / unit.maxHp;
             if (view.hpBar != null)
             {
@@ -2168,7 +2247,7 @@ namespace Shouyou.UI
                 view.hpBar.sizeDelta = size;
             }
 
-            SetText(view.nameText, GetUnitDisplayText(unit));
+            SetText(view.nameText, GetUnitDisplayText(unit, view.isRemoved));
 
             if (view.slotImage != null)
             {
@@ -2184,7 +2263,7 @@ namespace Shouyou.UI
                         : new Color32(255, 226, 145, 0));
             }
 
-            Color portraitColor = unit.defeated ? new Color(0.45f, 0.45f, 0.45f, 0.55f) : Color.white;
+            Color portraitColor = view.isRemoved ? new Color(0.45f, 0.45f, 0.45f, 0.55f) : Color.white;
             if (view.portrait != null)
             {
                 view.portrait.color = portraitColor;
@@ -2192,14 +2271,14 @@ namespace Shouyou.UI
 
             if (view.defeatedText != null)
             {
-                SetText(view.defeatedText, unit.defeated ? "退场" : string.Empty);
-                view.defeatedText.gameObject.SetActive(unit.defeated && view.defeatLabelVisible);
+                SetText(view.defeatedText, string.Empty);
+                view.defeatedText.gameObject.SetActive(false);
             }
         }
 
-        private string GetUnitDisplayText(BattleUnitState unit)
+        private string GetUnitDisplayText(BattleUnitState unit, bool isRemoved)
         {
-            if (unit.defeated)
+            if (isRemoved)
             {
                 return unit.unitName + "\n--";
             }
@@ -2355,7 +2434,7 @@ namespace Shouyou.UI
         private void SetBattleMessage(string message)
         {
             SetText(battleMessageText, message);
-            SetText(roundTipText, "\u7b2c " + roundIndex + " \u56de\u5408    " + GetCurrentActorName() + " \u884c\u52a8    \u56de\u5408 PVE Demo");
+            SetText(roundTipText, BuildBattleRoundTip());
         }
 
         private void SetText(Text text, string value)
@@ -2452,7 +2531,7 @@ namespace Shouyou.UI
         /// </summary>
         private Color GetSlotBackgroundColor(BattleUnitState unit, bool selected, bool acting, bool isEnemy)
         {
-            if (unit == null || unit.defeated)
+            if (unit == null)
             {
                 return new Color32(90, 82, 98, 82);
             }
@@ -2507,6 +2586,8 @@ namespace Shouyou.UI
             public readonly string text;
             public readonly Color32 textColor;
             public readonly BattlePortraitEffectRequest attackEffectRequest;
+            // 最后一击的伤害事件可在逻辑阵亡后播放一次；其他历史伤害事件则跳过。
+            public readonly bool canPlayWhenTargetIsDefeated;
 
             private BattlePresentationEvent(
                 PresentationEventType type,
@@ -2514,7 +2595,8 @@ namespace Shouyou.UI
                 BattleUnitState target,
                 string text,
                 Color32 textColor,
-                BattlePortraitEffectRequest attackEffectRequest)
+                BattlePortraitEffectRequest attackEffectRequest,
+                bool canPlayWhenTargetIsDefeated)
             {
                 this.type = type;
                 this.source = source;
@@ -2522,26 +2604,27 @@ namespace Shouyou.UI
                 this.text = text;
                 this.textColor = textColor;
                 this.attackEffectRequest = attackEffectRequest;
+                this.canPlayWhenTargetIsDefeated = canPlayWhenTargetIsDefeated;
             }
 
             public static BattlePresentationEvent CreateAttack(BattleUnitState source, BattleUnitState target, BattlePortraitEffectRequest request)
             {
-                return new BattlePresentationEvent(PresentationEventType.Attack, source, target, string.Empty, Color.white, request);
+                return new BattlePresentationEvent(PresentationEventType.Attack, source, target, string.Empty, Color.white, request, false);
             }
 
-            public static BattlePresentationEvent CreateDamage(BattleUnitState target, int damage, Color32 color)
+            public static BattlePresentationEvent CreateDamage(BattleUnitState target, int damage, Color32 color, bool canPlayWhenTargetIsDefeated)
             {
-                return new BattlePresentationEvent(PresentationEventType.Damage, null, target, "-" + damage, color, null);
+                return new BattlePresentationEvent(PresentationEventType.Damage, null, target, "-" + damage, color, null, canPlayWhenTargetIsDefeated);
             }
 
             public static BattlePresentationEvent CreateHeal(BattleUnitState target, int healAmount, Color32 color)
             {
-                return new BattlePresentationEvent(PresentationEventType.Heal, null, target, "+" + healAmount, color, null);
+                return new BattlePresentationEvent(PresentationEventType.Heal, null, target, "+" + healAmount, color, null, false);
             }
 
             public static BattlePresentationEvent CreateDefeat(BattleUnitState target)
             {
-                return new BattlePresentationEvent(PresentationEventType.Defeat, null, target, string.Empty, Color.white, null);
+                return new BattlePresentationEvent(PresentationEventType.Defeat, null, target, string.Empty, Color.white, null, false);
             }
         }
 
@@ -2570,6 +2653,7 @@ namespace Shouyou.UI
             public Text damageText;
             public Text defeatedText;
             public bool defeatLabelVisible;
+            public bool isRemoved;
         }
     }
 }

@@ -1,4 +1,4 @@
-# AI Task Log
+﻿# AI Task Log
 
 This file is the shared handoff log between Codex and Claude Code.
 
@@ -4085,5 +4085,408 @@ Claude 自测:
 1. 编队界面显示 6 个位置且可选 NPC; 出战为 6 人。
 2. 1-1 只出 2 敌且可无伤/低损通关; 1-6 满 6 敌仍可通关。
 3. 重复挑战、奖励结算、重启保留不受影响(沿用 Todo28-FE-R1 验证点)。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo29-FE-R1-CODE
+parent_id: Todo28-FE-R2-CODE
+round: 1
+timestamp: 2026-08-09 Asia/Shanghai
+project_spec: 极简速查卡 | module: 战斗阵亡表现修正
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+阵亡单位必须保留最后一击的伤害飘字，随后立即从战斗槽位隐藏；不显示置灰、退场文字或淡出动画；已阵亡单位不得继续作为受击目标或重复出现历史伤害飘字。
+限制：仅改前端战斗表现与静态校验；不改伤害公式、行动值、AP/CD、后端、数据库、Scene_Boot 或资源。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_immediate_defeat_removal.ps1 (new)
+3. tools/verify_battle_presentation_polish.ps1
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. ApplyDamage 新增 damageApplied 输出：空目标或已阵亡目标直接拒绝，调用方仅在确实造成伤害后进入表现队列。
+2. 调整直接攻击、预选诗词、范围攻击、敌方攻击四条路径的队列顺序为“伤害飘字 -> 阵亡隐藏”，确保最后一击仍可见。
+3. 表现事件新增 canPlayWhenTargetIsDefeated，仅允许最后一击飘字在逻辑阵亡后播放；其余针对已阵亡目标的旧伤害事件直接跳过。
+4. 新增 HideDefeatedUnitView：清除浮字与阵亡文本后隐藏槽位；BattleUnitView.isRemoved 让重开战斗时恢复存活单位显示。
+5. 删除旧的灰化淡出与“退场”表现入口；资源、存档、场景均未变更。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+静态校验通过：verify_immediate_defeat_removal、verify_battle_presentation_polish、verify_battle_presentation_queue、verify_battle_loop、verify_skill_preselection、verify_dual_mode_skill_input、verify_battle_target_feedback、verify_formation_battle_linkage。当前全仓 git diff --check 被既有的 Scene_Boot.unity 未提交空白变更阻断，本轮未修改该场景；本轮脚本与文档范围未发现空白问题。
+本机未启动 Unity Editor，仍需 Play Mode 冒烟：击杀单位后确认“最后一击飘字完成 -> 槽位立即消失 -> 后续回合不再受击/不再出现飘字 -> 重开战斗后单位恢复”。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo30-FE-R1-CODE
+parent_id: Todo29-FE-R1-CODE
+round: 1
+timestamp: 2026-08-09 23:19:18 Asia/Shanghai
+project_spec: 战斗阵亡单位生命周期修复
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+玩家反馈：已经退场的单位会在同一场战斗中无技能、无说明地重新回到战场。要求保留“未来可由专门技能复活”的设计空间，但本轮必须杜绝异步刷新或界面刷新导致的隐式复活。
+范围：仅前端 BattleDemoController 与静态校验；不改伤害公式、行动值、AP/CD、后端、数据库、资源或 Scene_Boot。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+本轮为玩家行为反馈的首轮修复，尚无 Claude 审查结论；完成后已追加独立审查请求。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_immediate_defeat_removal.ps1
+3. docs/AI_TASK_LOG.md
+4. docs/CLAUDE_NEXT_TASKS.md
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 定位根因：LoadBackendBattleConfig 的异步请求完成后无条件调用 ResetDemoBattle，重建整套单位数据，导致已退场单位重新出现。
+2. 删除该隐式重置路径；异步配置只供下一次明确进入/重开战斗时的 ResetDemoBattle 使用。
+3. 新增 ResetAllUnitViewRemovalState，仅由 ResetDemoBattle 在新战斗开始时调用；RefreshView 不再擅自恢复 isRemoved。
+4. 当前未实现复活；未来复活必须由专用技能/结算入口显式恢复 HP、defeated 与可见槽位，禁止复用异步加载或普通刷新。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+红灯：修改前运行 verify_immediate_defeat_removal.ps1，因 LoadBackendBattleConfig 含 ResetDemoBattle 而失败。
+绿灯：修复后 verify_immediate_defeat_removal、verify_battle_presentation_polish、verify_battle_presentation_queue、verify_battle_loop、verify_skill_preselection、verify_dual_mode_skill_input、verify_battle_target_feedback、verify_formation_battle_linkage 全部通过；本轮范围 git diff --check 通过（仅提示既有 LF/CRLF 转换警告）。
+仍需 Unity Play Mode 冒烟：击杀单位后等待异步配置/图标加载完成并推进数回合，确认其不恢复、不再被选中/受击；点击明确的重开战斗后槽位才恢复。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo31-FE-R1-CODE
+parent_id: Todo30-FE-R1-CODE
+round: 1
+timestamp: 2026-08-09 23:24:00 Asia/Shanghai
+project_spec: 战斗行动顺序预览
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+在不改变行动值、速度、伤害、AP/CD 或后端的前提下，让玩家看懂当前回合接下来由谁行动。头像点击仍只能选择查看对象/技能归属，不得抢占行动权。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+独立新增的前端可读性任务，尚无 Claude 审查结论；完成后已追加独立审查请求。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_battle_action_preview.ps1
+3. docs/AI_TASK_LOG.md
+4. docs/CLAUDE_NEXT_TASKS.md
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 新增 ActionPreviewCount=4，只预览当前回合内的前四名未行动单位。
+2. BuildBattleRoundTip 增加第二行“行动顺序”，以“我/敌”前缀展示当前行动者及其后的单位。
+3. BuildActionOrderPreview 只读取 actionOrder/actionCursor；不会推进游标、重排队列或修改 currentActor。
+4. SetBattleMessage 改为复用完整顶部提示，避免操作提示刷新时覆盖行动顺序。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+红灯：新增 verify_battle_action_preview.ps1 后，修改前缺少 BuildActionOrderPreview 契约并按预期失败。
+绿灯：verify_battle_action_preview、verify_immediate_defeat_removal、verify_battle_presentation_polish、verify_battle_presentation_queue、verify_battle_loop、verify_skill_preselection、verify_dual_mode_skill_input、verify_battle_target_feedback、verify_formation_battle_linkage 全部通过；本轮范围 git diff --check 通过（仅提示既有 LF/CRLF 转换警告）。
+仍需 Unity Play Mode 冒烟：进入战斗，确认顶部显示当前行动者和最多四名后续行动者；点击我方/敌方头像、施放普通攻击或预选技能后，行动预览随真实队列推进而刷新，且不改变当前行动权。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo30-FE-R1-REVIEW
+parent_id: Todo30-FE-R1-CODE
+round: 1
+timestamp: 2026-08-10 00:20:00 Asia/Shanghai
+project_spec: 战斗阵亡单位生命周期修复-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-10）：
+1. LoadBackendBattleConfig() 异步请求完成后不得调用 ResetDemoBattle()。
+2. ResetAllUnitViewRemovalState() 仅由 ResetDemoBattle 调用；RefreshView 不得置 view.isRemoved = false。
+3. 已退场单位在本场战斗中保持隐藏，且不参与目标/行动逻辑。
+4. 新战斗/重开仍能完整恢复全部槽位。
+5. 不引入意外复活路径；未来复活必须由独立技能/结算入口显式恢复。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. LoadBackendBattleConfig（510-552）异步完成仅缓存配置与图标，不再调用 ResetDemoBattle；行 550-551 注释固化“仅下次进入战斗时使用”。
+2. ResetDemoBattle 仅 3 个显式入口：Awake(134)、OnEnable(141)、PressMainBattleButton 的 battleEnded 重开分支(212)。
+3. ResetAllUnitViewRemovalState(2111) 只被 ResetDemoBattle(171) 调用；RefreshView(2230) shouldShowSlot = !unit.defeated || !view.isRemoved，已移除单位提前 return；无 view.isRemoved = false 复活路径。
+4. 单位重建 CreateAllyUnit/CreateEnemyUnit 仅在 ResetDemoBattle(183/184)；无其他战斗中途重建路径。
+5. 阵亡单位被行动/目标逻辑跳过：行动预览 1374-1375 过滤 null/defeated；ApplyDamage 拒绝已阵亡目标。
+6. 9 项静态校验全部 PASS（verify_immediate_defeat_removal 等）。
+7. 文件头 EF BB BF（UTF-8 BOM）保留；未改数据库/后端/Scene_Boot。
+仍需 Unity Play Mode 冒烟：击杀单位后等待异步配置/图标完成并推进数回合，确认其不恢复、不再被选中/受击；明确点击“重新开始”后槽位才恢复。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo31-FE-R1-REVIEW
+parent_id: Todo31-FE-R1-CODE
+round: 1
+timestamp: 2026-08-10 00:20:00 Asia/Shanghai
+project_spec: 战斗行动顺序预览-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-10）：
+1. BuildActionOrderPreview() 必须只读：不得赋值 actionCursor/currentActor，不得排序或改动 actionOrder。
+2. 预览从当前行动游标开始，跳过 null/阵亡单位，上限 ActionPreviewCount=4。
+3. 单位标签清晰区分我/敌，且不改变行动权。
+4. BuildBattleRoundTip() 保留行动者与目标上下文，第二行追加行动顺序。
+5. SetBattleMessage() 不得用旧单行字符串覆盖更丰富的回合提示。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. BuildActionOrderPreview(1363-1384) 从 Mathf.Max(0, actionCursor) 顺序扫描，仅读 actionOrder；无游标推进/重排/currentActor 赋值；战斗结束返回“本场已结束”。
+2. 1374-1375 跳过 null/阵亡单位；labels 达 ActionPreviewCount=4(62/1372) 停止。
+3. GetActionPreviewUnitName(1389) 以“我·/敌·”前缀区分展示，只读不参与行动权。
+4. BuildBattleRoundTip(1351-1357) 保留“第 N 回合 行动者 目标”，第二行拼接“行动顺序：”。
+5. SetBattleMessage(2434) 同时刷新 battleMessageText 与 roundTipText=BuildBattleRoundTip()，不会用单行文案覆盖。
+6. roundTipText 在 RefreshAllViews(2211) 每轮刷新，预览随真实队列推进更新。
+7. 9 项静态校验全部 PASS；verify_battle_action_preview 断言预览体不含 actionCursor=/currentActor=/actionOrder.Sort。
+8. 文件头 EF BB BF（UTF-8 BOM）保留；未改数据库/后端/Scene_Boot。
+仍需 Unity Play Mode 冒烟：进入战斗确认顶部展示当前行动者 + 至多四名后续行动者；点头像/普攻/预选技能后预览随真实队列刷新，且不改变当前行动权。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo29-FE-R1-REVIEW
+parent_id: Todo29-FE-R1-CODE
+round: 1
+timestamp: 2026-08-10 00:20:00 Asia/Shanghai
+project_spec: 战斗阵亡表现修正-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-10）：
+1. ApplyDamage(target, damage, out damageApplied) 对空/已阵亡目标拒绝，四处直接伤害调用仅在 damageApplied 时入队表现。
+2. 直接攻击、预选诗词、范围攻击、敌方行动四条路径入队顺序为“伤害飘字 -> 阵亡隐藏”，最后一击经 canPlayWhenTargetIsDefeated 保留。
+3. 旧 PlayDefeatFade/DefeatFadeSeconds 路径不存在；HideDefeatedUnitView 清浮字与阵亡文本后隐藏槽位，isRemoved 随新战斗重置。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. 静态校验 8 项全部 PASS。
+2. 四处调用点 out 参数一致，编译级一致；coroutine 内 yield break 仅结束当前事件，不终止表现队列播放。
+3. 文件头 EF BB BF（UTF-8 BOM）保留；未改数据库/后端/Scene_Boot。
+P2 观察点（非阻塞）：
+1. damageApplied=false 时动作消息文案仍为“造成伤害”语义（仅提示差异），可后续区分“未命中/已阵亡”。
+2. 提交时必须排除未跟踪的 Scene_Boot.unity。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo32-FE-R1-CODE
+parent_id: Todo31-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-10 00:42:00 Asia/Shanghai
+project_spec: 资源结算到养成消费的最小闭环
+module: 玩家资源钱包
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：在既有结算奖励入账基础上，提供统一的资源余额检查与安全扣除入口，为后续养成、体力和商店消费复用；本轮不增加页面、不接后端、不改数据库。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。Todo31 已获 Claude PASS，本轮继续推进主流程候选“结算→养成消费闭环”的数据层前置能力。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/PlayerResourceManager.cs
+2. tools/verify_player_resource_spending.ps1
+
+关键方法：
+1. CanAfford
+2. TrySpend
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. CanAfford 统一处理资源 id、非正数消费和余额不足的只读检查。
+2. TrySpend 仅在余额充足时扣除并保存；失败不写入、不允许负余额。
+3. 保持结算 GrantRewards 现有行为不变；后续接后端账本时仅替换管理器内部实现即可。
+
+资源变更：无。
+存档影响：兼容已有 PlayerPrefs 键；仅在成功消费时更新既有资源数量。
+风险点：尚未有养成/体力页面调用该接口，需待对应消费功能落地后在 Unity Play Mode 验证真实扣除与余额显示。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 红灯：新增 verify_player_resource_spending 后，修改前因缺少 CanAfford 契约按预期失败。
+2. 绿灯：verify_player_resource_spending、verify_mainline_reward_grant、verify_battle_action_preview、verify_immediate_defeat_removal、verify_battle_loop、verify_formation_battle_linkage 全部通过；本轮范围 git diff --check 通过（仅 LF/CRLF 转换提示）。
+
+建议Claude测试：
+1. 审查 TrySpend 对空 id、0/负数、余额不足和余额刚好相等的路径，确认失败不写盘、成功后余额准确扣减。
+2. 确认本轮未触碰战斗数值、后端、数据库、Scene_Boot 或资源文件。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo33-FE-R1-CODE
+parent_id: Todo32-FE-R1-CODE
+round: 1
+timestamp: 2026-08-10 00:56:00 Asia/Shanghai
+project_spec: 多资源原子消费数据能力
+module: 玩家资源钱包
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：为未来角色养成、体力补给与商店购买提供多材料一次性消费能力。任何一个消耗项无效或余额不足时，必须整体失败，且不写入本地存档。本轮不增加 UI、不接后端、不修改数据库、战斗或场景。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码。Todo32 已提供单资源 CanAfford/TrySpend；本轮在相同钱包边界内补齐养成场景必需的“多资源全有或全无”能力。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/PlayerResourceManager.cs
+2. tools/verify_player_resource_batch_spending.ps1
+
+关键方法：TrySpend(RewardItem[] costs)
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 批量消费先合并同 id 的重复材料，再完成全部余额检查。
+2. 仅在所有检查通过后统一写入并保存；任何无效条目或余额不足均不写入。
+3. 单资源消费与结算奖励入账逻辑保持不变。
+
+资源变更：无。
+存档影响：兼容已有 PlayerPrefs 键；仅在批量消费成功时写入涉及的资源数量。
+风险点：当前尚无养成页面调用此接口；后续首个升级/体力入口接入时，需要在 Unity Play Mode 验证“材料不足时余额完全不变”。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 红灯：新增 verify_player_resource_batch_spending 后，修改前因缺少 TrySpend(RewardItem[] costs) 契约按预期失败。
+2. 绿灯：verify_player_resource_batch_spending、verify_player_resource_spending、verify_mainline_reward_grant、verify_battle_loop、verify_formation_battle_linkage 全部通过。
+3. 本轮范围 git diff --check 通过（仅 LF/CRLF 转换提示）。
+
+建议Claude测试：
+1. 审查重复 id 合并后是否以汇总数量检查余额，避免单条分别够但总量不足。
+2. 确认无效条目、空数组、余额不足时不存在 PlayerPrefs.SetInt/Save 写入路径。
+3. 确认本轮未触碰 ShouyouServer、shouyou.db、Scene_Boot、战斗脚本或资源目录。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo34-FE-R1-CODE
+parent_id: Todo33-FE-R1-CODE
+round: 1
+timestamp: 2026-08-10 01:18:00 Asia/Shanghai
+project_spec: 养成入口材料余额展示
+module: 角色养成 / 资源钱包
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：让既有“角色养成”入口显示玩家当前已有材料余额；本轮不定义升级价格、不扣除材料、不创建充值或商业化入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码。Todo32 与 Todo33 已提供资源余额和原子消费能力；本轮仅把可读余额接入既有养成说明入口，保持页面只读。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStageCatalog.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+3. tools/verify_training_resource_balance.ps1
+
+关键方法：
+1. GetKnownRewardTypes
+2. CloneReward
+3. ShowTrainingInfo
+4. BuildTrainingResourceBalanceText
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 主线目录按固定关卡顺序汇总、去重并复制已知奖励种类，供页面层安全读取。
+2. 角色养成弹窗追加“当前可用材料”，逐项读取现有资源钱包余额。
+3. 养成入口不调用 TrySpend，未设定任何升级成本或属性成长数值。
+
+资源变更：无。
+存档影响：无新增键、无写入；本轮只读取已有 PlayerPrefs 资源余额。
+风险点：当前文本沿用通用剧情详情弹窗，材料数量较多时需在后续正式养成页验证排版与滚动展示。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 红灯：新增 verify_training_resource_balance 后，修改前因缺少 GetKnownRewardTypes 契约按预期失败。
+2. 绿灯：verify_training_resource_balance、verify_player_resource_batch_spending、verify_player_resource_spending、verify_mainline_reward_grant、verify_battle_loop、verify_formation_battle_linkage 全部通过。
+3. git diff --check 未发现空白错误；仅报告既有 LF/CRLF 转换提示。
+
+建议Claude测试：
+1. 审查 GetKnownRewardTypes 是否按 DefaultStages 稳定去重，并确认返回奖励副本而非静态目录对象。
+2. 进入角色页的养成入口，确认展示的是资源钱包当前余额，且打开页面不会扣除材料。
+3. 确认本轮未改 ShouyouServer、shouyou.db、Scene_Boot、战斗脚本、资源文件或充值入口。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+===TASK_RECORD_START===
+task_id: Todo32-FE-R1-REVIEW
+parent_id: Todo32-FE-R1-CODE
+round: 1
+timestamp: 2026-08-11 09:05:00 Asia/Shanghai
+project_spec: 玩家资源钱包-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-11）：
+1. CanAfford 必须只读检查，非法资源 id 或非正数数量一律视为不可支付。
+2. TrySpend 仅在余额充足时扣除并保存；失败不写入，不允许负余额。
+3. 余额恰好等于数量时可正常消费；余额不足返回 false 且存档保持不变。
+4. 本轮不触碰后端、数据库、战斗、场景或资源文件。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. CanAfford（PlayerResourceManager 63-71）对空 id / amount<=0 返回 false，核心判断 GetCount(id) >= amount，纯只读。
+2. TrySpend（78-94）先复用 CanAfford 校验再写；PlayerPrefs.SetInt(BuildKey(id), current - amount) 仅在余额充足时执行，current>=amount 恒成立，不会写出负余额。
+3. 空 id、非正数、余额不足三条失败路径均提前 return false，无任何 SetInt/Save 写入。
+4. 余额恰好等于数量时 CanAfford=true，正常扣除至 0。
+5. verify_player_resource_spending 通过（契约齐全，且断言不存在 current - amount < 0 的写入路径）。
+6. 文件头 EF BB BF（UTF-8 BOM）保留；未改数据库/后端/Scene_Boot。
+仍需 Unity Play Mode 冒烟：养成/体力页接入后验证“余额不足不扣减、余额恰好可消费、成功后余额准确”。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo33-FE-R1-REVIEW
+parent_id: Todo33-FE-R1-CODE
+round: 1
+timestamp: 2026-08-11 09:05:00 Asia/Shanghai
+project_spec: 多资源原子消费-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-11）：
+1. TrySpend(RewardItem[]) 必须“全有或全无”：任一消耗项无效或余额不足即整体失败且不写存档。
+2. 重复 id 合并后以汇总数量检查余额，避免单条分别够但总量不足的误通过。
+3. 所有余额检查完成前不得出现任何 PlayerPrefs 写入。
+4. 成功时统一写入并保存一次；不触碰后端/数据库/战斗/场景。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. TrySpend(RewardItem[])（PlayerResourceManager 101-137）：null/空数组返回 false；遍历逐条校验 cost 非空、id 非空、amount>0，任一无效立即返回，未发生写入。
+2. 重复 id 用 Dictionary<string,int> totalCosts 合并（117-119），随后逐项 CanAfford(pair.Key, pair.Value)，以汇总数量判定，避免“单条够、合计不够”误通过。
+3. 顺序保证：先全部 CanAfford 检查（122-128），全部通过后才进入写入循环（130-133），末行统一 PlayerPrefs.Save()——首个 SetInt 出现在全部余额检查之后，满足原子性。
+4. 失败路径零写入；成功扣减量等于合并后汇总数。
+5. verify_player_resource_batch_spending 通过（显式断言 affordability 检查位于首个 SetInt 之前）。
+6. 文件头 EF BB BF（UTF-8 BOM）保留；未改数据库/后端/Scene_Boot。
+仍需 Unity Play Mode 冒烟：首个养成/体力入口接入后验证“材料不足时余额完全不变”。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo34-FE-R1-REVIEW
+parent_id: Todo34-FE-R1-CODE
+round: 1
+timestamp: 2026-08-11 09:05:00 Asia/Shanghai
+project_spec: 养成入口材料余额展示-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-11）：
+1. GetKnownRewardTypes 按默认关卡顺序稳定去重，返回奖励副本而非静态目录对象。
+2. BuildTrainingResourceBalanceText 逐项读取资源钱包余额，只读、不扣除材料。
+3. ShowTrainingInfo 打开养成入口不得触发 TrySpend 或任何写入。
+4. 本轮不定义升级价格、不创建充值入口；未改数据库/后端/Scene_Boot。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. GetKnownRewardTypes（MainlineStageCatalog 132-164）按 DefaultStages 顺序遍历 DefaultRewardsByStageId，用 Dictionary 去重并 CloneReward 存副本，展示顺序稳定；返回副本，调用方无法改写静态目录数据。
+2. BuildTrainingResourceBalanceText（HomePageRouter 466-489）仅 GetKnownRewardTypes + PlayerResourceManager.Instance.GetCount(reward.id)，无 SetInt/TrySpend 路径。
+3. ShowTrainingInfo（394-401）只拼文本并 ConfigureStoryDetailForTraining；verify_training_resource_balance 显式断言训练体不含 TrySpend。
+4. 养成入口本轮保持只读，未在本轮定义升级价格或属性成长数值。
+5. PlayerResourceManager/HomePageRouter 文件头 EF BB BF（UTF-8 BOM）保留；未改数据库/后端/Scene_Boot。
+P2 观察点（非阻塞）：
+1. MainlineStageCatalog.cs 无 UTF-8 BOM（HEAD 提交版亦无，为既有状态，非本轮回归），可后续统一补齐。
+2. 工作区存在未登记的“养成升级”轮次：CharacterDevelopmentManager.cs（TryLevelUp 定义 GetNextLevelCosts 并调用 PlayerResourceManager.TrySpend 实际扣材料）+ HomePageRouter.ConfigureStoryDetailForTraining 绑定“升级一次”按钮；该文件未列入 Todo34 变更清单、文件时间晚于 Todo34 记录，属后续未记录轮次，超出本轮“只读”声明范围。建议 Codex 为升级扣费逻辑单独登记 task_id，避免与 Todo34 范围混淆，并在登记后补充对应 verify 脚本的 Play Mode 验证。
+3. 提交时必须排除未跟踪的 Scene_Boot.unity 与无关未跟踪文件。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===

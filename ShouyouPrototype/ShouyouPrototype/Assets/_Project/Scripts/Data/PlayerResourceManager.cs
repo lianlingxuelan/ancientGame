@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using Shouyou.Network;
+using System.Collections.Generic;
 
 namespace Shouyou.Data
 {
@@ -52,6 +53,87 @@ namespace Shouyou.Data
             }
 
             return PlayerPrefs.GetInt(BuildKey(id), 0);
+        }
+
+        /// <summary>
+        /// 判断资源是否足够支付指定数量。
+        /// 这是养成、体力和商店入口统一使用的只读检查；
+        /// 非法资源 id 或非正数数量都视为不可支付，避免调用方把“0 消耗”误当作成功。
+        /// </summary>
+        public bool CanAfford(string id, int amount)
+        {
+            if (string.IsNullOrEmpty(id) || amount <= 0)
+            {
+                return false;
+            }
+
+            return GetCount(id) >= amount;
+        }
+
+        /// <summary>
+        /// 尝试从本地资源钱包扣除数量。
+        /// 只有余额充足时才会写入并保存；失败时不改变任何存档数据。
+        /// 后续接入后端账本时，可在此方法内部替换为服务端确认，调用方无需改动。
+        /// </summary>
+        public bool TrySpend(string id, int amount)
+        {
+            if (string.IsNullOrEmpty(id) || amount <= 0)
+            {
+                return false;
+            }
+
+            if (!CanAfford(id, amount))
+            {
+                return false;
+            }
+
+            int current = GetCount(id);
+            PlayerPrefs.SetInt(BuildKey(id), current - amount);
+            PlayerPrefs.Save();
+            return true;
+        }
+
+        /// <summary>
+        /// 尝试一次性扣除多种资源。
+        /// 养成升级通常同时消耗货币和材料，因此先汇总重复资源并检查全部余额；
+        /// 任一条目无效或余额不足就整体失败，绝不留下“只扣除一部分”的本地存档。
+        /// </summary>
+        public bool TrySpend(RewardItem[] costs)
+        {
+            if (costs == null || costs.Length == 0)
+            {
+                return false;
+            }
+
+            Dictionary<string, int> totalCosts = new Dictionary<string, int>();
+            for (int i = 0; i < costs.Length; i++)
+            {
+                RewardItem cost = costs[i];
+                if (cost == null || string.IsNullOrEmpty(cost.id) || cost.amount <= 0)
+                {
+                    return false;
+                }
+
+                int currentTotal;
+                totalCosts.TryGetValue(cost.id, out currentTotal);
+                totalCosts[cost.id] = currentTotal + cost.amount;
+            }
+
+            foreach (KeyValuePair<string, int> pair in totalCosts)
+            {
+                if (!CanAfford(pair.Key, pair.Value))
+                {
+                    return false;
+                }
+            }
+
+            foreach (KeyValuePair<string, int> pair in totalCosts)
+            {
+                PlayerPrefs.SetInt(BuildKey(pair.Key), GetCount(pair.Key) - pair.Value);
+            }
+
+            PlayerPrefs.Save();
+            return true;
         }
 
         /// <summary>

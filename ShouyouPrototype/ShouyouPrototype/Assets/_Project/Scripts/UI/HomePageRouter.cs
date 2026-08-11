@@ -376,9 +376,18 @@ namespace Shouyou.UI
 
         public void ShowCharacterDetail()
         {
+            CharacterDevelopmentSnapshot snapshot = CharacterDevelopmentManager.Instance.GetSnapshot(CharacterDevelopmentManager.LiQingzhaoId);
+            if (snapshot == null)
+            {
+                ShowStoryDetail("角色详情", "当前角色数据尚未准备完成。");
+                return;
+            }
+
             ShowStoryDetail(
                 "李清照 · 角色详情",
-                "稀有度：SSR\n定位：词意输出 / 群体辅助\n等级：Lv.1 / 60\n词意：如梦令\n生命：1200    攻击：180    防御：95\n\n她的成长主题是：以笔墨突破闺阁边界。"
+                "稀有度：SSR\n定位：词意输出 / 群体辅助\n等级：Lv." + snapshot.level + " / " + snapshot.maxLevel +
+                "\n词意：如梦令\n生命：" + snapshot.health + "    攻击：" + snapshot.attack + "    防御：" + snapshot.defense +
+                "\n\n她的成长主题是：以笔墨突破闺阁边界。"
             );
         }
 
@@ -386,8 +395,97 @@ namespace Shouyou.UI
         {
             ShowStoryDetail(
                 "角色养成",
-                "升级：提升基础属性\n突破：提高等级上限\n技能：解锁词意效果\n装备：强化战斗定位\n\n当前版本先展示入口，后续接入材料和数值消耗。"
+                BuildTrainingInfoText()
             );
+            ConfigureStoryDetailForTraining();
+        }
+
+        /// <summary>
+        /// 角色养成页的升级按钮回调。
+        /// UI 回调只路由到养成管理器，不直接扣除材料或写入角色等级。
+        /// </summary>
+        private void TryLevelUpLiQingzhao()
+        {
+            CharacterLevelUpResult result = CharacterDevelopmentManager.Instance.TryLevelUp(CharacterDevelopmentManager.LiQingzhaoId);
+            ShowStoryDetail("角色养成", result.message + "\n\n" + BuildTrainingInfoText());
+            ConfigureStoryDetailForTraining();
+        }
+
+        /// <summary>
+        /// 构建养成页文本：等级、基础属性、下一等级消耗和当前钱包余额。
+        /// 不在此处计算成本，避免角色页与其他入口出现不同的数值。
+        /// </summary>
+        private string BuildTrainingInfoText()
+        {
+            CharacterDevelopmentSnapshot snapshot = CharacterDevelopmentManager.Instance.GetSnapshot(CharacterDevelopmentManager.LiQingzhaoId);
+            if (snapshot == null)
+            {
+                return "当前角色数据尚未准备完成。";
+            }
+
+            RewardItem[] costs = CharacterDevelopmentManager.Instance.GetNextLevelCosts(CharacterDevelopmentManager.LiQingzhaoId);
+            string nextLevelText = snapshot.level >= snapshot.maxLevel
+                ? "已达到等级上限。"
+                : "升至 Lv." + (snapshot.level + 1) + " 消耗：\n" + BuildRewardListText(costs);
+
+            return "升级：提升基础属性\n突破：提高等级上限（暂未开放）\n技能：解锁词意效果（暂未开放）\n装备：强化战斗定位（暂未开放）" +
+                   "\n\n李清照 Lv." + snapshot.level + " / " + snapshot.maxLevel +
+                   "\n生命：" + snapshot.health + "    攻击：" + snapshot.attack + "    防御：" + snapshot.defense +
+                   "\n\n" + nextLevelText + "\n\n" + BuildTrainingResourceBalanceText();
+        }
+
+        /// <summary>
+        /// 把一组奖励或消耗渲染为简短列表。空数组用于已满级等无消耗状态。
+        /// </summary>
+        private string BuildRewardListText(RewardItem[] rewards)
+        {
+            if (rewards == null || rewards.Length == 0)
+            {
+                return "无";
+            }
+
+            var lines = new List<string>();
+            for (int i = 0; i < rewards.Length; i++)
+            {
+                RewardItem reward = rewards[i];
+                if (reward == null || string.IsNullOrEmpty(reward.name))
+                {
+                    continue;
+                }
+
+                lines.Add(reward.name + " ×" + reward.amount);
+            }
+
+            return lines.Count == 0 ? "无" : string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// 读取资源钱包并生成养成页的当前材料余额。
+        /// 此处只展示，不定义升级价格，也不执行材料扣除。
+        /// </summary>
+        private string BuildTrainingResourceBalanceText()
+        {
+            RewardItem[] rewards = MainlineStageCatalog.GetKnownRewardTypes();
+            if (rewards == null || rewards.Length == 0)
+            {
+                return "当前可用材料：暂无可展示资源。";
+            }
+
+            var balanceLines = new List<string>();
+            for (int i = 0; i < rewards.Length; i++)
+            {
+                RewardItem reward = rewards[i];
+                if (reward == null || string.IsNullOrEmpty(reward.id))
+                {
+                    continue;
+                }
+
+                balanceLines.Add(reward.name + " ×" + PlayerResourceManager.Instance.GetCount(reward.id));
+            }
+
+            return balanceLines.Count == 0
+                ? "当前可用材料：暂无可展示资源。"
+                : "当前可用材料：\n" + string.Join("\n", balanceLines);
         }
 
         public void ShowBondInfo()
@@ -745,6 +843,19 @@ namespace Shouyou.UI
             ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "回看剧情", true, ReplayStory);
             ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "进入战斗", true, EnterBattlePrototype);
             ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "关闭详情", true, CloseStoryDetail);
+        }
+
+        /// <summary>
+        /// 养成页复用详情弹窗已有按钮，避免在当前 Demo 阶段额外重建场景结构。
+        /// 只有“升级一次”会改变游戏数据；其余按钮只查看或关闭，不触发剧情和战斗逻辑。
+        /// </summary>
+        private void ConfigureStoryDetailForTraining()
+        {
+            ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "升级一次", true, TryLevelUpLiQingzhao);
+            ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "查看属性", true, ShowCharacterDetail);
+            ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "刷新材料", true, ShowTrainingInfo);
+            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "突破暂未开放", false, CloseStoryDetail);
+            ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "关闭养成", true, CloseStoryDetail);
         }
 
         /// <summary>
