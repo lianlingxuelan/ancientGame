@@ -4490,3 +4490,72 @@ P2 观察点（非阻塞）：
 3. 提交时必须排除未跟踪的 Scene_Boot.unity 与无关未跟踪文件。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo35-FE-R1-CODE
+parent_id: Todo34-FE-R1-CODE
+round: 1
+timestamp: 2026-08-11 08:53:46 Asia/Shanghai
+project_spec: 李清照基础等级成长闭环
+module: 角色养成 / 本地角色档案
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+1. 为当前可用角色李清照提供统一的等级、生命、攻击、防御快照与下一级材料预览。
+2. 养成入口可执行一次升级：材料充足时扣除铜钱和词意经验并升一级；材料不足或满级时不改变状态。
+3. 角色详情和养成入口读取同一份角色快照，避免各页面各自硬编码等级属性。
+4. 不改后端、shouyou.db、Scene_Boot、资源目录、战斗伤害公式或充值入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无针对 Todo35 的既有审查结论。Todo34 评审明确指出后续实际升级扣费必须单独登记；本记录即为该独立轮次。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+新增：ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/CharacterDevelopmentManager.cs
+修改：ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+新增：tools/verify_character_leveling_loop.ps1
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 新增 CharacterDevelopmentManager，集中管理李清照等级存档、派生基础属性、等级上限、材料成本和升级结果对象；默认等级为 1。
+2. 材料消费复用 PlayerResourceManager.TrySpend(RewardItem[]) 的批量全有或全无校验，消费失败时不写角色等级。
+3. HomePageRouter 的角色详情改为动态读取成长快照；养成入口复用既有详情弹窗按钮，提供“升级一次、查看属性、刷新材料、关闭养成”。
+4. 本轮只建立等级成长数据和展示闭环，尚未把成长属性接入 BattleDemoController 的伤害或生命公式。
+5. 风险边界：本地演示版的钱包扣除和等级写入是两个连续存档步骤；未来接入服务端时应由同一事务提交资源与角色等级。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+RED：先执行 tools/verify_character_leveling_loop.ps1，因 CharacterDevelopmentManager.cs 不存在而按预期失败。
+GREEN：实现后执行 verify_character_leveling_loop、verify_training_resource_balance、verify_player_resource_batch_spending、verify_player_resource_spending、verify_mainline_reward_grant，均以退出码 0 通过。
+范围检查：本轮未修改后端、数据库、Scene_Boot、资源目录和战斗脚本。全仓 git diff --check 的报错仅来自既有未跟踪的 Scene_Boot.unity 改动，本轮文件未发现空白错误。
+待人工 Play Mode 冒烟：先获得一次主线奖励，再进入角色-养成，验证材料足够时等级与余额同时刷新；余额不足及满级时二者均不变化。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+===TASK_RECORD_START===
+task_id: Todo35-FE-R1-REVIEW
+parent_id: Todo35-FE-R1-CODE
+round: 1
+timestamp: 2026-08-11 09:40:00 Asia/Shanghai
+project_spec: 李清照基础等级成长闭环-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-11）：
+1. CharacterDevelopmentManager 集中管理李清照等级快照与派生属性，默认 Lv.1，未知角色返回 null。
+2. GetNextLevelCosts 成本只在本类定义，满级/未知返回空数组；页面只展示不另算。
+3. TryLevelUp 复用 PlayerResourceManager.TrySpend(RewardItem[]) 原子扣费；材料不足/满级不写等级。
+4. HomePageRouter 角色详情与养成入口读取同一份快照；升级按钮只路由到管理器，不直接写 PlayerPrefs。
+5. 不改后端/数据库/Scene_Boot/资源/战斗伤害公式/充值。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. 本记录对应 Todo34 评审 P2 所指“未登记的养成升级轮次”，Codex 已补登记为独立 Todo35；其变更文件与上一轮提交 547cace 内容一致，提交后无新增代码改动。
+2. GetSnapshot（CharacterDevelopmentManager 55-72）仅支持 li_qingzhao，读 PlayerPrefs 默认 Lv.1 并 clamp 1..60，属性由等级偏移统一公式推导，只读返回快照对象。
+3. GetNextLevelCosts（79-93）满级/未知返回空数组；成本公式集中定义（铜钱 300+offset*150、词意经验 40+offset*20）。
+4. TryLevelUp（99-129）先查快照与满级边界，再 PlayerResourceManager.Instance.TrySpend(costs) 原子扣费；失败返回 Failed 且不写等级；成功才 SetInt 新等级并 Save。
+5. HomePageRouter 角色详情（377-392）动态读快照；养成入口 BuildTrainingInfoText 读快照+成本+钱包余额；TryLevelUpLiQingzhao 仅路由管理器，不直接操作 PlayerPrefs。
+6. verify_character_leveling_loop 通过（断言 TryLevelUp 必须走 PlayerResourceManager.TrySpend、满级先于扣费拒绝、快照/结果类型存在、养成按钮路由到管理器）。
+7. 未改后端/数据库/Scene_Boot/战斗脚本/资源/充值入口。
+P2 观察点（非阻塞）：
+1. CharacterDevelopmentManager.cs 为新建文件但无 UTF-8 BOM（工程约定 .cs 用 BOM），建议后续统一补齐（MainlineStageCatalog.cs 同类既有问题）。
+2. 钱包扣费（TrySpend 内 Save）与等级写入（TryLevelUp 内 Save）是两个连续存档步骤，非单事务；本地演示可接受，Codex 已在记录中声明服务端接入时改为同一事务提交。
+3. verify_character_leveling_loop 为静态校验，仍需 Unity Play Mode 冒烟：先拿一次主线奖励再养成，验证材料足够时等级与余额同时刷新、不足/满级时二者不变。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===

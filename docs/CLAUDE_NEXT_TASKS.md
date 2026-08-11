@@ -595,3 +595,26 @@ Please verify:
 Known boundary: this remains a compact text-based entry over the generic detail panel. A dedicated character-development screen, level costs and actual material spending should be a later, separately reviewed gameplay slice.
 
 ---
+
+## DONE - Claude Review: Todo35-FE-R1-CODE character leveling loop PASS (2026-08-11)
+
+Scope: first playable Li Qingzhao level-up loop only. No backend/database/Scene_Boot/assets/battle-formula/payment changes.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/CharacterDevelopmentManager.cs`
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_character_leveling_loop.ps1`
+
+Please verify:
+
+1. `GetSnapshot` defaults to level 1, clamps persisted levels into the legal range, and derives health/attack/defense from one canonical formula.
+2. `GetNextLevelCosts` returns no cost at max level and returns independent reward objects otherwise.
+3. `TryLevelUp` validates unsupported/max-level states before spending; a failed batch spend cannot change the level.
+4. Successful upgrade spends exactly the displayed cost, persists only the next level, and returns an understandable result snapshot/message.
+5. `ShowCharacterDetail` and `ShowTrainingInfo` both read the same development manager state; training button rebinding does not leave generic story actions active.
+6. Run `tools/verify_character_leveling_loop.ps1`, `tools/verify_training_resource_balance.ps1`, `tools/verify_player_resource_batch_spending.ps1`, `tools/verify_player_resource_spending.ps1`, and `tools/verify_mainline_reward_grant.ps1`.
+7. Unity Play Mode smoke: gain mainline rewards, enter 角色 -> 养成, level up once, reopen character detail and confirm stats/level refresh; then test insufficient material with no resource or level change.
+8. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, battle scripts, resource directories, or payment/recharge code.
+
+Known boundary: level-derived stats are intentionally display-only in this slice; battle stat integration, skill/gear/breakthrough and server-side transactional persistence are separate future tasks.
