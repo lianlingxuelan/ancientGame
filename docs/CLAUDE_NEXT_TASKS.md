@@ -618,3 +618,38 @@ Please verify:
 8. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, battle scripts, resource directories, or payment/recharge code.
 
 Known boundary: level-derived stats are intentionally display-only in this slice; battle stat integration, skill/gear/breakthrough and server-side transactional persistence are separate future tasks.
+
+---
+
+## DONE - Claude Review: Todo36-FE-R1-CODE character battle stat sync PASS (2026-08-11)
+
+Scope: connect Li Qingzhao's existing development snapshot to the initial unit values of a newly started battle only. No backend, database, Scene_Boot, assets, recharge/payment, enemy values, or damage-formula changes.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_character_battle_stat_sync.ps1`
+
+Please verify:
+
+1. Only Li Qingzhao takes the isolated development path; both existing `li-qingzhao` formation id and `li_qingzhao` development id are accepted.
+2. Her `maxHp` and `attack` come from `CharacterDevelopmentManager.GetSnapshot`, with safe template/default fallback when the snapshot is unavailable.
+3. Her action value, speed, portrait and stored terminal fields still use DTO/default values; no new combat formula, crit, hit, dodge, element or buff behavior is introduced.
+4. Other allies and enemies still use their pre-existing creation paths and numeric values.
+5. `BattleDemoController` has no direct PlayerPrefs access.
+6. `CalculateDamage` and enemy creation remain behaviorally unchanged.
+7. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_character_battle_stat_sync.ps1`, `verify_character_leveling_loop.ps1`, `verify_formation_battle_linkage.ps1`, and `verify_battle_loop.ps1`.
+8. Unity Play Mode smoke: level Li Qingzhao once, start a fresh battle, and compare her HP/attack against Lv.1; confirm other units and the ongoing-battle state are unaffected.
+
+Known boundary: values refresh only when a new battle is constructed. Mid-battle live stat mutation, skill/gear/breakthrough, and backend transactional persistence remain separate tasks.
+
+Review verdict: **PASS** — 1 round, 0 P1 (2026-08-11).
+
+- Scope confirmed: only `BattleDemoController.cs` (+46/-4, `git diff --check` clean, UTF-8 BOM intact) and the new `tools/verify_character_battle_stat_sync.ps1`.
+- `IsLiQingzhaoCharacterId` accepts both `li-qingzhao` and `li_qingzhao`; branch sits before the template-null check, so the development path always wins for Li Qingzhao.
+- `CreateLiQingzhaoUnitFromDevelopment` reads `CharacterDevelopmentManager.GetSnapshot`, prefers `snapshot.health`/`snapshot.attack`, falls back to template/default; action value/speed/portrait/terminal fields keep DTO/default values (no new combat formula).
+- 15-arg `BattleUnitState` constructor and all `BattleUnitDto` fields match the call site; other allies/enemies untouched; no direct PlayerPrefs in `BattleDemoController`; `CalculateDamage` unchanged.
+- `verify_character_battle_stat_sync` + 7 regression scripts all exit 0.
+- P2 notes: Li Qingzhao Lv.1 attack is now 180 (dev base) vs the old hardcoded 220 (intended snapshot-first behavior, watch for balance); defense not yet wired into battle units; working-tree `Scene_Boot.unity` churn (15945×2 lines) is pre-existing and must be excluded at commit.
+- Records: `docs/AI_TASK_LOG.md` → Todo36-FE-R1-REVIEW.
+- Still needs Unity Play Mode smoke: level up once, start fresh battle, confirm HP/attack reflect the new level while other units and the ongoing battle are unaffected.

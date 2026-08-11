@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
+using Shouyou.Data;
 using Shouyou.Network;
 
 namespace Shouyou.UI
@@ -452,14 +453,16 @@ namespace Shouyou.UI
                 return CreateEmptyAllyUnit(index);
             }
 
+            // 李清照是首位接入养成的角色：无论关卡接口是否给出默认模板，
+            // 她的 HP 与攻击都应由养成快照决定，避免升级只停留在角色页展示。
+            if (IsLiQingzhaoCharacterId(characterId))
+            {
+                return CreateLiQingzhaoUnitFromDevelopment(unitName, index, template);
+            }
+
             if (template != null)
             {
                 return CreateUnitFromDto(template, true, index, unitName);
-            }
-
-            if (characterId == "li-qingzhao")
-            {
-                return new BattleUnitState(unitName, true, 1200, 220, "char_liqingzhao");
             }
 
             if (characterId == "npc-qiu")
@@ -484,6 +487,45 @@ namespace Shouyou.UI
 
             // 婉禾和未来非李清照角色在数值表接入前使用独立保守模板，避免所有人都套用主角数据。
             return new BattleUnitState(unitName, true, 980, 145, "char_wanhe");
+        }
+
+        /// <summary>
+        /// 从李清照的养成快照创建战斗单位。
+        /// 仅替换 HP 与攻击；行动值、速度、头像和未来的终态字段仍沿用关卡模板，
+        /// 因此不会把养成逻辑扩散到敌方或其他尚未开放成长的角色。
+        /// </summary>
+        private BattleUnitState CreateLiQingzhaoUnitFromDevelopment(string unitName, int index, BattleUnitDto template)
+        {
+            CharacterDevelopmentSnapshot snapshot = CharacterDevelopmentManager.Instance.GetSnapshot(CharacterDevelopmentManager.LiQingzhaoId);
+            int defaultActionValue = 120 - index * 2;
+            int actionValue = template != null && template.actionValue > 0 ? template.actionValue : defaultActionValue;
+            int speed = template != null && template.speed > 0 ? template.speed : 100;
+            string portraitIconKey = template != null && !string.IsNullOrEmpty(template.portraitIconKey)
+                ? template.portraitIconKey
+                : "char_liqingzhao";
+
+            int health = snapshot != null ? snapshot.health : (template != null && template.hp > 0 ? template.hp : 1200);
+            int attack = snapshot != null ? snapshot.attack : (template != null && template.attack > 0 ? template.attack : 220);
+            float critRate = template == null ? 0f : Mathf.Clamp01(template.critRate);
+            float critDamage = template != null && template.critDamage > 0f ? template.critDamage : 1.5f;
+            float hitRate = template != null && template.hitRate > 0f ? template.hitRate : 1f;
+            float dodgeRate = template == null ? 0f : Mathf.Clamp01(template.dodgeRate);
+            int starLevel = template != null && template.starLevel > 0 ? template.starLevel : 1;
+            int breakLevel = template == null ? 0 : Mathf.Max(0, template.breakLevel);
+            string element = template == null ? null : template.element;
+            string[] buffIds = template == null ? null : template.buffIds;
+
+            return new BattleUnitState(
+                unitName, true, health, attack, portraitIconKey, actionValue, speed,
+                critRate, critDamage, hitRate, dodgeRate, element, starLevel, breakLevel, buffIds);
+        }
+
+        /// <summary>
+        /// 兼容现有编队缓存的连字符 ID 与养成模块的下划线 ID。
+        /// </summary>
+        private static bool IsLiQingzhaoCharacterId(string characterId)
+        {
+            return characterId == "li-qingzhao" || characterId == CharacterDevelopmentManager.LiQingzhaoId;
         }
 
         private BattleUnitState CreateEnemyUnit(int index)

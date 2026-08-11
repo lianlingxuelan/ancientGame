@@ -4559,3 +4559,72 @@ P2 观察点（非阻塞）：
 3. verify_character_leveling_loop 为静态校验，仍需 Unity Play Mode 冒烟：先拿一次主线奖励再养成，验证材料足够时等级与余额同时刷新、不足/满级时二者不变。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo36-FE-R1-CODE
+parent_id: Todo35-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-11 21:31:11 Asia/Shanghai
+project_spec: 李清照等级属性接入战斗
+module: 角色养成 / 战斗单位初始化
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+1. 让李清照的等级派生生命与攻击在新开战斗时实际生效。
+2. 不改变伤害公式、敌方数值、其他角色模板、后端、数据库、Scene_Boot、资源目录或充值入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+Todo35 评审 PASS；其遗留边界“等级属性尚未进入战斗”在本独立任务处理。评审指出的钱包与等级连续存档问题不在本轮范围，未修改。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+修改：ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+新增：tools/verify_character_battle_stat_sync.ps1
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 编队创建李清照时兼容 li-qingzhao 与 li_qingzhao 两种既有 ID，并单独走养成快照入口。
+2. 新单位只用快照替换李清照的最大生命与攻击；行动值、速度、头像、星级、突破及预留字段仍来自关卡 DTO 或安全默认值。
+3. 未读取或写入 BattleDemoController 的 PlayerPrefs；未调整 CalculateDamage、技能倍率或敌方创建路径。
+4. 等级变化仅在下一次 ResetDemoBattle 创建新单位后体现，已开始的战斗不会中途改写单位属性。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+RED：新增 verify_character_battle_stat_sync 后执行，因 BattleDemoController 尚无养成入口引用而预期失败。
+GREEN：实现后重新执行 verify_character_battle_stat_sync，通过。
+关联静态检查：verify_character_leveling_loop、verify_training_resource_balance、verify_player_resource_batch_spending、verify_player_resource_spending、verify_mainline_reward_grant、verify_formation_battle_linkage、verify_battle_loop 均以退出码 0 通过。
+待 Unity Play Mode 冒烟：升级李清照一次后重新进入战斗，确认其初始 HP/攻击较 Lv.1 增加；非李清照队友和敌方初始数值不变；当前已进行的战斗不因升级而变更。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+===TASK_RECORD_START===
+task_id: Todo36-FE-R1-REVIEW
+parent_id: Todo36-FE-R1-CODE
+round: 1
+timestamp: 2026-08-11 21:50:00 Asia/Shanghai
+project_spec: 李清照等级属性接入战斗-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-11）：
+1. 仅李清照走养成快照创建战斗单位，兼容 li-qingzhao（编队缓存）与 li_qingzhao（养成）两种 ID。
+2. maxHp/attack 优先取 CharacterDevelopmentManager.GetSnapshot 快照值，快照不可用时回退模板/默认值。
+3. 行动值、速度、头像与终态字段仍用 DTO/默认值，不引入新战斗公式、暴击、命中、元素或 Buff 行为。
+4. 其他我方角色与敌方沿用既有创建路径与数值。
+5. BattleDemoController 不直接访问 PlayerPrefs。
+6. CalculateDamage 与敌方创建行为保持不变。
+7. 静态脚本全通过 + 待 Unity Play Mode 冒烟。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. 改动范围仅 BattleDemoController.cs（+46/-4，git diff --check 无空白错误）与新增 tools/verify_character_battle_stat_sync.ps1；文件头 EF BB BF（UTF-8 BOM）保留。
+2. IsLiQingzhaoCharacterId（526-529）兼容两种 ID；CreateAllyUnitFromFormation（458-461）把该分支放在 template 判空之前，保证无论关卡接口是否给出模板都走快照路径。
+3. CreateLiQingzhaoUnitFromDevelopment（497-521）经 CharacterDevelopmentManager.Instance.GetSnapshot 取快照，health/attack 快照优先，null 时回退模板/默认（1200/220）；critRate/dodgeRate 等用 Mathf.Clamp01，与既有 CreateUnitFromDto 的防护一致。
+4. 行动值、速度、头像、终态字段全部沿用模板或保守默认，未新增战斗逻辑；BattleUnitState 15 参构造器（2546-2549）与调用（518-520）逐参类型匹配。
+5. BattleUnitDto 全部字段（hp/attack/actionValue/speed/critRate/critDamage/hitRate/dodgeRate/starLevel/breakLevel/portraitIconKey/element/buffIds）均已在既有 CreateUnitFromDto（654-677）使用，字段存在性确定。
+6. 其他盟友（CreateUnitFromDto/npc 分支/CreateEmptyAllyUnit）与敌方（CreateEnemyUnit）路径未被触碰；BattleDemoController 无 PlayerPrefs 直接读写。
+7. verify_character_battle_stat_sync、verify_character_leveling_loop、verify_training_resource_balance、verify_player_resource_batch_spending、verify_player_resource_spending、verify_mainline_reward_grant、verify_formation_battle_linkage、verify_battle_loop 全部以退出码 0 通过。
+8. 未改后端、shouyou.db、Scene_Boot、资源目录、战斗伤害公式或充值入口。
+P2 观察点（非阻塞）：
+1. 李清照 Lv.1 时快照 attack=180（养成基础值），低于旧硬编码 220；这是"快照优先"的有意变更，但首轮体验攻防数值会略降，需确认数值策划预期。
+2. 养成快照的 defense 未接入战斗单位（BattleUnitState 无 defense 字段），本轮仅接 HP/攻击，符合任务范围；防御接入留待后续。
+3. 静态校验已全绿，仍待 Unity Play Mode 冒烟：升级一次后开新战斗确认 HP/攻击提升、非李清照单位与敌方不变、已进行战斗不受影响。
+4. 工作区 Scene_Boot.unity 存在 15945 行等量增删改动（换行/序列化搅动，最后提交为 28987a5，非本轮引入），提交时必须排除。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
