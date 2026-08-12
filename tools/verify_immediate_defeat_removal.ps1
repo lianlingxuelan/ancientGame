@@ -50,11 +50,6 @@ if ($damageCallIndex -lt 0 -or $defeatCallIndex -lt 0 -or $defeatCallIndex -lt $
     exit 1
 }
 
-# 战斗配置和图标是异步加载的。加载完成只能刷新显示，不能偷偷重建整场战斗，
-# 否则已经阵亡的单位会被新创建的满血单位替换，形成“无技能自动复活”的假象。
-$loadConfigStart = $source.IndexOf("private IEnumerator LoadBackendBattleConfig()")
-# 异步配置完成不能重置活跃战斗，否则阵亡单位会被重新创建。
-$loadConfigStart = $source.IndexOf("private IEnumerator LoadBackendBattleConfig()")
 $loadConfigStart = $source.IndexOf("private IEnumerator LoadBackendBattleConfig()")
 $loadConfigEnd = $source.IndexOf("private IEnumerator DownloadSkillIcons")
 if ($loadConfigStart -lt 0 -or $loadConfigEnd -le $loadConfigStart) {
@@ -83,6 +78,22 @@ if ($refreshViewStart -lt 0 -or $refreshViewEnd -le $refreshViewStart) {
 $refreshViewBody = $source.Substring($refreshViewStart, $refreshViewEnd - $refreshViewStart)
 if ($refreshViewBody.Contains("view.isRemoved = false")) {
     Write-Error "Immediate defeat removal validation failed. RefreshView must not revive a removed slot."
+    exit 1
+}
+
+$bindStart = $source.IndexOf("private void BindRuntimeReferences()")
+$bindEnd = $source.IndexOf("private void SelectAlly(", $bindStart)
+if ($bindStart -lt 0 -or $bindEnd -le $bindStart) {
+    Write-Error "Immediate defeat removal validation failed. Cannot locate BindRuntimeReferences."
+    exit 1
+}
+
+$bindBody = $source.Substring($bindStart, $bindEnd - $bindStart)
+$guardIndex = $bindBody.IndexOf("if (referencesBound)")
+$guardReturnIndex = if ($guardIndex -ge 0) { $bindBody.IndexOf("return;", $guardIndex) } else { -1 }
+$firstBuildViewIndex = $bindBody.IndexOf("BuildView(")
+if ($guardIndex -lt 0 -or $guardReturnIndex -lt $guardIndex -or $firstBuildViewIndex -lt 0 -or $guardIndex -gt $firstBuildViewIndex) {
+    Write-Error "Immediate defeat removal validation failed. BindRuntimeReferences must return before rebuilding unit views."
     exit 1
 }
 

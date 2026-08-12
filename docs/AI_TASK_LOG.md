@@ -61,6 +61,38 @@ Codex自测：
 ===TASK_RECORD_END===
 
 ===TASK_RECORD_START===
+task_id: Todo37-FE-R1-CODE
+parent_id: Todo36-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-12 08:19:37 Asia/Shanghai
+project_spec: 战斗阵亡单位不得在同一场战斗中回场
+module: 回合 PVE / 阵亡退场状态
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+1. 已阵亡并完成退场展示的单位，在同一场战斗内不得因再次点击行动或技能按钮重新出现。
+2. 新开战斗仍应正常恢复所有槽位；不改伤害公式、后端、数据库、Scene_Boot、资源目录或充值入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+修改：ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+修改：tools/verify_immediate_defeat_removal.ps1
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 根因：PressMainBattleButton 与技能上下文路径会重复调用 BindRuntimeReferences；该方法会新建 BattleUnitView，并把 isRemoved 隐式回到默认 false。
+2. BindRuntimeReferences 现只在首次运行时绑定；后续战斗内操作复用既有视图和阵亡退场状态。
+3. ResetDemoBattle 仍显式调用 ResetAllUnitViewRemovalState，故新开一场战斗可以恢复全部单位槽位。
+4. 静态回归脚本新增约束：绑定守卫必须出现在首次 BuildView 之前，防止同类回归。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+RED：新增绑定守卫断言后，旧代码未包含 if (referencesBound) 提前返回，验证预期失败。
+GREEN：实现后 verify_immediate_defeat_removal 通过。
+关联静态检查通过：verify_battle_loop、verify_battle_presentation_queue、verify_battle_presentation_polish、verify_skill_preselection、verify_dual_mode_skill_input、verify_battle_target_feedback、verify_formation_battle_linkage。
+git diff --check（本任务两个代码/脚本文件）通过。
+待 Unity Play Mode 冒烟：击败任意单位并等待伤害飘字结束；继续点击普攻、技能或自动战斗，确认该单位不重新显示、不可选中、不可承伤/出手；退出后重新开始一场战斗，确认该槽位正常恢复。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
 task_id: Todo22-FE-R1-CODE
 parent_id: Todo21-FE-R1-CODE
 round: 1
@@ -4626,5 +4658,93 @@ P2 观察点（非阻塞）：
 2. 养成快照的 defense 未接入战斗单位（BattleUnitState 无 defense 字段），本轮仅接 HP/攻击，符合任务范围；防御接入留待后续。
 3. 静态校验已全绿，仍待 Unity Play Mode 冒烟：升级一次后开新战斗确认 HP/攻击提升、非李清照单位与敌方不变、已进行战斗不受影响。
 4. 工作区 Scene_Boot.unity 存在 15945 行等量增删改动（换行/序列化搅动，最后提交为 28987a5，非本轮引入），提交时必须排除。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo38-FE-R1-CODE
+parent_id: Todo36-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-12 21:52:54 Asia/Shanghai
+project_spec: 第一章主线成长闭环
+module: 主线进度 / 战斗结算
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：让新玩家从第一关开始，胜利后逐关解锁；结算保留资源奖励入口，并在最后一关停止提供伪“下一关”。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无针对本任务的审查问题需要回应。Todo37 阵亡单位回场修复仍由独立审查任务跟踪，未改变其战斗逻辑。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+修改文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/LevelProgressManager.cs
+2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+3. tools/verify_immediate_defeat_removal.ps1
+新增文件：
+4. tools/verify_mainline_progression_rules.ps1
+
+关键方法：
+1. LevelProgressManager.CompleteStage
+2. HomePageRouter.ShowBattleVictoryDetail
+3. HomePageRouter.ConfigureStoryDetailForBattleVictory
+4. HomePageRouter.ContinueToNextMainlineStage
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 新档默认仅开放第一关，并在进度管理器内拦截未解锁关卡的通关写入，防止未来其他入口越关。
+2. 战斗胜利结算区分“解锁下一关 / 重复挑战 / 本章完成”；第六关将下一关按钮显示为“本章完成”且不可点击。
+3. 重复挑战继续保留既有资源奖励发放，用作养成材料来源，但明确显示主线进度不再推进。
+4. 修正阵亡退场静态检查脚本的源码定位，覆盖现有 BindRuntimeReferences 防复建保护；未改变 BattleDemoController 战斗代码。
+
+资源变更：无。
+存档影响：新档起点由第 2 关调整为第 1 关；已有本地或后端同步进度不回退。
+风险点：需要 Unity Play Mode 以新档或独立测试存档验证逐关解锁；现有高进度存档无法代表新手流程。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex 自测：
+1. 先运行 verify_mainline_progression_rules.ps1，结算末关规则缺失时预期失败；实现后重新运行通过。
+2. verify_mainline_reward_grant、verify_character_leveling_loop、verify_character_battle_stat_sync、verify_player_resource_spending、verify_player_resource_batch_spending、verify_training_resource_balance、verify_formation_battle_linkage、verify_battle_loop、verify_immediate_defeat_removal 全部退出码 0。
+3. git diff --check 针对本轮四个范围文件通过。
+
+建议 Claude 测试：
+1. 新档：仅关卡 1 可进入；直接调用或点击后续未解锁关卡均不能推进进度。
+2. 通关关卡 1：确认关卡 2 解锁、奖励进入钱包；重复通关确认奖励仍入账但进度提示不推进。
+3. 通关关卡 6：确认显示“本章完成”，不存在可点击的“下一关”，返回主线后仍定位在关卡 6。
+4. 确认未改 ShouyouServer、shouyou.db、Scene_Boot.unity、资源目录、支付/充值代码或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo38-FE-R1-REVIEW
+parent_id: Todo38-FE-R1-CODE
+round: 1
+timestamp: 2026-08-12 23:39:30 Asia/Shanghai
+project_spec: 第一章主线成长闭环-评审
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-12）：
+1. 新档默认仅开放第一关；CompleteStage 在进度管理器内拦截未解锁关卡的越关写入。
+2. 胜利结算区分解锁下一关 / 重复挑战 / 本章完成；第六关"下一关"按钮改为"本章完成"且不可点击。
+3. 重复挑战保留资源奖励发放，但不重复推进主线进度。
+4. 阵亡退场静态检查脚本修正定位，覆盖 BindRuntimeReferences 防复建 guard。
+5. 不改变伤害公式、敌方数值、其他角色模板、后端、数据库、Scene_Boot、资源目录或充值入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. LevelProgressManager.cs（+7/-2）：DemoInitialUnlockedStageId 2→1，仅影响新档起点；CompleteStage 新增 !IsStageUnlocked(safeStageId) 拦截越关写入。highestClearedStageId 仍从 PlayerPrefs 读取，已有进度不回退。
+2. HomePageRouter.cs（+28/-12）：ShowBattleVictoryDetail 三态文案（推进+有下一关 / 推进+本章完成 / 重复挑战）；ConfigureStoryDetailForBattleVictory(bool hasNextStage) 在末关禁用并改标"本章完成"；ContinueToNextMainlineStage 双重防护（current>=Max 或下一关未解锁均停留），且重复挑战仍 GrantRewards 发资源。
+3. 锁关双保险：UI 层解锁前禁用"进入战斗"按钮（ConfigureStoryDetailForMainlineStage 传 unlocked），数据层 CompleteStage 再拦截写入。
+4. verify_immediate_defeat_removal.ps1：删除重复的 $loadConfigStart 行；新增 BindRuntimeReferences 须在首个 BuildView 前 return 的 guard 校验，与现有代码（350-356 guard、387 置位）一致。
+5. verify_mainline_progression_rules.ps1（新增）6 项静态断言全部命中当前代码。
+6. 关联 10 项静态校验全部退出码 0：verify_mainline_progression_rules / verify_mainline_reward_grant / verify_character_leveling_loop / verify_character_battle_stat_sync / verify_player_resource_spending / verify_player_resource_batch_spending / verify_training_resource_balance / verify_formation_battle_linkage / verify_battle_loop / verify_immediate_defeat_removal。
+7. git diff --check 对 4 个范围文件干净；HomePageRouter.cs、BattleDemoController.cs 为 UTF-8 BOM。
+8. 未改 ShouyouServer、shouyou.db、Scene_Boot（工作区 Scene_Boot.unity 仍为历史 15945 行换行/序列化搅动，提交须排除）、资源目录或充值入口。
+P2 观察点（非阻塞）：
+1. 工作区 BattleDemoController.cs 实有 +7 行（BindRuntimeReferences 增加 referencesBound 防复建 guard，属 Todo37 范畴，守卫逻辑正确）；Todo38 变更日志声称"未改变 BattleDemoController 战斗代码"——代码行为确未变（仅防复建守卫），但文件已改动，记录描述与文件清单有出入，建议注明该 guard 随本轮一起入工作区。
+2. LevelProgressManager.cs 无 UTF-8 BOM（HEAD 起即如此，历史遗留非本轮引入），违反 .cs 需 BOM 的项目约定，建议顺手补上。
+3. IsStageUnlocked 方法注释（第 81 行）仍写"Demo 默认开放前两关"，与实际 DemoInitialUnlockedStageId=1 不符，文档过时待更新。
+仍待 Unity Play Mode 冒烟：新档仅第一关可进；通关逐关解锁 + 奖励入账；重复通关奖励入账但进度不变；第六关显示"本章完成"无下一关；锁关进入被 UI/数据两层拦截。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===

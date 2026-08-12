@@ -345,6 +345,13 @@ namespace Shouyou.UI
 
         private void BindRuntimeReferences()
         {
+            // 同一场战斗内不能重复创建单位视图：新视图会丢失 isRemoved 状态，
+            // 让已经阵亡退场的角色重新出现在战场上。
+            if (referencesBound)
+            {
+                return;
+            }
+
             router = GetComponentInParent<HomePageRouter>();
             roundTipText = FindLabel("BattleRoundTip");
             actionPointText = FindLabel("ActionPointText");

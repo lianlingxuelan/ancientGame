@@ -4,6 +4,23 @@ Updated: 2026-08-09 12:30 Asia/Shanghai
 
 This file is a handoff board, not the execution log. Please write review results to `docs/AI_TASK_LOG.md`.
 
+## ✅ DONE — Claude Review: Todo38-FE-R1-CODE 第一章主线成长闭环 PASS (2026-08-12)
+
+Scope: 新档从第一关开始,胜利后逐关解锁;结算保留资源奖励入口,末关停止提供伪"下一关"。未改伤害公式/后端/数据库/Scene_Boot/资源目录/充值入口。
+See `docs/AI_TASK_LOG.md` → Todo38-FE-R1-REVIEW.
+
+- LevelProgressManager.CompleteStage 拦截越关写入(DemoInitialUnlockedStageId 2→1,新档起点第一关)✓
+- HomePageRouter 结算三态文案 + 末关"本章完成"按钮禁用 ✓
+- 重复挑战保留奖励发放但不推进主线进度 ✓
+- 锁关 UI/数据双层防护(解锁前禁入 + 进度管理器拦截)✓
+- verify_immediate_defeat_removal 修正定位覆盖 BindRuntimeReferences 防复建 guard ✓
+- 新增 verify_mainline_progression_rules.ps1;10 项静态校验全部 PASS ✓
+
+P2 观察点:① 工作区 BattleDemoController.cs 实有 +7 行 referencesBound guard(属 Todo37 范畴,变更日志描述与文件清单有出入);② LevelProgressManager.cs 无 UTF-8 BOM(历史遗留);③ IsStageUnlocked 注释仍写"默认开放前两关"过时。
+仍待人工:Unity Play Mode 以新档验证 逐关解锁/重复挑战奖励/末关无下一关/锁关拦截。
+
+---
+
 ## ✅ DONE — Todo28-FE-R1-CODE 第一章主流程闭环 (2026-08-09)
 
 Scope: 通关结算奖励真实入账到最小本地资源钱包（PlayerPrefs 持久化），让 选关→战斗→结算拿奖励→解锁下一关→剧情 的循环对玩家真正成立。未改伤害/行动值/AP/CD/后端/数据库。
@@ -653,3 +670,55 @@ Review verdict: **PASS** — 1 round, 0 P1 (2026-08-11).
 - P2 notes: Li Qingzhao Lv.1 attack is now 180 (dev base) vs the old hardcoded 220 (intended snapshot-first behavior, watch for balance); defense not yet wired into battle units; working-tree `Scene_Boot.unity` churn (15945×2 lines) is pre-existing and must be excluded at commit.
 - Records: `docs/AI_TASK_LOG.md` → Todo36-FE-R1-REVIEW.
 - Still needs Unity Play Mode smoke: level up once, start fresh battle, confirm HP/attack reflect the new level while other units and the ongoing battle are unaffected.
+
+---
+
+## TODO - Claude Review: Todo37-FE-R1-CODE 阵亡单位战斗内回场回归修复
+
+Scope: only preserve the existing `BattleUnitView.isRemoved` state during one live battle. No backend/database/Scene_Boot/assets/recharge or damage-formula changes.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- `tools/verify_immediate_defeat_removal.ps1`
+
+Please verify:
+
+1. `BindRuntimeReferences()` returns immediately after its first successful binding, before any `BuildView(...)`, so a live battle cannot recreate `BattleUnitView` instances.
+2. This guard does not prevent first-time binding from `Awake()` and does not change the explicit fresh-battle reset path in `ResetDemoBattle()`.
+3. After `HideDefeatedUnitView()` sets `isRemoved`, pressing main battle, any skill, or automatic battle cannot re-enable the same slot.
+4. A defeated unit remains invalid as actor and target; no damage, action, or selection can use it after removal.
+5. New battles still restore all slots through the existing `ResetAllUnitViewRemovalState()` path.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_immediate_defeat_removal.ps1`, `verify_battle_loop.ps1`, `verify_battle_presentation_queue.ps1`, `verify_battle_presentation_polish.ps1`, `verify_skill_preselection.ps1`, `verify_dual_mode_skill_input.ps1`, `verify_battle_target_feedback.ps1`, and `verify_formation_battle_linkage.ps1`.
+7. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, or payment/recharge code.
+
+Manual Unity smoke requested:
+
+1. Defeat one unit and wait for its final damage float to finish.
+2. Continue by pressing a normal attack, skill, and auto battle once each.
+3. Confirm the defeated slot remains hidden, cannot be selected, cannot act, and cannot receive damage.
+4. Return/re-enter a fresh battle and confirm that all normal unit slots are restored for the new battle.
+
+---
+
+## TODO - Claude Review: Todo38-FE-R1-CODE 第一章主线成长闭环
+
+Scope: 新档逐关解锁与结算收口。仅检查以下文件；不得修改后端、数据库、Scene_Boot、资源或支付代码。
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/LevelProgressManager.cs`
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_mainline_progression_rules.ps1`
+- `tools/verify_immediate_defeat_removal.ps1`（仅校验脚本定位修正）
+
+Please verify:
+
+1. 新档只从第 1 关开放；已有本地/后端同步进度不会被本改动回退。
+2. `CompleteStage` 会拒绝未解锁关卡，同时仍允许当前已解锁关卡首次完成。
+3. 首次胜利准确解锁后一关；重复挑战不推进最高进度。
+4. 重复挑战资源奖励的既有发放逻辑仍保留，并且结算文案明确“主线进度不变”。
+5. 第 6 关首次完成显示本章完成提示，下一关按钮不可交互；继续操作不会回到同一关造成伪循环。
+6. 运行 `tools/verify_mainline_progression_rules.ps1`、`verify_mainline_reward_grant.ps1`、`verify_character_leveling_loop.ps1`、`verify_character_battle_stat_sync.ps1`、`verify_player_resource_spending.ps1`、`verify_player_resource_batch_spending.ps1`、`verify_training_resource_balance.ps1`、`verify_formation_battle_linkage.ps1`、`verify_battle_loop.ps1` 与 `verify_immediate_defeat_removal.ps1`。
+7. Unity Play Mode 冒烟：以独立测试存档验证“关卡 1 -> 关卡 2 解锁 -> 奖励入账 -> 养成入口可消耗资源 -> 新开战斗使用更新属性”。
+8. 确认没有改动 `ShouyouServer`、`ShouyouServer/data/shouyou.db`、`Scene_Boot.unity`、资源目录、支付/充值代码或伤害公式。

@@ -740,6 +740,7 @@ namespace Shouyou.UI
             int nextStageId = LevelProgressManager.Instance.GetNextStageId(currentMainlineStageId);
             MainlineStageInfo nextStage = MainlineStageCatalog.Get(nextStageId);
             MainlineStageInfo completedStage = MainlineStageCatalog.Get(currentMainlineStageId);
+            bool hasNextStage = currentMainlineStageId < LevelProgressManager.MaxMainlineStageId;
             RewardItem[] stageRewards = MainlineStageCatalog.GetRewards(completedStage.id);
             // 结算奖励实际入账：通关后立即写入本地资源钱包，不再只是展示文字。
             PlayerResourceManager.Instance.GrantRewards(stageRewards);
@@ -748,9 +749,19 @@ namespace Shouyou.UI
             string rewardSection = string.IsNullOrEmpty(balanceText)
                 ? rewardText
                 : rewardText + "\n" + balanceText;
-            string progressText = progressAdvanced
-                ? "主线进度已推进，下一关已解锁：" + nextStage.title
-                : "该关卡此前已通关，本次为重复挑战，不重复推进主线进度。";
+            string progressText;
+            if (progressAdvanced && hasNextStage)
+            {
+                progressText = "主线进度已推进，下一关已解锁：" + nextStage.title;
+            }
+            else if (progressAdvanced)
+            {
+                progressText = "第一章主线已完成，梦域相关内容将在后续章节开启。";
+            }
+            else
+            {
+                progressText = "该关卡此前已通关，本次为重复挑战，不重复推进主线进度。";
+            }
 
             battleResultActionLocked = false;
             storyDetailPanel.SetActive(true);
@@ -762,11 +773,12 @@ namespace Shouyou.UI
                 "\n\n李清照发动词意：如梦令。\n队伍获得气韵增益，顺利完成本次 PVE 试炼。" +
                 "\n\n出战队伍：" + ShouyouBackendBootstrap.GetFormationSummary() +
                 "\n队伍战力：" + ShouyouBackendBootstrap.GetFormationPower() +
-                "\n\n结算奖励：\n" + rewardSection + "\n主线进度 +1" +
+                "\n\n结算奖励：\n" + rewardSection +
+                (progressAdvanced ? "\n主线进度 +1" : "\n本次重复挑战，主线进度不变") +
                 "\n\n" + progressText +
                 "\n\n下一步你可以返回主线继续选关，也可以先去编队调整阵容。"
             );
-            ConfigureStoryDetailForBattleVictory();
+            ConfigureStoryDetailForBattleVictory(hasNextStage);
         }
 
         /// <summary>
@@ -905,12 +917,12 @@ namespace Shouyou.UI
         /// <summary>
         /// 战斗结算弹窗按钮配置。
         /// </summary>
-        private void ConfigureStoryDetailForBattleVictory()
+        private void ConfigureStoryDetailForBattleVictory(bool hasNextStage)
         {
             ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "\u8fd4\u56de\u5173\u5361", true, OnBattleResultReturnMainline);
             ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "\u8c03\u6574\u7f16\u961f", true, OnBattleResultOpenFormation);
             ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "\u91cd\u6218\u672c\u5173", true, OnBattleResultReplay);
-            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "\u4e0b\u4e00\u5173", true, OnBattleResultContinueNext);
+            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, hasNextStage ? "\u4e0b\u4e00\u5173" : "\u672c\u7ae0\u5b8c\u6210", hasNextStage, OnBattleResultContinueNext);
             ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "\u6536\u8d77\u7ed3\u7b97", true, OnBattleResultClose);
         }
 
@@ -941,7 +953,21 @@ namespace Shouyou.UI
         /// </summary>
         private void ContinueToNextMainlineStage()
         {
+            if (currentMainlineStageId >= LevelProgressManager.MaxMainlineStageId)
+            {
+                ShowMainlineChapter();
+                ShowMainlineStageDetail(MainlineStageCatalog.Get(currentMainlineStageId));
+                return;
+            }
+
             int nextId = LevelProgressManager.Instance.GetNextStageId(currentMainlineStageId);
+            if (!LevelProgressManager.Instance.IsStageUnlocked(nextId))
+            {
+                ShowMainlineChapter();
+                ShowMainlineStageDetail(MainlineStageCatalog.Get(nextId));
+                return;
+            }
+
             ShowMainlineChapter();
             ShowMainlineStageDetail(MainlineStageCatalog.Get(nextId));
         }

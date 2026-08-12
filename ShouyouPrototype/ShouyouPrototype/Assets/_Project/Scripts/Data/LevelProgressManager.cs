@@ -21,9 +21,9 @@ namespace Shouyou.Data
         public const int MaxMainlineStageId = 6;
 
         /// <summary>
-        /// Demo 默认开放到第 2 关，方便测试“第一关/第二关/下一关解锁”。
+        /// 新玩家默认只开放第 1 关，后续关卡须由胜利结算逐个解锁。
         /// </summary>
-        private const int DemoInitialUnlockedStageId = 2;
+        private const int DemoInitialUnlockedStageId = 1;
 
         /// <summary>
         /// 本地保存键名。以后要迁移到 JSON 或服务器时，可以保留这个键做兼容。
@@ -95,6 +95,13 @@ namespace Shouyou.Data
         {
             int safeStageId = NormalizeStageId(stageId);
             if (safeStageId <= highestClearedStageId)
+            {
+                return false;
+            }
+
+            // 进度管理器本身也要拦截越关调用，不能只依赖 UI 按钮是否置灰。
+            // 这样未来增加其它入口时，也不会把第三关直接记成已通关。
+            if (!IsStageUnlocked(safeStageId))
             {
                 return false;
             }
