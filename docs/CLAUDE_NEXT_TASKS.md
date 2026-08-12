@@ -16,7 +16,7 @@ See `docs/AI_TASK_LOG.md` → Todo38-FE-R1-REVIEW.
 - verify_immediate_defeat_removal 修正定位覆盖 BindRuntimeReferences 防复建 guard ✓
 - 新增 verify_mainline_progression_rules.ps1;10 项静态校验全部 PASS ✓
 
-P2 观察点:① 工作区 BattleDemoController.cs 实有 +7 行 referencesBound guard(属 Todo37 范畴,变更日志描述与文件清单有出入);② LevelProgressManager.cs 无 UTF-8 BOM(历史遗留);③ IsStageUnlocked 注释仍写"默认开放前两关"过时。
+P2 观察点:① 工作区 BattleDemoController.cs 实有 +7 行 referencesBound guard(属 Todo37 范畴)——已于 CODE 记录补充说明,关闭;② LevelProgressManager.cs 无 UTF-8 BOM——已补上,关闭;③ IsStageUnlocked 注释过时——已更新,关闭。
 仍待人工:Unity Play Mode 以新档验证 逐关解锁/重复挑战奖励/末关无下一关/锁关拦截。
 
 ---

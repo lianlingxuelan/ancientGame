@@ -4680,9 +4680,10 @@ agent: codex
 修改文件：
 1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/LevelProgressManager.cs
 2. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
-3. tools/verify_immediate_defeat_removal.ps1
+3. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs（补充 referencesBound 防复建 guard，属 Todo37 范畴，随本轮一并入工作区）
+4. tools/verify_immediate_defeat_removal.ps1
 新增文件：
-4. tools/verify_mainline_progression_rules.ps1
+5. tools/verify_mainline_progression_rules.ps1
 
 关键方法：
 1. LevelProgressManager.CompleteStage
@@ -4695,7 +4696,7 @@ agent: codex
 1. 新档默认仅开放第一关，并在进度管理器内拦截未解锁关卡的通关写入，防止未来其他入口越关。
 2. 战斗胜利结算区分“解锁下一关 / 重复挑战 / 本章完成”；第六关将下一关按钮显示为“本章完成”且不可点击。
 3. 重复挑战继续保留既有资源奖励发放，用作养成材料来源，但明确显示主线进度不再推进。
-4. 修正阵亡退场静态检查脚本的源码定位，覆盖现有 BindRuntimeReferences 防复建保护；未改变 BattleDemoController 战斗代码。
+4. 修正阵亡退场静态检查脚本的源码定位，覆盖 BindRuntimeReferences 防复建保护；BattleDemoController.cs 同步补齐 referencesBound guard（同一场战斗不重复创建单位视图，属 Todo37 范畴，仅防复建不改战斗逻辑）。
 
 资源变更：无。
 存档影响：新档起点由第 2 关调整为第 1 关；已有本地或后端同步进度不回退。
@@ -4742,8 +4743,8 @@ Claude 评审复核（2026-08-12）：
 7. git diff --check 对 4 个范围文件干净；HomePageRouter.cs、BattleDemoController.cs 为 UTF-8 BOM。
 8. 未改 ShouyouServer、shouyou.db、Scene_Boot（工作区 Scene_Boot.unity 仍为历史 15945 行换行/序列化搅动，提交须排除）、资源目录或充值入口。
 P2 观察点（非阻塞）：
-1. 工作区 BattleDemoController.cs 实有 +7 行（BindRuntimeReferences 增加 referencesBound 防复建 guard，属 Todo37 范畴，守卫逻辑正确）；Todo38 变更日志声称"未改变 BattleDemoController 战斗代码"——代码行为确未变（仅防复建守卫），但文件已改动，记录描述与文件清单有出入，建议注明该 guard 随本轮一起入工作区。
-2. LevelProgressManager.cs 无 UTF-8 BOM（HEAD 起即如此，历史遗留非本轮引入），违反 .cs 需 BOM 的项目约定，建议顺手补上。
+1. 工作区 BattleDemoController.cs 实有 +7 行（BindRuntimeReferences 增加 referencesBound 防复建 guard，属 Todo37 范畴，守卫逻辑正确）；Todo38 变更日志声称"未改变 BattleDemoController 战斗代码"——代码行为确未变（仅防复建守卫），但文件已改动。已于复核时在 Todo38-FE-R1-CODE 记录补充该文件与 guard 说明，本观察点关闭。
+2. LevelProgressManager.cs 无 UTF-8 BOM（HEAD 起即如此，历史遗留非本轮引入）；已于复核后补上 EF BB BF，本观察点关闭。
 3. IsStageUnlocked 方法注释（第 81 行）仍写"Demo 默认开放前两关"，与实际 DemoInitialUnlockedStageId=1 不符，文档过时待更新。
 仍待 Unity Play Mode 冒烟：新档仅第一关可进；通关逐关解锁 + 奖励入账；重复通关奖励入账但进度不变；第六关显示"本章完成"无下一关；锁关进入被 UI/数据两层拦截。
 ---BLOCK_VERIFY_END---
