@@ -74,11 +74,11 @@ namespace Shouyou.Data
 
         /// <summary>
         /// 判断关卡是否可挑战。
-        /// 
+        ///
         /// 规则：
         /// - 已通关关卡可以重复挑战。
         /// - 最高已通关关卡的下一关会自动解锁。
-        /// - Demo 默认开放前两关，方便早期测试。
+        /// - 新档默认只开放第一关，后续关卡由胜利结算逐个解锁。
         /// </summary>
         public bool IsStageUnlocked(int stageId)
         {
