@@ -1,4 +1,4 @@
-namespace Shouyou.Data
+﻿namespace Shouyou.Data
 {
     /// <summary>
     /// 一段主线剧情的轻量配置。
@@ -10,11 +10,32 @@ namespace Shouyou.Data
         public readonly string title;
         public readonly string[] lines;
 
+        /// <summary>
+        /// 剧情总行数。供逐句播放和剧情回看安全判断边界。
+        /// </summary>
+        public int LineCount
+        {
+            get { return lines == null ? 0 : lines.Length; }
+        }
+
         public MainlineStorySequence(int stageId, string title, params string[] lines)
         {
             this.stageId = stageId;
             this.title = title;
             this.lines = lines;
+        }
+
+        /// <summary>
+        /// 安全取得指定剧情行；非法索引返回空文本，避免 UI 切换时发生越界异常。
+        /// </summary>
+        public string GetLine(int index)
+        {
+            if (lines == null || index < 0 || index >= lines.Length)
+            {
+                return string.Empty;
+            }
+
+            return lines[index] ?? string.Empty;
         }
     }
 
@@ -72,15 +93,45 @@ namespace Shouyou.Data
         /// </summary>
         public static MainlineStorySequence Get(int stageId)
         {
+            MainlineStorySequence sequence;
+            if (TryGet(stageId, out sequence))
+            {
+                return sequence;
+            }
+
+            return Sequences[0];
+        }
+
+        /// <summary>
+        /// 尝试读取指定关卡的剧情。调用方需要区分不存在关卡时，应使用此方法而不是旧的回退接口。
+        /// </summary>
+        public static bool TryGet(int stageId, out MainlineStorySequence sequence)
+        {
             for (int i = 0; i < Sequences.Length; i++)
             {
                 if (Sequences[i].stageId == stageId)
                 {
-                    return Sequences[i];
+                    sequence = Sequences[i];
+                    return true;
                 }
             }
 
-            return Sequences[0];
+            sequence = null;
+            return false;
+        }
+
+        /// <summary>
+        /// 返回当前章节配置的关卡编号副本，供关卡列表和剧情回看入口枚举使用。
+        /// </summary>
+        public static int[] GetStageIds()
+        {
+            var stageIds = new int[Sequences.Length];
+            for (int i = 0; i < Sequences.Length; i++)
+            {
+                stageIds[i] = Sequences[i].stageId;
+            }
+
+            return stageIds;
         }
     }
 }

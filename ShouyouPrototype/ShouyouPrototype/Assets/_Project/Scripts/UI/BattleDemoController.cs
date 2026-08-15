@@ -121,6 +121,11 @@ namespace Shouyou.UI
         private bool referencesBound;
         private bool isPlayingPresentation;
         private Coroutine presentationCoroutine;
+        // 自动战斗必须等待当前表现队列播完，不能把多次伤害在同一帧内全部结算给玩家看。
+        private bool isAutoBattleRunning;
+        private Coroutine autoBattleCoroutine;
+        // 玩家出手后的敌方行动、预选技能必须逐段等待表现结束，不能同步循环结算。
+        private Coroutine followUpResolutionCoroutine;
 
         /// <summary>
         /// 从主线详情页进入战斗时写入。战斗控制器不决定关卡进度，
@@ -146,6 +151,8 @@ namespace Shouyou.UI
         private void OnDisable()
         {
             // 页面离开后不再播放旧战斗的表现事件，避免回到战斗页时残留飘字或高亮。
+            StopAutoBattleRoutine();
+            StopFollowUpResolutionRoutine();
             ClearPresentationQueue();
         }
 
@@ -168,6 +175,8 @@ namespace Shouyou.UI
         /// </summary>
         public void ResetDemoBattle()
         {
+            StopAutoBattleRoutine();
+            StopFollowUpResolutionRoutine();
             ClearPresentationQueue();
             ResetAllUnitViewRemovalState();
             selectedEnemyIndex = 0;
@@ -301,12 +310,12 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// 临时自动战斗：连续执行三次普通攻击。
-        /// 这里不是开关状态，而是立即执行一组自动攻击，所以方法名必须和行为一致。
+        /// 临时自动战斗：自动执行可行动的我方角色。
+        /// 每次行动后都等待攻击、受击、飘字与退场表现结束，避免多名角色看起来同时结算。
         /// </summary>
         public void PerformAutoAttacks()
         {
-            if (IsBattleInputLocked())
+            if (IsBattleInputLocked() || isAutoBattleRunning)
             {
                 return;
             }
@@ -316,11 +325,44 @@ namespace Shouyou.UI
                 return;
             }
 
-            int safety = UnitCount * 2;
-            while (!battleEnded && IsPlayerTurn() && safety-- > 0)
+            autoBattleCoroutine = StartCoroutine(PerformAutoAttacksRoutine());
+        }
+
+        /// <summary>
+        /// 自动战斗的逐段执行协程。数值结算继续复用既有逻辑，
+        /// 本协程只在每一个行动批次之间等待表现队列清空。
+        /// </summary>
+        private IEnumerator PerformAutoAttacksRoutine()
+        {
+            isAutoBattleRunning = true;
+            RefreshBattleControls();
+
+            // 自动战斗可以跨越多个完整行动链继续执行；安全上限仅防止异常状态下无限循环。
+            int safety = UnitCount * UnitCount;
+            while (!battleEnded && safety-- > 0)
             {
+                yield return WaitForPresentationQueueToFinish();
+                yield return WaitForFollowUpResolutionToFinish();
+                if (battleEnded)
+                {
+                    break;
+                }
+
+                // 正常情况下后续行动链会停在下一名可操作的我方角色；
+                // 若战斗状态异常或不再属于我方行动，则安全结束本轮自动执行。
+                if (!IsPlayerTurn())
+                {
+                    break;
+                }
+
                 PerformPlayerAttackInternal();
+                yield return WaitForPresentationQueueToFinish();
+                yield return WaitForFollowUpResolutionToFinish();
             }
+
+            isAutoBattleRunning = false;
+            autoBattleCoroutine = null;
+            RefreshAllViews();
         }
 
         /// <summary>
@@ -335,6 +377,8 @@ namespace Shouyou.UI
             }
 
             battleEnded = true;
+            StopAutoBattleRoutine();
+            StopFollowUpResolutionRoutine();
             ClearPresentationQueue();
             SetBattleMessage("\u5df2\u64a4\u9000\u672c\u573a\u6218\u6597\uff0c\u672a\u83b7\u5f97\u5956\u52b1\u3002");
             if (router != null)
@@ -1168,7 +1212,8 @@ namespace Shouyou.UI
         }
 
         /// <summary>
-        /// 本次玩家行动结束后，连续处理敌方行动与到点自动释放的预选技能，直到重新轮到未预选的我方角色。
+        /// 本次玩家行动结束后，以协程逐段处理敌方行动与到点自动释放的预选技能。
+        /// 每一段数值结算完成后都等待对应攻击表现播放完，再推进到下一名行动者。
         /// </summary>
         private void CompletePlayerAction(string playerMessage)
         {
@@ -1177,11 +1222,35 @@ namespace Shouyou.UI
                 return;
             }
 
-            MoveToNextAvailableActor(true);
+            if (followUpResolutionCoroutine != null)
+            {
+                return;
+            }
+
+            resolvingEnemyTurn = true;
+            // 逻辑锁定后立即刷新按钮和提示，避免玩家看到仍可点击的旧状态。
+            ShowResolvingActionLog(playerMessage);
+            followUpResolutionCoroutine = StartCoroutine(ResolveFollowUpActionsRoutine(playerMessage));
+        }
+
+        /// <summary>
+        /// 将玩家出手后的后续行动拆成多个表现批次。
+        /// 本协程只改变“何时推进到下一名行动者”，继续复用已有伤害、技能与胜负结算逻辑。
+        /// </summary>
+        private IEnumerator ResolveFollowUpActionsRoutine(string playerMessage)
+        {
             string actionLog = playerMessage;
             int safety = UnitCount * 3;
 
-            resolvingEnemyTurn = true;
+            // 先让玩家本次攻击的施法、受击、飘字与退场表现完整播完。
+            yield return WaitForPresentationQueueToFinish();
+            if (TryFinishBattle())
+            {
+                FinishFollowUpResolution();
+                yield break;
+            }
+
+            MoveToNextAvailableActor(true);
             while (!battleEnded && currentActor != null && safety-- > 0)
             {
                 if (currentActor.isAlly)
@@ -1195,6 +1264,7 @@ namespace Shouyou.UI
                     if (!string.IsNullOrEmpty(queuedMessage))
                     {
                         actionLog += "\n" + queuedMessage;
+                        ShowResolvingActionLog(actionLog);
                     }
                 }
                 else
@@ -1203,22 +1273,44 @@ namespace Shouyou.UI
                     if (!string.IsNullOrEmpty(enemyMessage))
                     {
                         actionLog += "\n" + enemyMessage;
+                        ShowResolvingActionLog(actionLog);
                     }
                 }
 
+                // 当前行动者的表现完成后，才能结算下一名行动者，避免多人看起来同时出手。
+                yield return WaitForPresentationQueueToFinish();
                 if (TryFinishBattle())
                 {
-                    resolvingEnemyTurn = false;
-                    return;
+                    FinishFollowUpResolution();
+                    yield break;
                 }
 
                 MoveToNextAvailableActor(true);
             }
-            resolvingEnemyTurn = false;
 
             actionLog += "\n" + BuildTurnPrompt();
             SetBattleMessage(actionLog);
+            FinishFollowUpResolution();
             RefreshAllViews();
+        }
+
+        /// <summary>
+        /// 在后续行动链进行中即时刷新文本与按钮状态。
+        /// 该方法只显示已经结算完成的行动记录，不计算数值，也不改变战斗状态。
+        /// </summary>
+        private void ShowResolvingActionLog(string actionLog)
+        {
+            SetBattleMessage(actionLog + "\n行动表现中，等待下一位行动者。");
+            RefreshAllViews();
+        }
+
+        /// <summary>
+        /// 正常结束后续行动结算，恢复玩家输入。
+        /// </summary>
+        private void FinishFollowUpResolution()
+        {
+            resolvingEnemyTurn = false;
+            followUpResolutionCoroutine = null;
         }
 
         private string ResolveEnemyAction(BattleUnitState enemyAttacker)
@@ -2196,7 +2288,59 @@ namespace Shouyou.UI
 
         private bool IsBattleInputLocked()
         {
-            return isPlayingPresentation || presentationEvents.Count > 0;
+            return resolvingEnemyTurn || isAutoBattleRunning || isPlayingPresentation || presentationEvents.Count > 0;
+        }
+
+        /// <summary>
+        /// 等待当前攻击批次的所有表现事件播完。此处只控制节奏，
+        /// 不计算伤害、不改变行动值，也不触碰技能冷却与奖励逻辑。
+        /// </summary>
+        private IEnumerator WaitForPresentationQueueToFinish()
+        {
+            while (isPlayingPresentation || presentationEvents.Count > 0)
+            {
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// 等待玩家本次出手后的敌我后续行动链结束。
+        /// 自动战斗只负责等待，不参与行动值、伤害、冷却或胜负结算。
+        /// </summary>
+        private IEnumerator WaitForFollowUpResolutionToFinish()
+        {
+            while (followUpResolutionCoroutine != null)
+            {
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// 战斗重置、撤退或离开页面时停止自动战斗，
+        /// 防止旧协程在新战斗或其他页面继续触发攻击。
+        /// </summary>
+        private void StopAutoBattleRoutine()
+        {
+            isAutoBattleRunning = false;
+            if (autoBattleCoroutine != null)
+            {
+                StopCoroutine(autoBattleCoroutine);
+                autoBattleCoroutine = null;
+            }
+        }
+
+        /// <summary>
+        /// 战斗重置、撤退或离开页面时停止后续行动结算，
+        /// 防止旧战斗在新页面继续推进敌方或预选技能行动。
+        /// </summary>
+        private void StopFollowUpResolutionRoutine()
+        {
+            resolvingEnemyTurn = false;
+            if (followUpResolutionCoroutine != null)
+            {
+                StopCoroutine(followUpResolutionCoroutine);
+                followUpResolutionCoroutine = null;
+            }
         }
 
         private void ClearPresentationQueue()

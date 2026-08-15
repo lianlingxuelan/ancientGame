@@ -99,23 +99,26 @@ namespace Shouyou.UI
         private bool battleResultActionLocked;
 
         /// <summary>
-        /// 剧情阅读状态只服务于当前详情弹窗，关闭详情或切换关卡后会重置。
-        /// 已读记录由 LevelProgressManager 持久化，不依赖这里的临时字段。
+        /// 剧情逐句阅读的唯一运行时状态。
+        /// 已读记录由状态对象统一写入进度管理器，页面不再重复维护索引或存档。
         /// </summary>
-        private bool storyReadingActive;
-        private int currentStoryLineIndex = -1;
-        private float storyReadingStartedAt;
-
-        /// <summary>
-        /// 进入剧情三秒后才允许跳过，保留开场的情绪铺垫。
-        /// </summary>
-        private const float StorySkipDelaySeconds = 3f;
+        private MainlineStoryPlaybackState storyPlaybackState = new MainlineStoryPlaybackState();
 
         private void Awake()
         {
             EnsureRuntimeReferences();
             ConfigureStoryDetailForGeneric();
             ShowHome();
+        }
+
+        private void Update()
+        {
+            // 仅在剧情详情弹窗打开期间累计阅读时间，避免切页后仍悄悄解锁跳过。
+            if (storyDetailPanel != null && storyDetailPanel.activeSelf &&
+                storyPlaybackState.IsStarted && !storyPlaybackState.IsCompleted)
+            {
+                storyPlaybackState.AdvanceTime(Time.unscaledDeltaTime);
+            }
         }
 
         // -------------------------
@@ -314,8 +317,8 @@ namespace Shouyou.UI
 
         public void CloseStoryDetail()
         {
-            storyReadingActive = false;
-            currentStoryLineIndex = -1;
+            // 关闭弹窗只清理本次阅读临时状态，不影响已经写入的剧情已读记录。
+            storyPlaybackState.Reset();
             SetActive(storyDetailPanel, false);
         }
 
@@ -327,9 +330,15 @@ namespace Shouyou.UI
                 return;
             }
 
-            currentStoryLineIndex = 0;
-            storyReadingActive = true;
-            storyReadingStartedAt = Time.unscaledTime;
+            if (!storyPlaybackState.TryStart(currentMainlineStageId))
+            {
+                SetStoryBody(currentMainlineStageName + "\n\n本关剧情尚未配置，暂时不能开始阅读。");
+                ConfigureStoryDetailForMainlineStage(
+                    currentMainlineStageUnlocked,
+                    LevelProgressManager.Instance.IsStageCleared(currentMainlineStageId));
+                return;
+            }
+
             RenderCurrentStoryLine();
             ConfigureStoryDetailForReading();
         }
@@ -342,17 +351,15 @@ namespace Shouyou.UI
                 return;
             }
 
-            if (!storyReadingActive)
+            if (!storyPlaybackState.IsStarted)
             {
                 StartStoryReading();
                 return;
             }
 
-            float elapsed = Time.unscaledTime - storyReadingStartedAt;
-            if (elapsed < StorySkipDelaySeconds)
+            if (!storyPlaybackState.TrySkip())
             {
-                int remaining = Mathf.CeilToInt(StorySkipDelaySeconds - elapsed);
-                SetStoryBody("剧情正在展开。\n\n" + remaining + " 秒后可跳过；也可以点击“下一句”继续阅读。");
+                SetStoryBody("剧情正在展开。\n\n3 秒后可跳过；也可以点击“下一句”继续阅读。");
                 return;
             }
 
@@ -573,6 +580,18 @@ namespace Shouyou.UI
                 return;
             }
 
+            ShowBattlePreparation();
+        }
+
+        /// <summary>
+        /// 打开主线关卡的出战准备弹窗。
+        ///
+        /// 这里不扣体力、不保存编队，也不推进关卡；
+        /// 仅把玩家将要挑战的关卡、当前编队和推荐战力集中展示，
+        /// 再由“确认挑战”进入实际战斗页。
+        /// </summary>
+        private void ShowBattlePreparation()
+        {
             if (!ShouyouBackendBootstrap.HasBattleReadyFormation())
             {
                 ShowStoryDetail(
@@ -583,7 +602,62 @@ namespace Shouyou.UI
                 return;
             }
 
+            ShowStoryDetail("出战准备", BuildBattlePreparationText());
+            ConfigureDetailButton(storyReadButton, storyReadButtonLabel, "返回关卡", true, ReturnToCurrentMainlineStageDetail);
+            ConfigureDetailButton(storySkipButton, storySkipButtonLabel, "调整编队", true, OpenFormationFromMainlineStageDetail);
+            ConfigureDetailButton(storyReplayButton, storyReplayButtonLabel, "确认挑战", true, StartBattleFromPreparation);
+            ConfigureDetailButton(storyBattleButton, storyBattleButtonLabel, "准备就绪", false, StartBattleFromPreparation);
+            ConfigureDetailButton(storyCloseButton, storyCloseButtonLabel, "取消出战", true, ReturnToCurrentMainlineStageDetail);
+        }
+
+        /// <summary>
+        /// 玩家在准备页确认后才真正进入战斗。
+        /// 再做一次编队检查，避免玩家在打开准备页后清空编队时仍可进入战斗。
+        /// </summary>
+        private void StartBattleFromPreparation()
+        {
+            if (!currentMainlineStageUnlocked || !ShouyouBackendBootstrap.HasBattleReadyFormation())
+            {
+                ShowBattlePreparation();
+                return;
+            }
+
             ShowBattle();
+        }
+
+        /// <summary>
+        /// 生成只读的出战准备信息。
+        /// 文本只读取关卡目录和编队摘要，不写入存档、资源或后端状态。
+        /// </summary>
+        private string BuildBattlePreparationText()
+        {
+            MainlineStageInfo stage = MainlineStageCatalog.Get(currentMainlineStageId);
+            string stageTitle = stage == null ? currentMainlineStageName : stage.title;
+            string recommendPower = stage == null ? "暂未配置" : stage.recommendPower.ToString();
+
+            return
+                stageTitle +
+                "\n\n推荐战力：" + recommendPower +
+                "\n当前战力：" + ShouyouBackendBootstrap.GetFormationPower() +
+                "\n当前编队：" + ShouyouBackendBootstrap.GetFormationSummary() +
+                "\n\n确认挑战后进入回合 PVE。\n如需替换角色，请先选择“调整编队”。";
+        }
+
+        /// <summary>
+        /// 从出战准备返回当前关卡详情。
+        /// 保持当前关卡 id，不写入任何进度，方便玩家修改编队后再次确认挑战。
+        /// </summary>
+        private void ReturnToCurrentMainlineStageDetail()
+        {
+            MainlineStageInfo stage = MainlineStageCatalog.Get(currentMainlineStageId);
+            if (stage == null)
+            {
+                ShowMainlineChapter();
+                return;
+            }
+
+            ShowMainlineChapter();
+            ShowMainlineStageDetail(stage);
         }
 
         public void ResolveBattleVictory()
@@ -873,8 +947,9 @@ namespace Shouyou.UI
         /// <summary>
         /// 主线关卡详情弹窗按钮配置。
         ///
-        /// 未解锁关卡只保留提示和关闭入口，避免玩家误点“进入战斗”后以为功能失效。
-        /// 已通关关卡仍允许重复挑战，但不会重复推进主线进度。
+        /// 关卡详情固定分为剧情、编队与挑战三类操作：
+        /// 未解锁时只保留解锁说明；已通关关卡仍允许重复挑战，
+        /// 但不会重复推进主线进度。
         /// </summary>
         private void ConfigureStoryDetailForMainlineStage(bool unlocked, bool cleared)
         {
@@ -886,28 +961,28 @@ namespace Shouyou.UI
             ConfigureDetailButton(
                 storyReadButton,
                 storyReadButtonLabel,
-                unlocked ? (storyRead ? "重读剧情" : "开始阅读") : "未解锁",
+                unlocked ? (storyRead ? "重读剧情" : "开始阅读") : "解锁条件",
                 true,
                 readAction);
 
             ConfigureDetailButton(
                 storySkipButton,
                 storySkipButtonLabel,
-                "跳过剧情",
+                unlocked ? "调整编队" : "暂未开放",
                 unlocked,
-                SkipStory);
+                OpenFormationFromMainlineStageDetail);
 
             ConfigureDetailButton(
                 storyReplayButton,
                 storyReplayButtonLabel,
-                "回看剧情",
+                storyRead ? "回看剧情" : "剧情未读",
                 storyRead,
                 ReplayStory);
 
             ConfigureDetailButton(
                 storyBattleButton,
                 storyBattleButtonLabel,
-                cleared ? "再次战斗" : "进入战斗",
+                unlocked ? (cleared ? "再次挑战" : "开始挑战") : "暂未开放",
                 unlocked,
                 EnterBattlePrototype);
 
@@ -1107,10 +1182,30 @@ namespace Shouyou.UI
         /// </summary>
         private void ShowLockedStageHint()
         {
+            MainlineStageInfo stage = MainlineStageCatalog.Get(currentMainlineStageId);
             SetStoryBody(
                 currentMainlineStageName +
-                "\n\n该关卡暂未解锁。\n\n请先完成前置关卡。正式版本还会检查角色等级、体力和剧情前置条件。"
+                "\n\n该关卡暂未解锁。\n\n" + BuildLockedStageRequirementText(stage) +
+                "\n\n完成前置关卡并领取结算后，本关会自动开放。"
             );
+        }
+
+        /// <summary>
+        /// 从主线关卡详情进入编队页。
+        ///
+        /// 这个入口只负责切换 UI，不创建编队、不改写关卡状态，
+        /// 让玩家可以在挑战前明确调整阵容。
+        /// </summary>
+        private void OpenFormationFromMainlineStageDetail()
+        {
+            if (!currentMainlineStageUnlocked)
+            {
+                ShowLockedStageHint();
+                return;
+            }
+
+            CloseStoryDetail();
+            ShowMainlineFormationTab();
         }
 
         /// <summary>
@@ -1131,27 +1226,118 @@ namespace Shouyou.UI
             currentMainlineStageUnlocked = LevelProgressManager.Instance.IsStageUnlocked(stage.id);
             bool cleared = LevelProgressManager.Instance.IsStageCleared(stage.id);
             bool storyRead = LevelProgressManager.Instance.IsStoryRead(stage.id);
-            storyReadingActive = false;
-            currentStoryLineIndex = -1;
-
-            string actionHint = currentMainlineStageUnlocked
-                ? (cleared ? "可操作：回看剧情 / 重复挑战 / 再次战斗" : "可操作：开始阅读 / 进入战斗")
-                : "可操作：查看信息。阅读和战斗需要先完成前置条件。";
+            // 切换关卡时必须丢弃上一关的临时阅读游标，避免跨关显示台词。
+            storyPlaybackState.Reset();
 
             string body =
                 "推荐等级：Lv." + stage.recommendLevel +
                 "\n推荐战力：" + stage.recommendPower +
                 "\n关卡目标：" + stage.objective +
-                "\n奖励：" + stage.rewardPreview +
+                "\n奖励预览：\n" + BuildMainlineStageRewardPreview(stage) +
                 "\n\n体力消耗：6" +
                 "\n关卡类型：剧情 + PVE" +
                 "\n状态：" + LevelProgressManager.Instance.GetStageStateLabel(stage.id) +
                 "\n剧情记录：" + (storyRead ? "已阅读" : "未阅读") +
                 "\n通关记录：" + (cleared ? "已记录" : "未通关") +
-                "\n\n" + actionHint;
+                "\n\n" + BuildMainlineStageGuidance(stage, currentMainlineStageUnlocked, cleared) +
+                "\n\n" + BuildChapterProgressOverview();
 
             ShowStoryDetail(stage.title, body);
             ConfigureStoryDetailForMainlineStage(currentMainlineStageUnlocked, cleared);
+        }
+
+        /// <summary>
+        /// 关卡详情里的奖励预览统一读取奖励目录，避免展示文案和实际结算奖励出现分叉。
+        /// </summary>
+        private string BuildMainlineStageRewardPreview(MainlineStageInfo stage)
+        {
+            if (stage == null)
+            {
+                return "暂无奖励信息";
+            }
+
+            return BuildBattleRewardText(MainlineStageCatalog.GetRewards(stage.id), stage.rewardPreview);
+        }
+
+        /// <summary>
+        /// 构建关卡详情底部的下一步引导。
+        ///
+        /// 这里不拦截低等级玩家挑战，只用直白文案告诉玩家该先养成还是直接进入战斗，
+        /// 保留原型期自由尝试与失败重战的空间。
+        /// </summary>
+        private string BuildMainlineStageGuidance(MainlineStageInfo stage, bool unlocked, bool cleared)
+        {
+            if (stage == null)
+            {
+                return "可操作：返回主线查看其他关卡。";
+            }
+
+            if (!unlocked)
+            {
+                return "解锁条件：" + BuildLockedStageRequirementText(stage) + "\n可操作：点击“解锁条件”查看说明。";
+            }
+
+            CharacterDevelopmentSnapshot snapshot = CharacterDevelopmentManager.Instance.GetSnapshot(CharacterDevelopmentManager.LiQingzhaoId);
+            string levelAdvice = string.Empty;
+            if (snapshot != null && snapshot.level < stage.recommendLevel)
+            {
+                levelAdvice = "\n推荐养成：李清照当前 Lv." + snapshot.level + "，建议先前往“角色 > 养成”提升至 Lv." + stage.recommendLevel + "。";
+            }
+
+            if (cleared)
+            {
+                return "可操作：回看剧情 / 调整编队 / 再次挑战。\n提示：重复挑战仍会获得奖励，但不会推进主线进度。" + levelAdvice;
+            }
+
+            return "可操作：开始阅读 / 调整编队 / 开始挑战。" + levelAdvice;
+        }
+
+        /// <summary>
+        /// 汇总第一章所有关卡的阅读与通关状态，供玩家在任意关卡详情中快速判断主线进度。
+        ///
+        /// 这里只读取 LevelProgressManager 和关卡目录；不得在展示概览时解锁关卡、发放奖励或改写剧情记录。
+        /// </summary>
+        private string BuildChapterProgressOverview()
+        {
+            LevelProgressManager progress = LevelProgressManager.Instance;
+            int highestClearedStageId = progress.GetHighestClearedStageId();
+            string overview = "第一章总进度：" + highestClearedStageId + " / " + LevelProgressManager.MaxMainlineStageId + " 已通关";
+
+            if (highestClearedStageId >= LevelProgressManager.MaxMainlineStageId)
+            {
+                overview += "\n下一目标：第一章已完成，可回看剧情或重复挑战。";
+            }
+            else
+            {
+                int nextStageId = highestClearedStageId + 1;
+                MainlineStageInfo nextStage = MainlineStageCatalog.Get(nextStageId);
+                overview += "\n下一目标：" + nextStage.title + "（" + progress.GetStageStateLabel(nextStageId) + "）";
+            }
+
+            overview += "\n关卡一览：";
+            for (int stageId = 1; stageId <= LevelProgressManager.MaxMainlineStageId; stageId++)
+            {
+                MainlineStageInfo chapterStage = MainlineStageCatalog.Get(stageId);
+                string storyState = progress.IsStoryRead(stageId) ? "剧情已读" : "剧情未读";
+                overview += "\n" + chapterStage.title + " · " + progress.GetStageStateLabel(stageId) + " · " + storyState;
+            }
+
+            return overview;
+        }
+
+        /// <summary>
+        /// 返回未解锁关的明确前置条件。
+        /// 第一关不会走到这里；后续章节继续沿用“前一关通关后开放”的最小规则。
+        /// </summary>
+        private string BuildLockedStageRequirementText(MainlineStageInfo stage)
+        {
+            if (stage == null || stage.id <= 1)
+            {
+                return "请完成本章引导后再试。";
+            }
+
+            MainlineStageInfo previousStage = MainlineStageCatalog.Get(stage.id - 1);
+            return "请先通关第 " + (stage.id - 1) + " 关“" + previousStage.title + "”。";
         }
 
         /// <summary>
@@ -1159,21 +1345,19 @@ namespace Shouyou.UI
         /// </summary>
         private void RenderCurrentStoryLine()
         {
-            MainlineStorySequence sequence = MainlineStoryCatalog.Get(currentMainlineStageId);
-            if (sequence.lines == null || sequence.lines.Length == 0)
+            if (!storyPlaybackState.IsStarted || storyPlaybackState.IsCompleted || storyPlaybackState.LineCount <= 0)
             {
                 CompleteStoryReading(false);
                 return;
             }
 
-            currentStoryLineIndex = Mathf.Clamp(currentStoryLineIndex, 0, sequence.lines.Length - 1);
-            bool canSkip = Time.unscaledTime - storyReadingStartedAt >= StorySkipDelaySeconds;
-            string skipHint = canSkip ? "现在可跳过剧情。" : "3 秒后将开放跳过。";
+            MainlineStorySequence sequence = MainlineStoryCatalog.Get(currentMainlineStageId);
+            string skipHint = storyPlaybackState.IsSkipAvailable ? "现在可跳过剧情。" : "3 秒后将开放跳过。";
 
             SetStoryText(storyDetailTitle, currentMainlineStageName + " · " + sequence.title);
             SetStoryBody(
-                sequence.lines[currentStoryLineIndex] +
-                "\n\n—— " + (currentStoryLineIndex + 1) + " / " + sequence.lines.Length + " ——" +
+                storyPlaybackState.CurrentLine +
+                "\n\n—— " + (storyPlaybackState.CurrentLineIndex + 1) + " / " + storyPlaybackState.LineCount + " ——" +
                 "\n" + skipHint
             );
         }
@@ -1183,15 +1367,13 @@ namespace Shouyou.UI
         /// </summary>
         private void AdvanceStoryReading()
         {
-            if (!storyReadingActive)
+            if (!storyPlaybackState.IsStarted)
             {
                 StartStoryReading();
                 return;
             }
 
-            MainlineStorySequence sequence = MainlineStoryCatalog.Get(currentMainlineStageId);
-            currentStoryLineIndex++;
-            if (sequence.lines == null || currentStoryLineIndex >= sequence.lines.Length)
+            if (!storyPlaybackState.TryAdvance())
             {
                 CompleteStoryReading(false);
                 return;
@@ -1205,22 +1387,53 @@ namespace Shouyou.UI
         /// </summary>
         private void CompleteStoryReading(bool skipped)
         {
-            storyReadingActive = false;
-            currentStoryLineIndex = -1;
-            LevelProgressManager.Instance.MarkStoryRead(currentMainlineStageId);
-
             string result = skipped ? "已跳过本段剧情，仍可随时回看。" : "本段剧情阅读完成，已收入剧情记录。";
             SetStoryText(storyDetailTitle, currentMainlineStageName);
             SetStoryBody(
                 result +
-                "\n\n下一步可进入战斗，也可以回看本关剧情。\n" +
-                "提示：剧情已读与战斗通关是两条独立进度。"
+                "\n\n" + BuildStoryCompletionGuidance() +
+                "\n\n提示：剧情已读与战斗通关是两条独立进度。"
             );
 
             ConfigureStoryDetailForMainlineStage(
                 currentMainlineStageUnlocked,
                 LevelProgressManager.Instance.IsStageCleared(currentMainlineStageId)
             );
+        }
+
+        /// <summary>
+        /// 根据当前关卡的真实通关状态，生成剧情结束后的下一步行动提示。
+        /// 仅作 UI 文案引导：不发奖励、不解锁关卡，也不改变战斗或存档数据。
+        /// </summary>
+        private string BuildStoryCompletionGuidance()
+        {
+            MainlineStageInfo stage = MainlineStageCatalog.Get(currentMainlineStageId);
+            if (stage == null)
+            {
+                return "下一步：返回主线查看可挑战的关卡。";
+            }
+
+            bool cleared = LevelProgressManager.Instance.IsStageCleared(currentMainlineStageId);
+            if (!cleared)
+            {
+                RewardItem[] stageRewards = MainlineStageCatalog.GetRewards(currentMainlineStageId);
+                string rewardPreview = BuildBattleRewardText(stageRewards, stage.rewardPreview);
+                return "下一步：进入战斗完成本关。\n战斗胜利后可获得：\n" + rewardPreview;
+            }
+
+            if (currentMainlineStageId >= LevelProgressManager.MaxMainlineStageId)
+            {
+                return "本关剧情和战斗均已完成。可回看剧情或再次战斗；第一章主线已全部完成。";
+            }
+
+            int nextStageId = LevelProgressManager.Instance.GetNextStageId(currentMainlineStageId);
+            if (LevelProgressManager.Instance.IsStageUnlocked(nextStageId))
+            {
+                MainlineStageInfo nextStage = MainlineStageCatalog.Get(nextStageId);
+                return "本关剧情和战斗均已完成。可回看剧情、再次战斗，或前往下一关“" + nextStage.title + "”。";
+            }
+
+            return "本关剧情已读。请先进入战斗完成本关，之后才会开放下一关。";
         }
 
         /// <summary>

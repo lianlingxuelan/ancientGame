@@ -1,8 +1,96 @@
 ﻿# Claude Code Next Tasks
 
-Updated: 2026-08-09 12:30 Asia/Shanghai
+Updated: 2026-08-14 21:40 Asia/Shanghai
 
 This file is a handoff board, not the execution log. Please write review results to `docs/AI_TASK_LOG.md`.
+
+## ✅ DONE — Claude Review: Todo44-FE-R1-CODE 第一章主线进度概览 PASS (2026-08-14)
+
+Scope: 任意第一章关卡详情底部只读展示 1–6 关的通关、剧情阅读与下一目标;不改主线规则。未改后端/数据库/Scene_Boot/资源/支付/奖励发放/解锁规则/伤害公式。
+See `docs/AI_TASK_LOG.md` → Todo44-FE-R1-REVIEW.
+
+- BuildChapterProgressOverview 纯读:仅 GetHighestClearedStageId/GetStageStateLabel/IsStoryRead + MainlineStageCatalog.Get,无写关/发奖/后端/PlayerPrefs ✓
+- 终关用 >= MaxMainlineStageId(常量 6)判定"第一章已完成",无第七关;关卡一览循环覆盖 1–6 关 ✓
+- 集成在 ShowMainlineStageDetail 正文末尾追加,storyPlaybackState.Reset 与按钮配置未旁路 ✓
+- verify_chapter_progress_overview 7 片段命中、3 禁止片段不存在;相关 6 脚本全部 PASS;git diff --check 干净;HomePageRouter.cs 保留 UTF-8 BOM ✓
+- P2:禁止片段拼写与真实写 API 不符,属精确拼写守卫非语义守卫——已由 Todo44-FE-R2-FIX 修复,关闭 ✓
+- R2-FIX:守卫升级为方法体级(大括号深度截取 BuildChapterProgressOverview 体),禁止项改真实写 API(MarkStoryRead/CompleteMainlineStage/GrantRewards/ShouyouBackendBootstrap/PlayerPrefs),6 脚本全 PASS,生产 C# 未动 ✓
+- 仍待人工:Unity Play Mode 打开未通关/已通关/第六关详情,确认总进度与存档一致,打开关闭不改变资源与记录 ✓
+
+---
+
+## ✅ DONE — Claude Review: Todo42-FE-R1-CODE 第一章剧情播放 UI 接入 PASS (2026-08-14)
+
+Scope: HomePageRouter 唯一持有 MainlineStoryPlaybackState,绑定"开始阅读/回看剧情"入口;删除旧行号/阅读计时器/直接 MarkStoryRead 写路径。未改后端/数据库/Scene_Boot/资源/支付/解锁规则/战斗数值。
+See `docs/AI_TASK_LOG.md` → Todo42-FE-R1-REVIEW.
+
+- 唯一 storyPlaybackState 实例,无旧字段/计时器/跳过延时常量/直接 MarkStoryRead ✓
+- StartStoryReading 缺失目录安全回退 + TryStart 后渲染首句;AdvanceStoryReading 委托 TryAdvance ✓
+- Update 仅详情打开且未完成时按 unscaledDeltaTime 累计;关闭/切换关卡 Reset,已读保留 ✓
+- 读完与跳过共用幂等 CompletePlayback 写已读,无双写;新增 verify_mainline_story_playback_ui_integration.ps1;5 脚本静态校验全部 PASS ✓
+- HomePageRouter.cs 保留 UTF-8 BOM;git diff --check 干净;Scene_Boot 历史搅动须提交排除 ✓
+
+仍待人工:Unity Play Mode 验证第一关"开始阅读"逐句推进、3 秒后跳过、关闭/切换不串台词、完成显示重读/回看入口。
+
+---
+
+## ✅ DONE — Claude Review: Todo43-FE-R1-CODE 剧情完成后的主线行动引导 PASS (2026-08-14)
+
+Scope: 剧情完成提示按未通关/已通关非终关/终关三种状态生成下一步文案,只读不写。未改后端/数据库/Scene_Boot/资源/支付/解锁规则/发奖逻辑/伤害公式。
+See `docs/AI_TASK_LOG.md` → Todo43-FE-R1-REVIEW.
+
+- BuildStoryCompletionGuidance 纯读:不发奖、不写通关、不同步后端、不写 PlayerPrefs ✓
+- 未通关仅预览 GetRewards("战斗胜利后可获得"),不提前发奖 ✓
+- 非终关经 IsStageUnlocked(nextStageId) 门控提示下一关;终关用 >= MaxMainlineStageId 判定,无第七关 ✓
+- 剧情已读与战斗通关独立,按钮配置仍走 ConfigureStoryDetailForMainlineStage;verify_story_completion_guidance.ps1 全片段命中,5 脚本 PASS ✓
+- HomePageRouter.cs 保留 UTF-8 BOM;git diff --check 干净;Scene_Boot 历史搅动须提交排除 ✓
+
+仍待人工:Unity Play Mode 验证未通关读/跳剧情不产生资源与通关记录变更;通关后重读显示下一关引导;第六关完成显示第一章完成不越界。
+
+---
+
+## ✅ DONE — Claude Review: Todo41-FE-R1-CODE 第一章剧情播放状态 PASS (2026-08-13)
+
+Scope: 新增不依赖页面的 MainlineStoryPlaybackState,支持逐句推进、3 秒跳过门槛、正常读完/跳过统一经 LevelProgressManager.MarkStoryRead 写已读,不直接访问 PlayerPrefs。未改后端/数据库/Scene_Boot/资源/充值/战斗数值,未触碰 HomePageRouter 与 MainlineStoryCatalog(避免与 Todo39 冲突)。
+See `docs/AI_TASK_LOG.md` → Todo41-FE-R1-REVIEW.
+
+- TryStart 经 TryGet 初始化 6 关,非法/空剧情 Reset+false ✓
+- TryAdvance 末句走 CompletePlayback 收口,完成后不可再推进 ✓
+- IsSkipAvailable 需满 3 秒;跳过与读完统一写已读,幂等保护 ✓
+- 无 PlayerPrefs 直写;新增 verify_mainline_story_playback_state.ps1;20 项静态校验全部 PASS ✓
+- P2:MainlineStoryPlaybackState.cs 无 UTF-8 BOM(Codex 生成)——已补上,关闭 ✓
+
+仍待人工:Todo39 审查完成后把播放状态绑定到"开始阅读/回看剧情"按钮,Unity Play Mode 验证逐句推进、3 秒跳过、末句完成与已读写入。
+
+---
+
+## ✅ DONE — Claude Review: Todo39-FE-R1-CODE 关卡详情与养成引导收口 PASS (2026-08-13)
+
+Scope: 锁关详情入口"未解锁"→"解锁条件"并指向前一关;奖励预览统一读 MainlineStageCatalog.GetRewards 与结算同源;等级不足只提示养成不拦截挑战;已通关明确重复挑战不推进主线。未改关卡开放规则/战斗数值/后端/数据库/Scene_Boot/资源/充值。
+See `docs/AI_TASK_LOG.md` → Todo39-FE-R1-REVIEW.
+
+- 锁关按钮 → ShowLockedStageHint,正文 BuildLockedStageRequirementText(指向前一关)✓
+- 奖励预览 BuildBattleRewardText(GetRewards) 空数组兜底 rewardPreview ✓
+- BuildMainlineStageGuidance 读李清照等级,仅提示不拦截 ✓
+- 新增 verify_mainline_stage_guidance.ps1;19 项静态校验全部 PASS ✓
+
+仍待人工:Unity Play Mode 验证锁关"解锁条件"指引、低等级养成建议随升级消失、奖励预览与结算一致。
+
+---
+
+## ✅ DONE — Claude Review: Todo40-FE-R1-CODE 剧情目录安全读取 PASS (2026-08-13)
+
+Scope: MainlineStoryCatalog 新增 LineCount/GetLine/TryGet/GetStageIds 边界安全 API,保留 Get 首关回退;未触碰 HomePageRouter 以避免与 Todo39 冲突。未改文案/后端/数据库/Scene_Boot/资源/充值。
+See `docs/AI_TASK_LOG.md` → Todo40-FE-R1-REVIEW.
+
+- LineCount null→0、GetLine 越界/null→空文本、TryGet 未命中→false+null、GetStageIds 返回副本 ✓
+- Get 重构为 TryGet+回退,旧调用方零改动 ✓
+- 新增 verify_mainline_story_catalog.ps1;19 项静态校验全部 PASS ✓
+- P2:MainlineStoryCatalog.cs 无 UTF-8 BOM(历史遗留)——已补上,关闭 ✓
+
+仍待人工:剧情回看页接入后逐句播放边界冒烟。
+
+---
 
 ## ✅ DONE — Claude Review: Todo38-FE-R1-CODE 第一章主线成长闭环 PASS (2026-08-12)
 
@@ -722,3 +810,293 @@ Please verify:
 6. 运行 `tools/verify_mainline_progression_rules.ps1`、`verify_mainline_reward_grant.ps1`、`verify_character_leveling_loop.ps1`、`verify_character_battle_stat_sync.ps1`、`verify_player_resource_spending.ps1`、`verify_player_resource_batch_spending.ps1`、`verify_training_resource_balance.ps1`、`verify_formation_battle_linkage.ps1`、`verify_battle_loop.ps1` 与 `verify_immediate_defeat_removal.ps1`。
 7. Unity Play Mode 冒烟：以独立测试存档验证“关卡 1 -> 关卡 2 解锁 -> 奖励入账 -> 养成入口可消耗资源 -> 新开战斗使用更新属性”。
 8. 确认没有改动 `ShouyouServer`、`ShouyouServer/data/shouyou.db`、`Scene_Boot.unity`、资源目录、支付/充值代码或伤害公式。
+
+---
+
+## TODO - Claude Review: Todo39-FE-R1-CODE 第一章关卡详情与养成引导收口
+
+Scope: 仅收口主线关卡详情的玩家指引。不得修改后端、数据库、Scene_Boot、资源、支付、关卡开放规则或伤害公式。
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_mainline_stage_guidance.ps1`
+
+Please verify:
+
+1. 未解锁关卡的详情入口显示“解锁条件”，点击后能明确说明前一关名称；仍不得进入剧情或战斗。
+2. `BuildLockedStageRequirementText` 对第 2 至第 6 关解析 `stage.id - 1`，第 1 关不会产生无效前置引用。
+3. 奖励预览优先使用 `MainlineStageCatalog.GetRewards(stage.id)`；奖励目录为空或无效时保留 `rewardPreview` 兜底。
+4. 李清照等级低于 `recommendLevel` 时显示养成建议；达到推荐等级后不再显示；该提示不改变挑战可用性或数值。
+5. 已通关关卡明确标明重复挑战奖励与主线进度的关系，未通关关卡仍保留阅读/战斗入口。
+6. 运行 `tools/verify_mainline_stage_guidance.ps1`、`verify_mainline_progression_rules.ps1`、`verify_mainline_reward_grant.ps1`、`verify_character_leveling_loop.ps1`、`verify_character_battle_stat_sync.ps1`、`verify_player_resource_spending.ps1`、`verify_player_resource_batch_spending.ps1`、`verify_training_resource_balance.ps1`、`verify_formation_battle_linkage.ps1`、`verify_battle_loop.ps1`、`verify_immediate_defeat_removal.ps1`。
+7. Unity Play Mode 冒烟：依次打开关卡 1、锁定的关卡 2、已通关关卡，检查长文本不遮挡按钮且按钮语义正确。
+8. 确认没有改动 `ShouyouServer`、`ShouyouServer/data/shouyou.db`、`Scene_Boot.unity`、资源目录、支付/充值代码、关卡开放规则或伤害公式。
+
+---
+
+## TODO - Claude Review: Todo40-FE-R1-CODE 第一章剧情目录安全读取
+
+Scope: only improve the local first-chapter story catalog read API. Do not modify UI routing, backend, database, Scene_Boot, assets, payment/recharge, stage unlock rules, or damage formulas.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStoryCatalog.cs`
+- `tools/verify_mainline_story_catalog.ps1`
+- `docs/superpowers/plans/2026-08-13-mainline-story-catalog-api.md`
+
+Please verify:
+
+1. `MainlineStorySequence.LineCount` returns the actual number of lines and tolerates a null line array.
+2. `GetLine(index)` returns the configured text for valid indices and an empty string for negative, overflow, null-array, or null-line cases; it must not throw.
+3. `TryGet(stageId, out sequence)` returns true only for configured stages and returns false with `sequence == null` for invalid IDs.
+4. Legacy `Get(stageId)` still returns the matching sequence for valid IDs and the first sequence for invalid IDs, preserving existing UI callers.
+5. `GetStageIds()` returns a fresh ordered value array; caller mutation must not alter the internal catalog.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_mainline_story_catalog.ps1`, plus the existing mainline progression, stage guidance, reward, character-leveling, battle-stat, resource, formation, battle-loop, and immediate-defeat validation scripts.
+7. Confirm no edits under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, payment/recharge code, damage formulas, or `HomePageRouter.cs`.
+
+Manual Unity smoke is optional for this data-only task. If performed, open the current first-chapter story route and confirm its existing line playback is unchanged.
+
+---
+
+## TODO - Claude Review: Todo41-FE-R1-CODE 第一章剧情播放状态
+
+Scope: only add a UI-independent first-chapter playback state. Do not modify HomePageRouter, backend, database, Scene_Boot, assets, payment/recharge, stage unlock rules, or battle formulas.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStoryPlaybackState.cs`
+- `tools/verify_mainline_story_playback_state.ps1`
+- `docs/superpowers/plans/2026-08-13-mainline-story-playback-state.md`
+
+Please verify:
+
+1. `TryStart(stageId)` only accepts configured non-empty story sequences; invalid IDs reset state and return false without any persistence write.
+2. `CurrentLine`, `CurrentLineIndex`, and `LineCount` remain safe before start, after reset, and after completion.
+3. `TryAdvance()` moves exactly one line when a next line exists; advancing the final line completes the playback and cannot double-write completion.
+4. `AdvanceTime()` ignores negative/zero time and completed/unstarted states; `TrySkip()` stays unavailable until exactly 3 seconds of positive elapsed time.
+5. Final-line completion and accepted skip both call the existing `LevelProgressManager.MarkStoryRead`; the new class must not access `PlayerPrefs` directly.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_mainline_story_playback_state.ps1`, plus story catalog, mainline progression, stage guidance, reward, character leveling, resource, formation, battle loop, and immediate-defeat regression scripts.
+7. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, payment/recharge code, damage formulas, or `HomePageRouter.cs`.
+
+Known boundary: this task deliberately does not create or alter a story UI. After Todo39's HomePageRouter review is complete, a later task may bind the existing “开始阅读/回看剧情” entry to this state and verify the player-facing text flow in Unity Play Mode.
+
+---
+
+## TODO - Claude Review: Todo42-FE-R1-CODE 第一章剧情播放 UI 接入
+
+Scope: bind the existing story detail buttons to the already reviewed `MainlineStoryPlaybackState`. Do not modify backend, database, Scene_Boot, assets, payment/recharge, stage unlock rules, or battle formulas.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_mainline_story_playback_ui_integration.ps1`
+- `docs/superpowers/plans/2026-08-14-mainline-story-playback-ui-integration.md`
+
+Please verify:
+
+1. `HomePageRouter` has one `MainlineStoryPlaybackState` instance and no legacy line index, elapsed timer, skip-delay constant, or direct `MarkStoryRead(currentMainlineStageId)` write path.
+2. `StartStoryReading` handles a missing catalog entry safely and otherwise calls `TryStart` before rendering the first line.
+3. `Update` advances the playback timer only while the story detail panel is open and playback is unfinished.
+4. `AdvanceStoryReading` delegates to `TryAdvance`; final-line completion and accepted skip render the completion state without duplicate persistence writes.
+5. Closing the detail dialog and selecting another stage call `Reset`, while completed read-state remains persisted in `LevelProgressManager`.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_mainline_story_playback_ui_integration.ps1`, `verify_mainline_story_playback_state.ps1`, `verify_mainline_story_catalog.ps1`, and `verify_mainline_stage_guidance.ps1`.
+7. Unity Play Mode smoke: stage 1 -> 开始阅读 -> 下一句到结尾; repeat and wait 3 seconds -> 跳过剧情; close/reopen or switch stage -> no old line appears; completed stage shows 重读剧情 and 回看剧情.
+8. Confirm no edits under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, payment/recharge code, stage unlock logic, or damage formulas.
+
+---
+
+## TODO - Claude Review: Todo43-FE-R1-CODE 剧情完成后的主线行动引导
+
+Scope: only improve player-facing text after story completion. Do not modify backend, database, Scene_Boot, assets, payment/recharge, stage unlock rules, reward grant behavior, or damage formulas.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_story_completion_guidance.ps1`
+- `docs/superpowers/plans/2026-08-14-story-completion-guidance.md`
+
+Please verify:
+
+1. `BuildStoryCompletionGuidance` is read-only: it must not call reward grant, stage completion, backend sync, or write PlayerPrefs.
+2. An unread/uncleared stage completion message says rewards are granted only after battle victory and only previews `MainlineStageCatalog.GetRewards`.
+3. A cleared non-final stage points to the actual next stage only when `LevelProgressManager.IsStageUnlocked(nextStageId)` is true.
+4. The final stage completion branch does not calculate or display a nonexistent stage seven.
+5. `CompleteStoryReading` still keeps story-read and battle-clear as independent progress; button configuration remains routed through `ConfigureStoryDetailForMainlineStage`.
+6. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_story_completion_guidance.ps1`, plus `verify_mainline_story_playback_ui_integration.ps1`, `verify_mainline_story_playback_state.ps1`, `verify_mainline_story_catalog.ps1`, and `verify_mainline_stage_guidance.ps1`.
+7. Unity Play Mode smoke: read or skip an uncleared stage and confirm no resource/clear-record mutation; after battle victory re-read it and confirm the next-stage guidance; repeat for stage six if reachable.
+8. Confirm no edits under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, payment/recharge code, stage unlock logic, reward grant code, or damage formulas.
+
+---
+
+## TODO - Claude Review: Todo44-FE-R1-CODE 第一章主线进度概览
+
+Scope: only add read-only chapter progress text to the existing mainline stage detail. Do not modify backend, database, Scene_Boot, assets, payment/recharge, stage unlock rules, reward grant behavior, or damage formulas.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_chapter_progress_overview.ps1`
+- `docs/superpowers/plans/2026-08-14-chapter-progress-overview.md`
+
+Please verify:
+
+1. `BuildChapterProgressOverview` reads progress only and does not call stage completion, story persistence, reward grants, backend sync, or PlayerPrefs.
+2. The overview is appended only to the existing `ShowMainlineStageDetail` text path and keeps existing detail buttons/configuration unchanged.
+3. It uses `GetHighestClearedStageId`, `GetStageStateLabel`, `IsStoryRead`, and `MainlineStageCatalog.Get` to render all six first-chapter stages.
+4. Before the final stage is cleared, the next target is the actual next stage; once stage six is cleared, it shows chapter completion and never queries stage seven.
+5. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_chapter_progress_overview.ps1`, plus `verify_story_completion_guidance.ps1`, `verify_mainline_story_playback_ui_integration.ps1`, `verify_mainline_story_playback_state.ps1`, `verify_mainline_story_catalog.ps1`, and `verify_mainline_stage_guidance.ps1`.
+6. Unity Play Mode smoke: open an uncleared stage, a cleared non-final stage, and stage six if reachable; confirm the overview state is correct and the body does not obscure the existing story-detail buttons.
+7. Confirm no edits under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, payment/recharge code, stage unlock logic, reward grant code, or damage formulas.
+
+---
+
+## TODO - Claude Review: Todo44-FE-R2-FIX 章节进度概览测试守卫
+
+Scope: only repair the Todo44 static verification guard. No production C#, backend, database, Scene_Boot, assets, payment/recharge, stage unlock, reward, or damage changes.
+
+Files:
+
+- `tools/verify_chapter_progress_overview.ps1`
+
+Please verify:
+
+1. The script isolates the `BuildChapterProgressOverview` method body by balanced braces before checking forbidden write paths.
+2. The forbidden set uses real project APIs: `MarkStoryRead`, `CompleteMainlineStage`, `GrantRewards`, `ShouyouBackendBootstrap`, and `PlayerPrefs`.
+3. It does not falsely fail because unrelated HomePageRouter methods legitimately persist story or battle progress.
+4. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_chapter_progress_overview.ps1`, `verify_story_completion_guidance.ps1`, and `verify_mainline_story_playback_ui_integration.ps1`.
+5. Confirm no production C# file, backend, database, Scene_Boot, resource, payment, unlock, reward, or damage file changed in this fix.
+
+---
+
+## TODO - Claude Review: Todo45-FE-R1-CODE 第一章关卡详情行动入口收口
+
+Scope: clarify the existing first-chapter stage-detail actions only. Do not modify backend, database, Scene_Boot, assets, payment/recharge, stage unlock rules, reward grants, or damage formulas.
+
+Files:
+
+- `ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- `tools/verify_mainline_stage_action_entries.ps1`
+
+Please verify:
+
+1. `ConfigureStoryDetailForMainlineStage` presents a coherent state matrix: locked stages expose only the unlock explanation; unlocked uncleared stages expose read, formation, and first challenge; cleared stages expose replay and challenge again.
+2. `OpenFormationFromMainlineStageDetail` only closes the existing detail dialog and opens the existing formation tab. It must not create/save a formation, persist progress, grant rewards, or write player data.
+3. Reading mode still configures its own “跳过剧情” action via `ConfigureStoryDetailForReading`; repurposing the idle detail button must not break story playback.
+4. `BuildMainlineStageGuidance` is display-only and gives the player the same story/formation/challenge order shown by the buttons.
+5. Run `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_mainline_stage_action_entries.ps1`, `verify_mainline_stage_guidance.ps1`, `verify_chapter_progress_overview.ps1`, and `verify_mainline_story_playback_ui_integration.ps1`.
+6. Unity Play Mode smoke: inspect a locked stage, an unlocked uncleared stage, and a cleared stage; use “调整编队” and return; start reading and confirm “跳过剧情” still works; verify no resource/progress mutation from opening the detail or switching to formation.
+7. Confirm no changes under `ShouyouServer`, `ShouyouServer/data/shouyou.db`, `Scene_Boot.unity`, asset directories, payment/recharge code, stage unlock rules, reward grant code, or damage formulas.
+
+---
+
+## TODO - Claude Review: Todo46-FE-R1-CODE 第一章主线挑战准备闭环
+
+### 审查范围
+
+本轮只调整主线关卡从“详情”进入“战斗”的前端流程：先展示出战准备，再由玩家确认后进入战斗。
+
+- 生产代码：`ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs`
+- 静态验证：`tools/verify_mainline_battle_preparation.ps1`
+
+未改动后端、数据库、`Scene_Boot.unity`、资源、支付、奖励发放、关卡解锁或伤害公式。
+
+### 请重点验证
+
+1. `EnterBattlePrototype()` 不再直接调用 `ShowBattle()`，而是先进入 `ShowBattlePreparation()`。
+2. 出战准备能展示当前关卡、推荐战力、当前编队战力和编队摘要；这些都是只读展示，不写入存档或后端。
+3. 准备页的四种动作正确：返回关卡详情、调整编队、确认挑战、取消出战。
+4. 只有 `StartBattleFromPreparation()` 才调用 `ShowBattle()`；确认前会再次校验关卡是否解锁、是否有可战斗编队。
+5. 缺少编队时不会进入战斗，沿用现有 `HasBattleReadyFormation()` 的反馈逻辑。
+6. 静态脚本和既有主线/编队回归脚本均应通过；请在 Unity Play Mode 手动验证：开始挑战 -> 出战准备 -> 返回/调整编队/取消/确认挑战。
+7. 确认没有越界改动：后端、数据库、`Scene_Boot.unity`、资产、支付、奖励、解锁规则、伤害公式均保持不变。
+
+---
+
+## TODO - Claude Review: Todo47-FE-R1-CODE 自动战斗表现节奏串行化
+
+### 审查范围
+
+本轮只调整自动战斗的前端表现节奏：每次自动行动完成其攻击、受击、飘字和退场表现后，才允许下一段自动行动开始。
+
+- 生产代码：`ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- 静态验证：`tools/verify_auto_battle_presentation_sequence.ps1`
+
+未改动后端、数据库、`Scene_Boot.unity`、资源、支付、奖励、关卡解锁、编队持久化或伤害公式。
+
+### 请重点验证
+
+1. `PerformAutoAttacks()` 只启动 `PerformAutoAttacksRoutine()`，不再包含同步 `while` 连续解析多次攻击。
+2. `PerformAutoAttacksRoutine()` 每次 `PerformPlayerAttackInternal()` 后都会通过 `WaitForPresentationQueueToFinish()` 等待表现队列清空。
+3. 自动战斗期间输入被锁定；`ResetDemoBattle`、`RetreatBattle` 与 `OnDisable` 均能停止自动协程，不能留下跨页面攻击。
+4. `WaitForPresentationQueueToFinish()` 只读取表现状态；不得修改伤害、行动值、技能冷却、奖励、关卡或编队数据。
+5. 运行 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_auto_battle_presentation_sequence.ps1`，以及 `verify_battle_presentation_queue.ps1`、`verify_battle_presentation_polish.ps1`、`verify_battle_loop.ps1`、`verify_battle_action_preview.ps1`、`verify_formation_battle_linkage.ps1` 和 `verify_mainline_battle_preparation.ps1`。
+6. Unity Play Mode：点击自动战斗，检查两段以上我方连续行动在视觉上严格串行；自动过程中撤退、重开或离开页面后，不出现旧协程残留攻击。
+7. 确认没有越界改动：后端、数据库、`Scene_Boot.unity`、资产、支付、奖励、解锁规则、编队数据及伤害公式均保持不变。
+
+---
+
+## TODO - Claude Review: Todo48-FE-R1-CODE 回合战斗行动逐段结算
+
+### 审查范围
+
+本轮只调整玩家出手后的后续行动推进节奏：敌方出手和已预选我方技能都必须等待各自攻击表现结束后，才推进下一位行动者。
+
+- 生产代码：`ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- 静态验证：`tools/verify_turn_resolution_sequence.ps1`
+
+未改动后端、数据库、`Scene_Boot.unity`、资源、支付、奖励、解锁规则、编队或伤害公式。
+
+### 请重点验证
+
+1. `CompletePlayerAction()` 只创建 `ResolveFollowUpActionsRoutine()`，不再同步 while 循环结算多个敌方/预选行动。
+2. 协程在玩家本次攻击表现结束后才移动至下一行动者；每次敌方攻击或预选技能后均等待 `WaitForPresentationQueueToFinish()`。
+3. `resolvingEnemyTurn` 在后续结算期间锁定输入，正常结束、重置、撤退和离开页面时均会恢复或清理。
+4. `FinishFollowUpResolution`、`StopFollowUpResolutionRoutine` 不改变伤害、行动点、冷却、奖励或关卡状态。
+5. 运行 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_turn_resolution_sequence.ps1`，并回归 Todo47 的全部战斗验证脚本。
+6. Unity Play Mode：玩家出手后连续观察至少两名敌人的出手；预选一个非当前我方角色技能，确认其到行动位时单独展示；表现期间不允许重复点击技能或开始战斗。
+7. 确认没有越界改动：后端、数据库、`Scene_Boot.unity`、资产、支付、奖励、解锁、编队数据及伤害公式均保持不变。
+
+---
+
+## TODO - Claude Review: Todo49-FE-R1-CODE 自动战斗完整行动链接力
+
+### 审查范围
+
+本轮只修复自动战斗的行动衔接：本次攻击与其敌我后续行动链结束后，如果重新轮到我方，则自动继续下一次攻击。
+
+- 生产代码：`ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- 静态验证：`tools/verify_auto_battle_turn_handoff.ps1`
+
+未改动后端、数据库、`Scene_Boot.unity`、资源、支付、奖励、解锁规则、编队或伤害公式。
+
+### 请重点验证
+
+1. `PerformAutoAttacksRoutine()` 在每次 `PerformPlayerAttackInternal()` 后等待表现队列和 `WaitForFollowUpResolutionToFinish()`。
+2. 自动战斗不会因敌方行动开始就提前停止；再次轮到我方时自动继续，直至胜负、撤退、重置或安全退出。
+3. `WaitForFollowUpResolutionToFinish()` 只观测协程状态，不改变伤害、行动值、技能冷却、奖励或关卡状态。
+4. 运行 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_auto_battle_turn_handoff.ps1`，并回归 Todo48、Todo47 战斗验证。
+5. Unity Play Mode：观察两次以上我方自动行动及中间敌方/预选行动；自动中撤退、重置、切页后没有残留攻击或输入锁。
+6. 确认没有越界改动：后端、数据库、`Scene_Boot.unity`、资产、支付、奖励、解锁、编队数据及伤害公式均保持不变。
+
+---
+
+## TODO - Claude Review: Todo50-FE-R1-CODE 战斗行动链过程反馈同步
+
+### 审查范围
+
+本轮仅补齐已存在行动链的过程反馈：开始结算时立即反映输入锁定；每个敌方或预选我方行动完成后更新战斗提示。
+
+- 生产代码：`ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs`
+- 静态验证：`tools/verify_battle_action_feedback_sync.ps1`
+
+未改动后端、数据库、`Scene_Boot.unity`、资源、支付、奖励、解锁规则、编队或伤害公式。
+
+### 请重点验证
+
+1. `ShowResolvingActionLog()` 仅更新展示文本并刷新界面，不写入数值、状态、奖励或存档。
+2. `CompletePlayerAction()` 在设置 `resolvingEnemyTurn` 后立即调用过程反馈；敌方攻击和预选技能各结算一次后也会刷新提示。
+3. 行动链期间由既有 `IsBattleInputLocked()` 使技能、自动和开始入口不可重复触发；结束、撤退、重置与切页后锁定可正常清理。
+4. 运行 `powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify_battle_action_feedback_sync.ps1`，并回归 Todo49、Todo48、Todo47 的战斗验证脚本。
+5. Unity Play Mode：观察我方行动、至少一名敌方行动和一项预选技能行动，确认文本逐段变化、操作入口不可连点，胜负结算仍能到达。
+6. 确认没有越界改动：后端、数据库、`Scene_Boot.unity`、资产、支付、奖励、解锁、编队数据及伤害公式均保持不变。

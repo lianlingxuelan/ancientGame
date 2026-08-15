@@ -61,6 +61,133 @@ Codex自测：
 ===TASK_RECORD_END===
 
 ===TASK_RECORD_START===
+task_id: Todo50-FE-R1-CODE
+parent_id: Todo49-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:36:00 Asia/Shanghai
+project_spec: 战斗行动链过程反馈同步
+module: 回合战斗 / 行动反馈
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：战斗行动链开始时立即同步界面锁定状态，并在每个已结算行动后更新提示文本；不得改伤害、行动顺序、冷却、奖励、路由、后端、数据库、场景或资源。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_battle_action_feedback_sync.ps1
+关键方法：CompletePlayerAction、ResolveFollowUpActionsRoutine、ShowResolvingActionLog。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 后续行动链启动即刷新战斗消息及输入锁对应的按钮状态。
+2. 每个敌方攻击或预选我方技能结算后追加最新行动记录并刷新界面。
+3. 仅补齐过程展示；未改变数值、伤害公式、行动顺序、冷却或战斗结果。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：RED 后 GREEN 通过 verify_battle_action_feedback_sync；并回归通过 Todo49、Todo48、Todo47 的全部战斗静态验证。git diff --check 无空白错误，仅有 LF/CRLF 提示。
+
+建议Claude测试：Unity Play Mode 中观察当前行动者出手、敌方行动、预选技能行动时，提示文本按步骤更新且技能/自动/开始按钮在行动链期间不可重复触发；确认胜负、撤退、重置和切页后无残留锁定。确认未改后端、数据库、Scene_Boot、资源、支付、奖励、解锁、编队或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo49-FE-R1-CODE
+parent_id: Todo48-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:31:00 Asia/Shanghai
+project_spec: 自动战斗完整行动链接力
+module: 回合战斗 / 自动战斗
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：自动战斗在本次出手及敌我后续行动链结束后，若重新轮到可行动我方角色则继续自动攻击，直至胜负、撤退或安全退出。不得改伤害公式、后端、数据库、场景、资源、路由、编队、奖励或解锁规则。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+承接 Todo48：既然后续行动已逐段异步化，自动战斗必须等待整段行动链结束，不能在第一名敌方行动出现时提前停止。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_auto_battle_turn_handoff.ps1
+
+关键方法：PerformAutoAttacksRoutine、WaitForFollowUpResolutionToFinish。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 自动战斗循环改为跨完整行动链运行，而非玩家出手后因敌方回合锁定而提前结束。
+2. 每次自动普攻后同时等待表现队列和后续行动协程清理，再检查是否重新轮到我方。
+3. 保留安全计数防止异常状态无限循环；若状态未回到我方可操作角色则安全结束。
+4. 未修改伤害、治疗、行动顺序、冷却、奖励、胜负结算、路由或编队判断。
+
+资源变更：无。
+存档影响：无。
+风险点：需要 Unity Play Mode 长时间自动战斗验证，确认自动连贯推进、胜负后停止，且撤退/重置时不会残留协程。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. RED：verify_auto_battle_turn_handoff.ps1 初次执行按预期失败，提示缺少完整行动链接力等待契约。
+2. GREEN：verify_auto_battle_turn_handoff、verify_turn_resolution_sequence、verify_auto_battle_presentation_sequence、verify_battle_presentation_queue、verify_battle_presentation_polish、verify_battle_loop、verify_battle_action_preview、verify_formation_battle_linkage、verify_mainline_battle_preparation 全部通过。
+3. git diff --check 检查 BattleDemoController.cs，无空白错误；仅有 Git LF/CRLF 转换提示。
+
+建议Claude测试：
+1. 静态审查自动循环在每次普攻后等待 WaitForFollowUpResolutionToFinish，且仍复用 PerformPlayerAttackInternal。
+2. Unity Play Mode：点击自动战斗后观察至少两次我方行动及中间敌方/预选行动；自动应持续至胜负或安全上限，不应只攻击一次。
+3. 自动进行中测试撤退、重置与切页，确认不再有残留攻击或输入锁。
+4. 确认未改后端、数据库、Scene_Boot、资源、支付、奖励、解锁、编队或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo47-FE-R1-CODE
+parent_id: Todo46-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:05:00 Asia/Shanghai
+project_spec: 自动战斗表现节奏串行化
+module: 回合战斗 / 自动战斗
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：不改伤害公式、关卡路由、编队、后端、数据库、场景或资源的前提下，让自动战斗按每次行动的表现队列逐段执行，避免多个行动看起来在同一时间结算。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_auto_battle_presentation_sequence.ps1
+
+关键方法：
+1. PerformAutoAttacks
+2. PerformAutoAttacksRoutine
+3. WaitForPresentationQueueToFinish
+4. StopAutoBattleRoutine
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 自动战斗由同步循环改为协程：每次自动普攻后等待攻击、受击、飘字和退场表现队列清空，再处理下一次我方行动。
+2. 自动战斗运行中统一锁定战斗输入；战斗重置、撤退和页面停用时主动停止旧协程，避免跨页面或新战斗残留攻击。
+3. 不改变现有伤害计算、行动值排序、敌方行动、技能冷却、奖励结算、战斗路由或编队判断。
+4. 新增静态验证脚本，约束自动战斗必须走协程、等待表现队列，并且不能恢复为同步连续结算。
+
+资源变更：无。
+存档影响：无。
+风险点：静态测试无法替代 Unity Play Mode；需人工验证自动按钮在多次我方连续行动时，会等待当前飘字/退场表现结束再进入下一段。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. RED：新增 verify_auto_battle_presentation_sequence.ps1 初次执行按预期失败，提示缺少逐段执行协程与停止保护。
+2. GREEN：该脚本通过；verify_battle_presentation_queue、verify_battle_presentation_polish、verify_battle_loop、verify_battle_action_preview、verify_formation_battle_linkage、verify_mainline_battle_preparation 均通过。
+3. 已检查本轮 diff：仅 BattleDemoController.cs 与新验证脚本属于本任务；仓库其余未提交文件均为既有或其他协作者改动，未触碰。
+
+建议Claude测试：
+1. 静态审查 PerformAutoAttacks 不再包含同步连续攻击循环，且每次行动后通过 WaitForPresentationQueueToFinish 等待表现完成。
+2. Unity Play Mode：进入战斗后点“自动”，观察至少两次连续我方行动；确认下一次攻击不会在上一段伤害飘字、头像施法或阵亡退场尚未结束时触发。
+3. 在自动战斗播放期间点击撤退、重新开始或离开战斗页，再返回战斗；确认不会出现旧协程的延迟攻击或残留飘字。
+4. 确认未改 ShouyouServer、shouyou.db、Scene_Boot、资源目录、支付、奖励、关卡解锁、编队持久化和伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
 task_id: Todo37-FE-R1-CODE
 parent_id: Todo36-FE-R1-REVIEW
 round: 1
@@ -4747,5 +4874,820 @@ P2 观察点（非阻塞）：
 2. LevelProgressManager.cs 无 UTF-8 BOM（HEAD 起即如此，历史遗留非本轮引入）；已于复核后补上 EF BB BF，本观察点关闭。
 3. IsStageUnlocked 方法注释（第 81 行）仍写"Demo 默认开放前两关"，与实际 DemoInitialUnlockedStageId=1 不符，文档过时待更新。
 仍待 Unity Play Mode 冒烟：新档仅第一关可进；通关逐关解锁 + 奖励入账；重复通关奖励入账但进度不变；第六关显示"本章完成"无下一关；锁关进入被 UI/数据两层拦截。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo39-FE-R1-CODE
+parent_id: Todo38-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-13 00:20:00 Asia/Shanghai
+project_spec: 第一章关卡详情与养成引导收口
+module: 主线关卡详情 / 新手成长引导
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：让玩家在进入第一章任一关卡详情时，能够看懂具体解锁前置、实际奖励预览，以及等级不足时应先前往角色养成；不改变关卡开放规则或战斗数值。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无针对本任务的审查问题需要回应。Todo38 已通过审查；本轮仅消费其稳定的关卡目录、进度与角色快照接口。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+修改文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+新增文件：
+2. tools/verify_mainline_stage_guidance.ps1
+
+关键方法：
+1. HomePageRouter.ShowMainlineStageDetail
+2. HomePageRouter.ShowLockedStageHint
+3. HomePageRouter.BuildMainlineStageGuidance
+4. HomePageRouter.BuildMainlineStageRewardPreview
+5. HomePageRouter.BuildLockedStageRequirementText
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 锁关详情的可点击入口由“未解锁”改为“解锁条件”，并明确显示上一关名称与通关要求。
+2. 奖励预览统一读取 MainlineStageCatalog.GetRewards，避免关卡文案与胜利结算奖励长期分叉；目录无有效奖励时保留旧 rewardPreview 兜底。
+3. 已开放但等级不足时，详情显示李清照当前等级与推荐养成去向；只提供建议，不阻止玩家自由挑战。
+4. 已通关关卡明确“重复挑战会获得奖励但不推进主线”，未通关关卡明确阅读/战斗入口。
+5. 新增静态检查，覆盖前置关解析、奖励目录读取、角色等级建议与锁关说明入口。
+
+资源变更：无。
+存档影响：无；仅改变详情文案和前端展示。
+风险点：建议在 Unity Play Mode 验证长文本在 16:9 下不遮挡详情按钮；本轮未改 Scene_Boot 布局。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex 自测：
+1. verify_mainline_stage_guidance、verify_mainline_progression_rules、verify_mainline_reward_grant、verify_character_leveling_loop、verify_character_battle_stat_sync、verify_player_resource_spending、verify_player_resource_batch_spending、verify_training_resource_balance、verify_formation_battle_linkage、verify_battle_loop、verify_immediate_defeat_removal 均退出码 0。
+2. git diff --check 仅针对本轮 HomePageRouter.cs 与 verify_mainline_stage_guidance.ps1 通过；未处理既有 Scene_Boot.unity 换行噪音。
+
+建议 Claude 测试：
+1. 新档点击第 2 至第 6 关，确认“解锁条件”准确指向前一关，且不允许进入战斗。
+2. 将李清照维持在低于推荐等级，确认详情显示养成建议；升级至推荐等级后建议自动消失。
+3. 对已通关关卡确认奖励预览与战斗结算奖励一致，重复挑战说明不承诺推进进度。
+4. 确认未改 ShouyouServer、shouyou.db、Scene_Boot.unity、资源目录、支付/充值入口或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo40-FE-R1-CODE
+parent_id: Todo39-FE-R1-CODE
+round: 1
+timestamp: 2026-08-13 10:36:26 Asia/Shanghai
+project_spec: 第一章剧情目录安全读取
+module: 主线剧情数据 / 剧情回看预留
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+在不重写第一章既有剧情、不修改页面路由的前提下，为关卡详情、剧情回看和未来远端数据同步提供安全的剧情目录读取接口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无针对本任务的审查问题需要回应。为避免与 Todo39 的 HomePageRouter 审查改动冲突，本轮不触及 UI 路由。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+修改文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStoryCatalog.cs
+新增文件：
+2. tools/verify_mainline_story_catalog.ps1
+3. docs/superpowers/plans/2026-08-13-mainline-story-catalog-api.md
+
+关键方法：
+1. MainlineStorySequence.LineCount
+2. MainlineStorySequence.GetLine
+3. MainlineStoryCatalog.TryGet
+4. MainlineStoryCatalog.GetStageIds
+5. MainlineStoryCatalog.Get
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 保留原有 Get 的首关回退兼容行为，同时新增 TryGet 让后续调用方可明确识别非法关卡编号。
+2. 为剧情逐句播放和回看增加 LineCount 与越界安全的 GetLine；非法索引返回空文本，不会抛出异常。
+3. 新增 GetStageIds，返回独立编号数组，避免外部直接依赖内部序列存储。
+4. 新增静态校验，覆盖安全查询 API、第一章本地序列入口与旧回退路径；验证脚本不匹配中文文案，规避不同 PowerShell 编码环境的误报。
+
+资源变更：无。
+存档影响：无；仅新增本地剧情读取 API。
+风险点：本轮未将新 API 接入 HomePageRouter，以避免与 Todo39 审查中的同文件改动冲突；后续剧情回看页接入时再消费。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 先运行 verify_mainline_story_catalog.ps1，确认新增 API 缺失时验证失败；实现后重新运行通过。
+2. verify_mainline_story_catalog、verify_mainline_stage_guidance、verify_mainline_progression_rules、verify_mainline_reward_grant、verify_character_leveling_loop、verify_character_battle_stat_sync、verify_player_resource_spending、verify_player_resource_batch_spending、verify_training_resource_balance、verify_formation_battle_linkage、verify_battle_loop、verify_immediate_defeat_removal 均退出码 0。
+3. git diff --check 仅针对 MainlineStoryCatalog.cs 与 verify_mainline_story_catalog.ps1 通过；未处理既有 Scene_Boot.unity 和 HomePageRouter.cs 工作区改动。
+
+建议Claude测试：
+1. 审查 Get 的历史回退行为仍稳定，TryGet 对第 1 至第 6 关返回 true，对非法编号返回 false 且 sequence 为 null。
+2. 审查 GetLine 在负数索引和超出 LineCount 时返回空文本，正常索引返回现有第一章文案。
+3. 审查 GetStageIds 每次返回独立数组，外部改写返回值不能污染目录。
+4. 运行本轮静态校验与既有主线/战斗回归校验；确认未改后端、数据库、Scene_Boot、资源、支付或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo39-FE-R1-REVIEW
+parent_id: Todo39-FE-R1-CODE
+round: 1
+timestamp: 2026-08-13 11:10:00 Asia/Shanghai
+project_spec: 第一章关卡详情与养成引导收口-评审
+module: 主线关卡详情 / 新手成长引导
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-13）：
+1. 锁关详情的可点击入口由“未解锁”改为“解锁条件”，明确显示上一关名称与通关要求。
+2. 奖励预览统一读取 MainlineStageCatalog.GetRewards，与战斗结算同源，避免文案分叉。
+3. 已开放但等级不足时，详情显示李清照当前等级与推荐养成去向，只提示不拦截挑战。
+4. 已通关关卡明确“重复挑战会获得奖励但不推进主线”，未通关关卡明确阅读/战斗入口。
+5. 不改变关卡开放规则、战斗数值、后端、数据库、Scene_Boot、资源目录或充值入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1，0 P2）。
+1. HomePageRouter.cs（+67/-8）：ConfigureStoryDetailForMainlineStage 锁关按钮标签“未解锁”→“解锁条件”，readAction 分支切到 new UnityEngine.Events.UnityAction(ShowLockedStageHint)；弹窗正文由 BuildLockedStageRequirementText 生成（第 2-6 关指向前一关标题，第 1 关/空目录兜底“请完成本章引导”）。
+2. BuildMainlineStageRewardPreview 经 BuildBattleRewardText 渲染 MainlineStageCatalog.GetRewards(stage.id)，空奖励或全无效项回退 stage.rewardPreview → “暂无奖励信息”，与 Todo38 结算入口完全同源。
+3. BuildMainlineStageGuidance 读取 CharacterDevelopmentManager.Instance.GetSnapshot(LiQingzhaoId)，仅当 snapshot.level < stage.recommendLevel 追加养成建议，不阻止挑战；cleared 分支明确重复挑战不推进主线。
+4. ShowLockedStageHint 使用 MainlineStageCatalog.Get(currentMainlineStageId)（无效 id 回退第一关），currentMainlineStageId 由 ShowMainlineStageDetail 先行赋值，无空引用路径。
+5. 新增 verify_mainline_stage_guidance.ps1 6 项静态断言全部命中；含新增在内 19 项静态校验全部退出码 0。
+6. git diff --check 对范围文件干净；HomePageRouter.cs 为 UTF-8 BOM。
+7. 未改 ShouyouServer、shouyou.db、Scene_Boot（工作区 Scene_Boot.unity 仍为历史换行/序列化搅动，提交须排除）、资源目录或充值入口。
+仍待 Unity Play Mode 冒烟：新档点击第 2-6 关确认“解锁条件”指向前一关且不可进战斗；低等级详情显示养成建议、升级后消失；已通关奖励预览与结算一致。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo40-FE-R1-REVIEW
+parent_id: Todo40-FE-R1-CODE
+round: 1
+timestamp: 2026-08-13 11:10:00 Asia/Shanghai
+project_spec: 第一章剧情目录安全读取-评审
+module: 主线剧情数据 / 剧情回看预留
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-13）：
+1. 新增 MainlineStorySequence.LineCount / GetLine，为逐句播放与剧情回看提供边界安全读取。
+2. 新增 MainlineStoryCatalog.TryGet / GetStageIds，调用方可识别非法关卡编号并安全枚举章节。
+3. 保留 MainlineStoryCatalog.Get 的首关非空回退，兼容既有 Demo UI 调用。
+4. 本轮不触碰 HomePageRouter，避免与 Todo39 审查中的同区域改动冲突。
+5. 不改变第一章文案、后端、数据库、Scene_Boot、资源目录或充值入口。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1）。
+1. MainlineStoryCatalog.cs（+53/-2）：LineCount 对 null lines 返回 0；GetLine 对 null/负索引/越界返回 string.Empty（含 null 行）；TryGet 未命中返回 false + null，out 参数满足确定赋值；GetStageIds 每次返回新数组副本，外部改写不污染目录。
+2. Get(int) 重构为 TryGet + 未命中回退 Sequences[0]，与旧行为逐位一致（仍假设 Sequences 非空，静态初始化 6 条，风险与改动前相同）；RenderCurrentStoryLine 等既有调用方零改动。
+3. 新增 verify_mainline_story_catalog.ps1 6 项静态断言全部命中（含旧回退路径保留校验）；含新增在内 19 项静态校验全部退出码 0。
+4. git diff --check 对范围文件干净。
+5. 未改 ShouyouServer、shouyou.db、Scene_Boot（提交须排除既有搅动）、资源目录或充值入口。
+6. plans 文档 docs/superpowers/plans/2026-08-13-mainline-story-catalog-api.md 完整，约束与实施一致。
+P2 观察点（非阻塞）：
+1. MainlineStoryCatalog.cs 无 UTF-8 BOM（HEAD 起即如此，历史遗留非本轮引入）；已于复核后补上 EF BB BF，本观察点关闭。
+仍待 Unity Play Mode 冒烟：剧情回看页接入 LineCount/GetLine 后逐句播放边界；TryGet 对非法编号返回 false 且 sequence 为 null。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo41-FE-R1-CODE
+parent_id: Todo40-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-13 22:26:49 Asia/Shanghai
+project_spec: 第一章剧情播放状态
+module: 主线剧情逐句播放 / 已读记录
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+在不接入页面路由的前提下，为第一章剧情提供可复用的逐句播放、三秒后跳过和完成已读状态对象。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。Todo40 已通过审查；Todo39 的 HomePageRouter 改动仍在审查中，因此本轮不触及 UI 路由。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/Data/MainlineStoryPlaybackState.cs
+2. tools/verify_mainline_story_playback_state.ps1
+3. docs/superpowers/plans/2026-08-13-mainline-story-playback-state.md
+
+关键方法：
+1. MainlineStoryPlaybackState.TryStart
+2. MainlineStoryPlaybackState.AdvanceTime
+3. MainlineStoryPlaybackState.TryAdvance
+4. MainlineStoryPlaybackState.TrySkip
+5. MainlineStoryPlaybackState.CompletePlayback
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 新增独立播放状态对象，安全读取 MainlineStoryCatalog 的关卡剧情并暴露当前行、总行数和完成状态。
+2. 逐句推进至最后一行时统一收口完成逻辑；跳过仅在累计阅读满 3 秒后生效。
+3. 正常读完与跳过均通过 LevelProgressManager.MarkStoryRead 记录已读，不在新模块直接读写 PlayerPrefs。
+4. 非法关卡、空剧情、负时间、未开始推进和提前跳过均安全返回，不抛出异常。
+
+资源变更：无。
+存档影响：沿用既有剧情已读键；本轮只在页面后续调用完成/跳过时才会写入，当前没有新增自动写入入口。
+风险点：本轮不接入 HomePageRouter 或场景，尚需在 Todo39 审查完成后把播放状态绑定到“开始阅读/回看剧情”按钮，并在 Unity Play Mode 验证实际按钮与文字布局。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 先在播放状态生产文件缺失时运行 verify_mainline_story_playback_state，确认按预期失败；实现后重新运行通过。
+2. verify_mainline_story_playback_state、verify_mainline_story_catalog、verify_mainline_stage_guidance、verify_mainline_progression_rules、verify_mainline_reward_grant、角色养成、资源、编队、战斗循环和阵亡移除回归脚本均退出码 0。
+3. git diff --check 针对本轮三个文件通过；未处理既有 Scene_Boot.unity、HomePageRouter.cs 和其它工作区改动。
+
+建议Claude测试：
+1. 审查 TryStart 对第 1 至第 6 关能从 MainlineStoryCatalog 初始化；非法关卡或空剧情会清空状态并返回 false。
+2. 审查 TryAdvance 只在存在下一句时返回 true；最后一句推进后标记完成且不再可推进。
+3. 审查 AdvanceTime 只累计正数时间；满 3 秒前 TrySkip 返回 false，满 3 秒后跳过写入既有 IsStoryRead 记录。
+4. 审查新文件没有直接访问 PlayerPrefs、没有改动后端、数据库、Scene_Boot、资源、支付或战斗数值。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+
+===TASK_RECORD_START===
+task_id: Todo41-FE-R1-REVIEW
+parent_id: Todo41-FE-R1-CODE
+round: 1
+timestamp: 2026-08-13 23:27:00 Asia/Shanghai
+project_spec: 第一章剧情播放状态-评审
+module: 主线剧情逐句播放 / 已读记录
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+Claude 评审复核（2026-08-13）：
+1. 新增 MainlineStoryPlaybackState，为首次阅读、剧情回看与未来演出页提供不依赖页面的逐句播放状态对象。
+2. 跳过受 3 秒阅读门槛约束；正常读完与跳过两条路径统一写入既有 LevelProgressManager.MarkStoryRead 已读记录，新模块不直接访问 PlayerPrefs。
+3. 非法关卡、空剧情、负时间、未开始推进和提前跳过均安全返回，不抛异常。
+4. 本轮不接入 HomePageRouter 或场景，避免与 Todo39 审查改动冲突。
+5. 不改后端、数据库、Scene_Boot、资源目录、支付/充值或战斗数值。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1，0 P2）。
+1. MainlineStoryPlaybackState.cs（新增）：TryStart 经 MainlineStoryCatalog.TryGet 初始化 6 关全部命中，非法/空剧情走 Reset 返回 false；TryAdvance 仅当存在下一句时 +1 返回 true，末句走 CompletePlayback 收口；AdvanceTime 只累计正数 delta 且完成后不再累计；IsSkipAvailable 需 IsStarted && !IsCompleted && elapsed>=3f；TrySkip 与正常读完统一经 CompletePlayback 调 LevelProgressManager.Instance.MarkStoryRead，无 PlayerPrefs 直写。
+2. CompletePlayback 以 _isCompleted 幂等保护，避免 TrySkip 与末句推进重复写已读；Reset 只清临时状态不动已读记录。
+3. verify_mainline_story_playback_state.ps1 8 项静态断言全部命中（含无 PlayerPrefs 断言、MarkStoryRead 依赖存在断言）；含新增在内 20 项静态校验全部退出码 0。
+4. git diff --check 对新增三文件干净。
+5. 未改 ShouyouServer、shouyou.db、Scene_Boot（工作区 Scene_Boot.unity 仍为历史换行/序列化搅动，提交须排除）、资源目录、支付入口或战斗数值；未触碰 HomePageRouter.cs 与 MainlineStoryCatalog.cs（Todo39/Todo40 工作区改动保持原样）。
+6. plans 文档 docs/superpowers/plans/2026-08-13-mainline-story-playback-state.md 完整，约束与实施一致。
+P2 观察点（非阻塞）：
+1. MainlineStoryPlaybackState.cs 初始无 UTF-8 BOM（Codex 生成），已于复核后补上 EF BB BF，本观察点关闭。
+仍待 Unity Play Mode 冒烟：在 Todo39 审查完成后把播放状态绑定到“开始阅读/回看剧情”按钮，验证逐句推进、3 秒跳过门槛、末句完成与已读记录写入。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo42-FE-R1-CODE
+parent_id: Todo41-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-14 00:15:00 Asia/Shanghai
+project_spec: 第一章剧情播放 UI 接入
+module: 主线关卡详情 / 剧情逐句播放
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+将已审查通过的剧情播放状态接入现有“开始阅读 / 回看剧情”入口，移除 HomePageRouter 内重复的剧情临时状态与直接存档写入。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码；Todo39 与 Todo41 均已审查通过，本轮在其限定接口上完成玩家可见的 UI 接入。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+2. tools/verify_mainline_story_playback_ui_integration.ps1
+3. docs/superpowers/plans/2026-08-14-mainline-story-playback-ui-integration.md
+
+关键方法：
+1. HomePageRouter.StartStoryReading
+2. HomePageRouter.SkipStory
+3. HomePageRouter.AdvanceStoryReading
+4. HomePageRouter.RenderCurrentStoryLine
+5. HomePageRouter.CloseStoryDetail
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. HomePageRouter 改为唯一使用 MainlineStoryPlaybackState 管理剧情开始、逐句推进、三秒跳过和完成状态。
+2. 删除页面内旧行号、阅读计时器和直接 MarkStoryRead 路径，避免同一剧情存在两套状态与重复存档。
+3. 详情弹窗打开时以 unscaledDeltaTime 累计阅读时长；关闭详情或切换关卡时只重置临时状态。
+4. 新增静态检查，确保后续不会重新引入旧字段或页面直接写入已读记录。
+
+资源变更：无。
+存档影响：沿用既有 LevelProgressManager 的剧情已读记录；读取完成与跳过语义不变。
+风险点：Unity 场景按钮绑定未改动，仍需 Play Mode 验证第一关实际按钮流程与中文文本排版。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. verify_mainline_story_playback_ui_integration、verify_mainline_story_playback_state、verify_mainline_story_catalog、verify_mainline_stage_guidance 均通过。
+2. git diff --check 仅针对本轮 HomePageRouter 与新验证脚本通过；未处理 Scene_Boot 的既有空白行噪音。
+
+建议Claude测试：
+1. 审查页面没有保留旧剧情字段、计时器或直接 MarkStoryRead 调用，所有播放状态均经 MainlineStoryPlaybackState。
+2. Unity Play Mode 打开第一关详情：开始阅读后逐句点击；等待 3 秒后跳过；检查完成提示、已读标签和回看入口。
+3. 阅读中关闭详情或切换关卡后重新打开，确认不串台词；已读记录不被清除。
+4. 确认未改 ShouyouServer、shouyou.db、Scene_Boot、资源、支付或战斗数值。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo43-FE-R1-CODE
+parent_id: Todo42-FE-R1-CODE
+round: 1
+timestamp: 2026-08-14 02:13:28 Asia/Shanghai
+project_spec: 第一章主线剧情结束引导
+module: 主线关卡详情 / 剧情完成反馈
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：
+让玩家完成或跳过剧情后，按本关真实战斗状态看到明确下一步、奖励预览和下一关引导，且不混淆剧情已读与战斗通关。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码；上一轮剧情播放 UI 已完成并由用户确认可进入下一轮，本轮不处理其余模块。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+2. tools/verify_story_completion_guidance.ps1
+3. docs/superpowers/plans/2026-08-14-story-completion-guidance.md
+
+关键方法：
+1. HomePageRouter.CompleteStoryReading
+2. HomePageRouter.BuildStoryCompletionGuidance
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 剧情完成提示按未通关、已通关可前往下一关、最终关完成三种状态生成下一步文案。
+2. 未通关时仅展示“战斗胜利后可获得”的奖励预览，不提前发奖、不推进关卡。
+3. 已通关时只读取现有进度，提示回看、重战或下一关，不改变关卡开放规则。
+
+资源变更：无。
+存档影响：无新增写入；只读取既有 LevelProgressManager 状态。
+风险点：需 Unity Play Mode 检查长奖励文案在剧情详情弹窗中不遮挡五个按钮。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 先运行 verify_story_completion_guidance，确认在生产方法缺失时按预期失败；补齐后通过。
+2. verify_story_completion_guidance、verify_mainline_story_playback_ui_integration、verify_mainline_story_playback_state、verify_mainline_story_catalog、verify_mainline_stage_guidance 全部通过。
+3. git diff --check 针对本轮 HomePageRouter 与验证脚本通过；仅有 Git 的 LF/CRLF 提示，无 diff 错误。
+
+建议Claude测试：
+1. Play Mode：未通关第一关读完/跳过后，确认显示“战斗胜利后可获得”，资源余额和最高通关记录均不变。
+2. 将本关通关后重读剧情，确认提示可前往下一关；第六关通关后确认显示第一章完成而不越界到第七关。
+3. 确认未改 ShouyouServer、shouyou.db、Scene_Boot、资源、支付、解锁规则或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo42-FE-R1-REVIEW
+parent_id: Todo42-FE-R1-CODE
+round: 1
+timestamp: 2026-08-14 02:30:00 Asia/Shanghai
+project_spec: 第一章剧情播放 UI 接入
+module: 主线关卡详情 / 剧情逐句播放
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+审查范围：
+1. HomePageRouter 唯一持有 MainlineStoryPlaybackState，无旧行号、阅读计时器、跳过延时常量或直接 MarkStoryRead(currentMainlineStageId) 写路径。
+2. StartStoryReading 对缺失目录项安全处理，并先 TryStart 再渲染首句。
+3. Update 仅在详情面板打开且播放未完成时累计 unscaledDeltaTime。
+4. AdvanceStoryReading 委托 TryAdvance；末句完成与接受跳过不重复写存档。
+5. 关闭详情 / 切换关卡走 Reset，已读记录保留在 LevelProgressManager。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1，0 P2）。
+1. HomePageRouter.cs:105 唯一 storyPlaybackState 实例；verify_mainline_story_playback_ui_integration 的 9 项必备片段全部命中、5 项禁存旧字段/计时器/StorySkipDelaySeconds/直接 MarkStoryRead 片段全部不存在；5 个相关静态校验脚本（ui_integration、playback_state、story_catalog、stage_guidance、story_completion_guidance）全部退出码 0。
+2. StartStoryReading(325-344)：解锁检查 → TryStart(缺失目录安全回退) → 失败走现有详情文案，成功后 RenderCurrentStoryLine + ConfigureStoryDetailForReading。
+3. Update(114-122)：仅 storyDetailPanel.activeSelf && IsStarted && !IsCompleted 时 AdvanceTime(Time.unscaledDeltaTime)。
+4. AdvanceStoryReading(1248-1263) 委托 TryAdvance，末句 CompleteStoryReading(false) 收口；SkipStory(346-367) 经 TrySkip(IsSkipAvailable 3 秒门槛)；正常读完与跳过共用幂等 CompletePlayback，无双写已读。
+5. CloseStoryDetail(318-323) 与 ShowMainlineStageDetail(1144) 均 Reset；已读记录由 LevelProgressManager.MarkStoryRead 持久，Reset 不触碰。
+6. git diff --check 对本轮 HomePageRouter 干净（仅 Git 的 LF/CRLF 提示）；HomePageRouter.cs 保留 UTF-8 BOM（EF BB BF）。
+7. MainlineStoryCatalog.cs 工作区 diff 仍仅为 Todo40 已评审内容（LineCount/GetLine/TryGet），本轮未改。
+8. 未改 ShouyouServer、shouyou.db、Scene_Boot、资源目录、支付入口或战斗数值；工作区 Scene_Boot.unity 为历史换行/序列化搅动（mtime 2026-08-12，早于本轮 08-14 02:02），提交须排除。
+P2 观察点：无。
+仍待 Unity Play Mode 冒烟：第一关“开始阅读”逐句推进、等待 3 秒后跳过、关闭/切换关卡不串台词、完成显示重读/回看入口。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo43-FE-R1-REVIEW
+parent_id: Todo43-FE-R1-CODE
+round: 1
+timestamp: 2026-08-14 02:40:00 Asia/Shanghai
+project_spec: 第一章主线剧情结束引导
+module: 主线关卡详情 / 剧情完成反馈
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+审查范围：
+1. BuildStoryCompletionGuidance 只读：不发奖、不写关卡完成、不同步后端、不写 PlayerPrefs。
+2. 未通关时仅展示奖励预览，不提前发奖。
+3. 已通关非终关时仅当 IsStageUnlocked(nextStageId) 为真才提示下一关。
+4. 终关分支不计算不存在的第七关。
+5. CompleteStoryReading 保持剧情已读与战斗通关独立；按钮配置仍走 ConfigureStoryDetailForMainlineStage。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1，0 P2）。
+1. BuildStoryCompletionGuidance(1288-1317) 纯读：仅访问 MainlineStageCatalog 与 LevelProgressManager.IsStageCleared/GetNextStageId/IsStageUnlocked，无发奖/写入/后端同步/PlayerPrefs。
+2. 未通关分支(1296-1300)只拼“战斗胜利后可获得”+ MainlineStageCatalog.GetRewards + BuildBattleRewardText 预览，不调用任何发奖接口。
+3. 非终关分支(1309-1310)：GetNextStageId 后先 IsStageUnlocked(nextStageId) 为真才显示前往下一关，否则回看/重战。
+4. 终关分支(1304)用 currentMainlineStageId >= LevelProgressManager.MaxMainlineStageId 判定“第一章完成”，无第七关计算。
+5. CompleteStoryReading(1268-1282) 剧情已读(经 MarkStoryRead)与战斗通关相互独立；按钮配置路径 ConfigureStoryDetailForMainlineStage 未旁路。
+6. verify_story_completion_guidance 7 项必备片段全部命中，相关 5 脚本全部退出码 0；git diff --check 干净；HomePageRouter.cs 保留 UTF-8 BOM（EF BB BF）。
+7. 未改 ShouyouServer、shouyou.db、Scene_Boot、资源目录、支付入口、解锁规则、发奖逻辑或伤害公式；Scene_Boot 工作区搅动为历史遗留，提交须排除。
+P2 观察点：无。
+仍待 Unity Play Mode 冒烟：未通关读/跳剧情后确认无资源与通关记录变更；通关后重读确认下一关引导；第六关完成后确认显示第一章完成而不越界到第七关。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo44-FE-R1-CODE
+parent_id: Todo43-FE-R1-REVIEW
+round: 1
+timestamp: 2026-08-14 20:00:45 Asia/Shanghai
+project_spec: 第一章主线进度概览
+module: 主线关卡详情 / 章节进度展示
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：在任意第一章关卡详情中，以只读方式展示 1–6 关的通关、剧情阅读与下一目标，不改变主线规则。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+2. tools/verify_chapter_progress_overview.ps1
+3. docs/superpowers/plans/2026-08-14-chapter-progress-overview.md
+
+关键方法：
+1. HomePageRouter.ShowMainlineStageDetail
+2. HomePageRouter.BuildChapterProgressOverview
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 关卡详情末尾追加第一章总进度、下一目标与六关的通关/剧情阅读一览。
+2. 概览只读取 LevelProgressManager 与 MainlineStageCatalog；第六关完成时直接显示章节完成，不访问不存在的第七关。
+3. 新增静态校验，阻止概览展示路径接入关卡完成、剧情写入或奖励发放调用。
+
+资源变更：无。
+存档影响：无新增写入；只读取既有进度。
+风险点：较长的六关文本需在 Unity Play Mode 中确认不遮挡关卡详情的操作按钮。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 测试先行：概览实现缺失时 verify_chapter_progress_overview 按预期失败；实现后通过。
+2. verify_chapter_progress_overview、verify_mainline_story_playback_ui_integration、verify_mainline_story_playback_state、verify_mainline_story_catalog、verify_mainline_stage_guidance、verify_story_completion_guidance 全部通过。
+3. git diff --check 针对 HomePageRouter 与验证脚本通过；仅有 Git 的 LF/CRLF 提示，无 diff 错误。
+
+建议Claude测试：
+1. Play Mode：分别打开未通关、已通关非终关与第六关详情，确认总进度、下一目标和六关状态与当前存档一致。
+2. 确认打开、关闭、重读详情不会改变铜钱、玉、剧情阅读、通关记录或关卡解锁。
+3. 确认未改 ShouyouServer、shouyou.db、Scene_Boot、资源、支付、奖励发放、解锁规则或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo44-FE-R1-REVIEW
+parent_id: Todo44-FE-R1-CODE
+round: 1
+timestamp: 2026-08-14 21:10:00 Asia/Shanghai
+project_spec: 第一章主线进度概览
+module: 主线关卡详情 / 章节进度展示
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+审查范围：
+1. 任意第一章关卡详情只读展示 1–6 关的通关、剧情阅读与下一目标，不改变主线规则。
+2. BuildChapterProgressOverview 只读：不发奖、不写关卡完成、不写剧情、不同步后端、不写 PlayerPrefs。
+3. 第六关完成后直接显示章节完成，不访问不存在的第七关。
+4. ShowMainlineStageDetail 追加概览时不影响既有按钮配置与阅读游标重置。
+5. 未改后端/数据库/Scene_Boot/资源/支付/奖励发放/解锁规则/伤害公式。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1，1 P2）。
+1. BuildChapterProgressOverview(1214-1240) 纯读：仅 LevelProgressManager.GetHighestClearedStageId/GetStageStateLabel/IsStoryRead 与 MainlineStageCatalog.Get，无写关/发奖/后端/PlayerPrefs 调用。
+2. 终关分支(1220-1223)用 highestClearedStageId >= MaxMainlineStageId(常量=6)判定"第一章已完成"，无第七关计算；非终关 nextStageId=highest+1 必合法。
+3. 关卡一览循环(1232-1237)覆盖 1..MaxMainlineStageId 六关，全部只读。
+4. 集成点 ShowMainlineStageDetail(1157)仅把概览追加到详情正文末尾；storyPlaybackState.Reset(1144)、ConfigureStoryDetailForMainlineStage(1160)原逻辑未旁路。
+5. verify_chapter_progress_overview 7 项必备片段命中、3 项禁止片段不存在；相关 6 脚本全部退出码 0。
+6. git diff --check 干净（仅 LF/CRLF 提示）；HomePageRouter.cs 保留 UTF-8 BOM（EF BB BF）。
+7. plans 文档 docs/superpowers/plans/2026-08-14-chapter-progress-overview.md 存在；所用 LevelProgressManager API（MaxMainlineStageId/GetStageStateLabel/GetHighestClearedStageId/IsStoryRead）均有定义。
+8. 未改 ShouyouServer、shouyou.db、Scene_Boot、资源目录、支付入口、奖励发放、解锁规则或伤害公式；工作区 Scene_Boot.unity 为历史换行/序列化搅动，提交须排除。
+P2 观察点（非阻塞）：
+1. verify_chapter_progress_overview 的 3 项禁止片段（CompleteMainlineStage(stageId)/SetStoryRead(stageId/GrantReward(）与真实写 API 拼写不符（实际为 ShouyouBackendBootstrap.CompleteMainlineStage(...)、MarkStoryRead、GrantRewards(...)），属"精确拼写守卫"而非语义守卫——本次人工通读确认概览路径确实只读，但未来若在概览路径接入语义等价写法，脚本不会拦截。建议后续把禁止片段改为匹配真实写方法名的拼写。
+仍待 Unity Play Mode 冒烟：分别打开未通关、已通关非终关与第六关详情，确认总进度、下一目标与六关状态和存档一致；打开/关闭/重读详情不改变铜钱、玉、剧情阅读、通关记录或关卡解锁。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo44-FE-R2-FIX
+parent_id: Todo44-FE-R1-REVIEW
+round: 2
+timestamp: 2026-08-14 21:22:54 Asia/Shanghai
+project_spec: 第一章主线进度概览
+module: 主线关卡详情 / 章节进度展示
+flow_status: [CODE_FIXED]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：回应 Todo44 的 P2，将只读概览的测试守卫从无效字面匹配升级为真实写入 API 的方法体级检查。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+对审查问题的修复：
+1. [P2] 禁止片段与真实写入 API 拼写不一致，且扫描整文件容易被无关流程干扰 → 提取 BuildChapterProgressOverview 方法体，仅检查 MarkStoryRead、CompleteMainlineStage、GrantRewards、后端同步与 PlayerPrefs 等真实写入路径。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. tools/verify_chapter_progress_overview.ps1
+
+关键方法：
+1. verify_chapter_progress_overview.ps1 的方法体提取与只读守卫
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 校验脚本以大括号深度定位目标方法体，避免其他正常剧情流程中的写入调用造成误报。
+2. 禁止项改为项目当前真实 API 名称，覆盖剧情写入、关卡通关、奖励发放、后端同步与 PlayerPrefs。
+3. 生产 C# 代码、存档、资源和后端均未修改。
+
+资源变更：无。
+存档影响：无。
+风险点：静态脚本不替代 Unity Play Mode 冒烟，但能防止该方法未来直接接入常见写入路径。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. verify_chapter_progress_overview、verify_story_completion_guidance、verify_mainline_story_playback_ui_integration 全部通过。
+2. 测试脚本注释改为 ASCII，避免 Windows PowerShell 在不同编码下解析失败；Unity C# 的中文注释未改。
+
+建议Claude测试：
+1. 检查脚本禁止项是否覆盖当前真实的写入 API，且只扫描 BuildChapterProgressOverview 方法体。
+2. 复跑 Todo44 的六个静态回归脚本；确认本轮未改生产 C#、后端、数据库、Scene_Boot 或资源。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo44-FE-R2-REVIEW
+parent_id: Todo44-FE-R2-FIX
+round: 2
+timestamp: 2026-08-14 21:40:00 Asia/Shanghai
+project_spec: 第一章主线进度概览
+module: 主线关卡详情 / 章节进度展示
+flow_status: [REVIEW_DONE]
+agent: claude
+---BLOCK_REQUIREMENT_START---
+审查范围：
+1. verify_chapter_progress_overview.ps1 的只读守卫升级为方法体级，且禁止项匹配当前真实写入 API。
+2. 仅检查 BuildChapterProgressOverview 方法体，避免其他正常剧情流程的写入调用造成误报。
+3. 覆盖剧情写入、关卡通关、奖励发放、后端同步与 PlayerPrefs 五类真实写路径。
+4. 本轮不改生产 C#、存档、资源、后端、数据库、Scene_Boot。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_VERIFY_START---
+结论：PASS（1 轮，0 P1，0 P2）。上一轮 P2 已关闭。
+1. 脚本(verify_chapter_progress_overview.ps1)以方法名定位 BuildChapterProgressOverview 起始、大括号深度平衡截取方法体（L30-60），再在方法体内检查禁止项；对当前方法体（无字符串大括号、无嵌套局部函数）可靠，且不会误伤文件中其他合法写入流程。
+2. 禁止项已改为项目真实写 API 名：MarkStoryRead( / CompleteMainlineStage( / GrantRewards( / ShouyouBackendBootstrap. / PlayerPrefs.（L61-67），语义守卫到位，正好覆盖我 R1 的 P2。
+3. 必备片段（7 项）保留；新脚本退出码 0。
+4. 回归：verify_story_completion_guidance、verify_mainline_story_playback_ui_integration、verify_mainline_story_playback_state、verify_mainline_story_catalog、verify_mainline_stage_guidance 全部 PASS。
+5. 生产代码未改：HomePageRouter.cs mtime 2026-08-14 19:38（R1 内容），R2 仅改 tools/verify_chapter_progress_overview.ps1；未改 ShouyouServer、shouyou.db、Scene_Boot、资源、支付、奖励发放、解锁规则或伤害公式；Scene_Boot 工作区搅动为历史遗留，提交须排除。
+6. 脚本注释为 ASCII，规避 Windows PowerShell 旧版编码解析问题（与本仓库中文注释约定不冲突，ps1 非 .cs）。
+P2 观察点：无。
+仍待 Unity Play Mode 冒烟（同 R1，人工负责）：打开未通关/已通关/第六关详情核对总进度与存档一致，开合详情不改变资源与记录。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo45-FE-R1-CODE
+parent_id: Todo44-FE-R2-REVIEW
+round: 1
+timestamp: 2026-08-14 23:25:10 Asia/Shanghai
+project_spec: 第一章关卡详情行动入口收口
+module: 主线关卡详情 / 剧情、编队与挑战入口
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：在不改后端、数据库、场景、资源、解锁规则或伤害公式的前提下，明确第一章关卡详情中剧情、编队和挑战入口的可用状态与玩家引导。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+2. tools/verify_mainline_stage_action_entries.ps1
+
+关键方法：
+1. ConfigureStoryDetailForMainlineStage
+2. OpenFormationFromMainlineStageDetail
+3. BuildMainlineStageGuidance
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 未解锁关卡把无效的剧情跳过、回看与战斗动作统一标为“暂未开放”，仅保留“解锁条件”说明入口。
+2. 已解锁关卡把第二按钮改为“调整编队”，关闭详情后切到既有行迹编队页；该入口不写入编队、关卡或存档数据。
+3. 挑战按钮区分“开始挑战”和“再次挑战”；正文引导同步展示“阅读 → 编队 → 挑战”的操作顺序。
+4. 新增静态验证脚本，并以 Unicode 码点构造中文断言，避开 Windows PowerShell 无 BOM 文件的中文解析误报。
+
+资源变更：无。
+存档影响：无。
+风险点：静态测试无法替代 Unity Play Mode；需人工确认弹窗关闭后切换到正确编队页，以及阅读中“跳过剧情”仍保留原有语义。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. 新脚本先在生产代码变更前失败，缺少编队入口；实现后运行 verify_mainline_stage_action_entries.ps1 通过。
+2. verify_mainline_stage_guidance.ps1、verify_chapter_progress_overview.ps1、verify_mainline_story_playback_ui_integration.ps1 均通过。
+3. git diff --check 对本轮 HomePageRouter.cs 与新脚本无新增格式问题；仓库既有 Scene_Boot.unity 的大量尾随空白未改动。
+
+建议Claude测试：
+1. 静态审查 ConfigureStoryDetailForMainlineStage：锁定、未通关、已通关三种状态的按钮标签、可点击性和回调是否一致。
+2. Unity Play Mode：打开未解锁关、第一关未通关与已通关关卡；验证“解锁条件”“调整编队”“开始挑战/再次挑战”行为，且剧情阅读中的“跳过剧情”仍可正常使用。
+3. 确认本轮未改 ShouyouServer、shouyou.db、Scene_Boot、资源目录、支付入口、奖励发放、关卡解锁规则或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo46-FE-R1-CODE
+parent_id: Todo45-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 01:10:59 Asia/Shanghai
+project_spec: 第一章主线挑战准备闭环
+module: 主线关卡详情 / 出战准备
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：在不改后端、数据库、场景、资源、奖励、解锁规则或伤害公式的前提下，把第一章“开始挑战”收口为先查看出战准备、再确认进入战斗的主流程。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+首轮编码，无审查回应。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/HomePageRouter.cs
+2. tools/verify_mainline_battle_preparation.ps1
+
+关键方法：
+1. EnterBattlePrototype
+2. ShowBattlePreparation
+3. StartBattleFromPreparation
+4. BuildBattlePreparationText
+5. ReturnToCurrentMainlineStageDetail
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+改动点：
+1. 点击“开始挑战/再次挑战”不再直接切入战斗页，先显示关卡名、推荐战力、当前战力和当前编队的只读准备信息。
+2. 准备页提供“返回关卡”“调整编队”“确认挑战”“取消出战”四类明确操作；只有“确认挑战”会切到既有战斗页。
+3. 确认进入战斗前重复校验解锁状态与可出战编队，防止准备页打开后编队变化造成无效开战。
+4. 返回关卡时按当前关卡 id 重新打开详情，保留玩家原本的关卡上下文，不写入存档或资源。
+5. 新增静态验证脚本；先验证其因缺少准备入口而失败，再实现生产代码并回归通过。
+
+资源变更：无。
+存档影响：无。
+风险点：当前静态校验与代码检查不能替代 Unity Play Mode；需人工检查准备页按钮布局、编队为空时的拦截，以及确认挑战后的实际战斗初始化。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. RED：verify_mainline_battle_preparation.ps1 初次执行按预期失败，提示缺少 ShowBattlePreparation。
+2. GREEN：该脚本通过；verify_mainline_stage_action_entries、verify_mainline_stage_guidance、verify_chapter_progress_overview、verify_mainline_story_playback_ui_integration、verify_formation_battle_linkage 均通过。
+3. git diff --check 仅检查 HomePageRouter.cs，无空白错误；Git 提示 LF/CRLF 转换警告，未改 Scene_Boot 或其它历史脏文件。
+
+建议Claude测试：
+1. 静态审查 EnterBattlePrototype 只转入准备页，ShowBattle 只能由 StartBattleFromPreparation 在确认后调用。
+2. Unity Play Mode：从第一关详情依次验证“开始挑战 → 出战准备 → 返回关卡 / 调整编队 / 取消出战 / 确认挑战”。
+3. 在准备页后清空可出战编队，再点“确认挑战”，确认仍被拦截而不会进入战斗。
+4. 确认本轮未改 ShouyouServer、shouyou.db、Scene_Boot、资源、支付、奖励发放、关卡解锁和伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo47-FE-R1-CODE
+parent_id: Todo46-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:05:00 Asia/Shanghai
+project_spec: 自动战斗表现节奏串行化
+module: 回合战斗 / 自动战斗
+flow_status: [CODE_DONE]
+agent: codex
+record_note: 本任务完整变更与自测说明曾被补丁工具误置于文件格式示例之后；该条为追加式正式索引，以本条及下方 Claude 审查任务为准。
+---BLOCK_REQUIREMENT_START---
+需求：让自动战斗在每个行动批次的攻击、受击、飘字和退场表现完成后，才开始下一段自动行动；不改伤害公式、路由、编队、后端、数据库、场景或资源。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_auto_battle_presentation_sequence.ps1
+
+关键方法：PerformAutoAttacks、PerformAutoAttacksRoutine、WaitForPresentationQueueToFinish、StopAutoBattleRoutine。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 自动战斗由同步连续循环改为协程；每次行动后等待表现队列清空。
+2. 自动战斗期间锁定输入；重置、撤退、离开战斗页均停止旧自动协程。
+3. 未改伤害计算、行动值排序、技能冷却、奖励、战斗路由或编队判断。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：新增脚本 RED 后 GREEN 通过；verify_battle_presentation_queue、verify_battle_presentation_polish、verify_battle_loop、verify_battle_action_preview、verify_formation_battle_linkage、verify_mainline_battle_preparation 均通过。
+
+建议Claude测试：Unity Play Mode 下连续自动行动的表现严格串行；自动期间撤退、重开或离开页面后没有残留攻击。确认未触碰后端、数据库、Scene_Boot、资源、支付、奖励、解锁、编队数据及伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo48-FE-R1-CODE
+parent_id: Todo47-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:26:00 Asia/Shanghai
+project_spec: 回合战斗行动逐段结算
+module: 回合战斗 / 行动推进
+flow_status: [CODE_DONE]
+agent: codex
+---BLOCK_REQUIREMENT_START---
+需求：把玩家出手后的敌方行动与已预选我方技能改为逐段结算；每段攻击表现播放结束后才推进下一位行动者。不得改伤害公式、后端、数据库、场景、资源、路由、编队、奖励或解锁规则。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_REVIEW_RESPONSE_START---
+用户要求将重心放在工程任务，减少每个小点的人工审查；本轮继续战斗主流程，仅记录交付给后续自动扫描。
+---BLOCK_REVIEW_RESPONSE_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_turn_resolution_sequence.ps1
+
+关键方法：CompletePlayerAction、ResolveFollowUpActionsRoutine、FinishFollowUpResolution、StopFollowUpResolutionRoutine。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. CompletePlayerAction 不再同步 while 循环解析后续单位，改为启动逐段行动协程。
+2. 玩家攻击、每个敌方攻击、每个预选技能结算后均等待表现队列清空，保证视觉与数值推进一致。
+3. 后续行动结算期间锁定输入；重置、撤退、离开页面都会终止旧协程，避免跨战斗残留行动。
+4. 保留既有伤害、治疗、行动值排序、冷却、奖励和胜负结算实现，不修改其计算规则。
+
+资源变更：无。
+存档影响：无。
+风险点：静态验证不能代替 Unity Play Mode；应人工确认连续敌方行动、预选技能与自动战斗不会出现同步跳帧或输入提前解锁。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：
+1. RED：verify_turn_resolution_sequence.ps1 在实现前按预期失败，提示缺少 ResolveFollowUpActionsRoutine 等串行契约。
+2. GREEN：verify_turn_resolution_sequence、verify_auto_battle_presentation_sequence、verify_battle_presentation_queue、verify_battle_presentation_polish、verify_battle_loop、verify_battle_action_preview、verify_formation_battle_linkage、verify_mainline_battle_preparation 全部通过。
+3. git diff --check 检查本轮生产脚本与验证脚本，无空白错误；仅有 Git LF/CRLF 转换提示。
+
+建议Claude测试：
+1. 静态审查 CompletePlayerAction 不再含同步后续行动 while，只有 ResolveFollowUpActionsRoutine 推进敌我后续行动。
+2. Unity Play Mode：玩家普攻后观察敌方多个单位按行动值逐一出手；给非当前我方角色预选技能后，观察其轮到行动时单独播放后再推进。
+3. 在后续行动表现期间尝试技能、自动、撤退和重置，确认输入锁与协程清理符合预期。
+4. 确认未改后端、数据库、Scene_Boot、资源、支付、奖励、解锁、编队或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo49-FE-R1-CODE
+parent_id: Todo48-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:31:00 Asia/Shanghai
+project_spec: 自动战斗完整行动链接力
+module: 回合战斗 / 自动战斗
+flow_status: [CODE_DONE]
+agent: codex
+record_note: 本任务完整变更与自测说明曾被补丁工具误置于文件格式示例之后；该条为追加式正式索引，以本条及下方 Claude 审查任务为准。
+---BLOCK_REQUIREMENT_START---
+需求：自动战斗在本次出手及敌我后续行动链结束后，若重新轮到可行动我方角色则继续自动攻击，直至胜负、撤退或安全退出。不得改伤害公式、后端、数据库、场景、资源、路由、编队、奖励或解锁规则。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_auto_battle_turn_handoff.ps1
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 自动战斗循环改为跨完整行动链运行，而非玩家出手后因敌方回合锁定而提前结束。
+2. 每次自动普攻后同时等待表现队列和后续行动协程清理，再检查是否重新轮到我方。
+3. 保留安全计数防止异常状态无限循环；未修改伤害、治疗、行动顺序、冷却、奖励、胜负结算、路由或编队判断。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：RED 后 GREEN 通过 verify_auto_battle_turn_handoff；并回归通过 Todo48、Todo47 的全部战斗静态验证。git diff --check 无空白错误，仅有 LF/CRLF 提示。
+
+建议Claude测试：Unity Play Mode 点击自动战斗，确认跨越至少两次我方行动及中间敌方/预选行动持续执行；胜负、撤退、重置或切页后停止且无残留协程。确认未改后端、数据库、Scene_Boot、资源、支付、奖励、解锁、编队或伤害公式。
+---BLOCK_VERIFY_END---
+===TASK_RECORD_END===
+
+===TASK_RECORD_START===
+task_id: Todo50-FE-R1-CODE
+parent_id: Todo49-FE-R1-CODE
+round: 1
+timestamp: 2026-08-15 02:36:00 Asia/Shanghai
+project_spec: 战斗行动链过程反馈同步
+module: 回合战斗 / 行动反馈
+flow_status: [CODE_DONE]
+agent: codex
+record_note: 本条为 Todo50 正式追加索引；内容采用仅展示反馈的最小改动，不影响战斗数值或状态。
+---BLOCK_REQUIREMENT_START---
+需求：战斗行动链开始时立即同步界面锁定状态，并在每个已结算行动后更新提示文本；不得改伤害、行动顺序、冷却、奖励、路由、后端、数据库、场景或资源。
+---BLOCK_REQUIREMENT_END---
+---BLOCK_CHANGE_FILES_START---
+改动文件：
+1. ShouyouPrototype/ShouyouPrototype/Assets/_Project/Scripts/UI/BattleDemoController.cs
+2. tools/verify_battle_action_feedback_sync.ps1
+关键方法：CompletePlayerAction、ResolveFollowUpActionsRoutine、ShowResolvingActionLog。
+---BLOCK_CHANGE_FILES_END---
+---BLOCK_CHANGE_LOG_START---
+1. 后续行动链启动即刷新战斗消息及输入锁对应的按钮状态。
+2. 每个敌方攻击或预选我方技能结算后追加最新行动记录并刷新界面。
+3. 仅补齐过程展示；未改变数值、伤害公式、行动顺序、冷却或战斗结果。
+---BLOCK_CHANGE_LOG_END---
+---BLOCK_VERIFY_START---
+Codex自测：RED 后 GREEN 通过 verify_battle_action_feedback_sync；并回归通过 Todo49、Todo48、Todo47 的全部战斗静态验证。git diff --check 无空白错误，仅有 LF/CRLF 提示。
+
+建议Claude测试：Unity Play Mode 中观察当前行动者出手、敌方行动、预选技能行动时，提示文本按步骤更新且技能/自动/开始按钮在行动链期间不可重复触发；确认胜负、撤退、重置和切页后无残留锁定。确认未改后端、数据库、Scene_Boot、资源、支付、奖励、解锁、编队或伤害公式。
 ---BLOCK_VERIFY_END---
 ===TASK_RECORD_END===
